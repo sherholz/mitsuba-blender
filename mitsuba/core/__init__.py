@@ -42,12 +42,12 @@ from ..ui import (
 )
 
 from ..ui.textures import (
-	main, ldrtexture, checkerboard, gridtexture, mapping
+	main, bitmap, checkerboard, gridtexture, mapping, scale
 )
 
 from ..ui.materials import (
-	main, lambertian, phong, ward,  microfacet, roughglass,
-	roughmetal, dielectric, mirror, difftrans, composite, 
+	main, diffuse, roughdiffuse, phong, hk, mask, dipolebrdf, bump, sssbrdf, ward,  roughplastic, plastic, roughdielectric,
+	roughconductor, dielectric, conductor, difftrans, coating, roughcoating, mixturebsdf, 
 	emission
 )
 
@@ -80,10 +80,12 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 	render_lock = threading.Lock()
 
 	def render(self, scene):
+		engine = scene.mitsuba_engine
+
 		if self is None or scene is None:
 			MtsLog('ERROR: Scene is missing!')
 			return
-		if scene.mitsuba_engine.binary_path == '':
+		if engine.binary_path == '':
 			MtsLog('ERROR: The binary path is unspecified!')
 			return
 
@@ -93,9 +95,11 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 				return
 
 			config_updates = {}
-			binary_path = os.path.abspath(efutil.filesystem_path(scene.mitsuba_engine.binary_path))
+			binary_path = os.path.abspath(efutil.filesystem_path(engine.binary_path))
 			if os.path.isdir(binary_path) and os.path.exists(binary_path):
 				config_updates['binary_path'] = binary_path
+			config_updates['preview_depth'] = str(engine.preview_depth)
+			config_updates['preview_spp'] = str(engine.preview_spp)
 
 			try:
 				for k, v in config_updates.items():
@@ -241,7 +245,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 
 		if not cancelled:
 			if mitsuba_process.poll() != None and mitsuba_process.returncode != 0:
-				MtsLog("MtsBlend: Rendering failed -- check the console")
+				MtsLog("MtsBlend: Rendering failed -- check the console"); mitsuba_process.send_signal(subprocess.signal.SIGTERM) #fixes mitsuba preview not refresing after bad eg. reference
 			else:
 				framebuffer_thread.kick(render_end=True)
 		framebuffer_thread.shutdown()

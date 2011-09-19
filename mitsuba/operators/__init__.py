@@ -168,9 +168,12 @@ class MITSUBA_OT_material_slot_move(bpy.types.Operator):
 	def execute(self, context):
 		obj = bpy.context.active_object
 		index = obj.active_material_index
-		new_index = index-1 if self.properties.type == 'UP' else index+1
+		if self.properties.type == 'UP':
+			new_index = index-1
+		else:
+			new_index=index+1
 		size = len(obj.material_slots)
-
+		
 		if new_index >= 0 and new_index < size:
 			obj.active_material_index = 0
 			# Can't write to material_slots, hence the kludge
@@ -183,7 +186,9 @@ class MITSUBA_OT_material_slot_move(bpy.types.Operator):
 			temp = materials[index]
 			materials[index] = materials[new_index]
 			materials[new_index] = temp
+			#__import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
 			for i in range(0, size):
+				bpy.ops.object.material_slot_remove() #cos slots are not deleted
 				obj.data.materials.append(bpy.data.materials[materials[i]])
 
 			obj.active_material_index = new_index
@@ -212,15 +217,15 @@ def material_converter(report, scene, blender_mat):
 	try:
 		mitsuba_mat = blender_mat.mitsuba_material
 
-		mitsuba_mat.type = 'microfacet'
-		mitsuba_mat.mitsuba_mat_microfacet.diffuseReflectance_color =  [blender_mat.diffuse_intensity*i for i in blender_mat.diffuse_color]
-		mitsuba_mat.mitsuba_mat_microfacet.specularAmount = 1.0
-		mitsuba_mat.mitsuba_mat_microfacet.diffuseAmount = 1.0
+		mitsuba_mat.type = 'roughplastic'
+		mitsuba_mat.mitsuba_mat_roughplastic.diffuseReflectance_color =  [blender_mat.diffuse_intensity*i for i in blender_mat.diffuse_color]
+		mitsuba_mat.mitsuba_mat_roughplastic.specularAmount = 1.0
+		mitsuba_mat.mitsuba_mat_roughplastic.diffuseAmount = 1.0
 					
 		logHardness = math.log(blender_mat.specular_hardness)
 		specular_scale = 2.0 * max(0.0128415*logHardness**2 - 0.171266*logHardness + 0.575631, 0.0)
-		mitsuba_mat.mitsuba_mat_microfacet.specularReflectance_color =  [specular_scale * blender_mat.specular_intensity*i for i in blender_mat.specular_color]
-		mitsuba_mat.mitsuba_mat_microfacet.alphaB = min(max(0.757198 - 0.120395*logHardness, 0.0), 1.0)
+		mitsuba_mat.mitsuba_mat_roughplastic.specularReflectance_color =  [specular_scale * blender_mat.specular_intensity*i for i in blender_mat.specular_color]
+		mitsuba_mat.mitsuba_mat_roughplastic.alphaB = min(max(0.757198 - 0.120395*logHardness, 0.0), 1.0)
 
 		report({'INFO'}, 'Converted blender material "%s"' % blender_mat.name)
 		return {'FINISHED'}

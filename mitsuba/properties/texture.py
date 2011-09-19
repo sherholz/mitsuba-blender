@@ -111,7 +111,7 @@ class TextureParameterBase(object):
 		'''
 		return ParamSet()
 
-class TextureParameter(TextureParameterBase):
+class ColorTextureParameter(TextureParameterBase):
 	def get_controls(self):
 		return [
 			[ 0.9, [0.375,'%s_colorlabel' % self.attr, '%s_color' % self.attr], '%s_usetexture' % self.attr ],
@@ -128,15 +128,18 @@ class TextureParameter(TextureParameterBase):
 	# color for each material type. If the property name is
 	# not set, then the color won't be changed.
 	master_color_map = {
-		'lambertian': 'reflectance',
+		'diffuse': 'reflectance',
+		'roughdiffuse': 'reflectance',
 		'difftrans': 'transmittance',
 		'ward': 'diffuseReflectance',
 		'phong': 'diffuseReflectance',
-		'microfacet': 'diffuseReflectance',
-		'mirror': 'specularReflectance',
+		'roughplastic': 'diffuseReflectance',
+		'plastic': 'diffuseReflectance',
+		'conductor': 'specularReflectance',
+		#'mirror': 'specularReflectance',
 		'dielectric': 'specularReflectance',
-		'roughglass': 'specularReflectance',
-		'roughmetal': 'specularReflectance'
+		'roughdielectric': 'specularReflectance',
+		'roughconductor': 'specularReflectance'
 	}
 
 	def get_properties(self):
@@ -194,7 +197,7 @@ class TextureParameter(TextureParameterBase):
 	def get_params(self, context):
 		params = ParamSet()
 		if hasattr(context, '%s_usetexture' % self.attr) \
-			and getattr(context, '%s_usetexture' % self.attr):
+			and getattr(context, '%s_usetexture' % self.attr) and getattr(context,  '%s_texturename' % self.attr):
 			params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
 		else:
 			params.add_color(
@@ -203,6 +206,142 @@ class TextureParameter(TextureParameterBase):
 			)
 		return params
 
+class ColorTextureParameterFix(ColorTextureParameter): #do not use! only for specularTransmittance fix !!!!
+	def get_params(self, context):
+		params = ParamSet()
+		if hasattr(context, '%s_usetexture' % self.attr) \
+			and getattr(context, '%s_usetexture' % self.attr) and getattr(context,  '%s_texturename' % self.attr):
+			params.add_reference('texture', 'specularTransmittance', getattr(context, '%s_texturename' % self.attr))
+		else:
+			params.add_color(
+				'specularTransmittance',
+				getattr(context, '%s_color' % self.attr)
+			)
+		return params
+class SpectrumTextureParameter(ColorTextureParameter):
+	max					= 10.0
+
+class FloatTextureParameter(TextureParameterBase):
+	default				= 0.2
+	min					= 0.0
+	max					= 1.0
+	def get_controls(self):
+		return [
+			[ 0.9, [0.375,'%s_label' % self.attr, self.attr], '%s_usetexture' % self.attr ],
+			'%s_texture' % self.attr
+		] + self.get_extra_controls()
+	
+	def get_visibility(self):
+		vis = {
+			'%s_texture' % self.attr: { '%s_usetexture' % self.attr: True },
+		}
+		vis.update(self.get_extra_visibility())
+		return vis
+	
+	def get_properties(self):
+		return [
+			{
+				'attr': '%s_texType' % self.attr,
+				'type': 'string',
+				'default': 'mts_color_texture'
+			},
+			{
+				'attr': '%s_usetexture' % self.attr,
+				'type': 'bool',
+				'name': 'T',
+				'description': 'Textured %s' % self.name,
+				'default': False,
+				'toggle': True,
+				'save_in_preset': True
+			},
+			{
+				'type': 'text',
+				'attr': '%s_label' % self.attr,
+				'name': self.name
+			},
+			{
+				'type': 'float',
+				'attr': self.attr,
+				'name': self.name,
+				'description': self.description,
+				'default': self.default,
+				'min': self.min,
+				'soft_min': self.min,
+				'max': self.max,
+				'soft_max': self.max,
+				'save_in_preset': True
+			},
+			{
+				'attr': '%s_texturename' % self.attr,
+				'type': 'string',
+				'name': '%s_texturename' % self.attr,
+				'description': '%s Texture' % self.name,
+				'save_in_preset': True
+			},
+			{
+				'type': 'prop_search',
+				'attr': '%s_texture' % self.attr,
+				'src': self.texture_collection_finder(),
+				'src_attr': self.texture_collection,
+				'trg': self.texture_slot_set_attr(),
+				'trg_attr': '%s_texturename' % self.attr,
+				'name': self.name
+			}
+		] + self.get_extra_properties()
+
+	def get_params(self, context):
+		params = ParamSet()
+		if hasattr(context, '%s_usetexture' % self.attr) \
+			and getattr(context, '%s_usetexture' % self.attr) and getattr(context,  '%s_texturename' % self.attr):
+			params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
+		else:
+			params.add_float(
+				self.attr,
+				getattr(context, self.attr)
+			)
+		return params	
+	
+class BumpTextureParameter(TextureParameterBase):
+	default				= 0.0
+	def get_controls(self):
+		return [
+			'%s_texture' % self.attr
+		] + self.get_extra_controls()
+	
+	def get_visibility(self):
+		return
+	
+
+	def get_properties(self):
+		return [
+			{
+				'attr': self.attr,
+				'type': 'string',
+				'default': 'mts_bump_texture'
+			},
+			{
+				'attr': '%s_texturename' % self.attr,
+				'type': 'string',
+				'name': '%s_texturename' % self.attr,
+				'description': '%s Texture' % self.name,
+				'save_in_preset': True
+			},
+			{
+				'type': 'prop_search',
+				'attr': '%s_texture' % self.attr,
+				'src': self.texture_collection_finder(),
+				'src_attr': self.texture_collection,
+				'trg': self.texture_slot_set_attr(),
+				'trg_attr': '%s_texturename' % self.attr,
+				'name': self.name
+			}
+		] + self.get_extra_properties()
+
+	def get_params(self, context):
+		params = ParamSet()
+		params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
+
+		return params
 @MitsubaAddon.addon_register_class
 class mitsuba_texture(declarative_property_group):
 	'''
@@ -223,11 +362,11 @@ class mitsuba_texture(declarative_property_group):
 			'name': 'Texture type',
 			'type': 'enum',
 			'items': [
-				('ldrtexture', 'Bitmap', 'Low dynamic-range texture'),
+				('bitmap', 'Bitmap', 'Low dynamic-range texture'),
 				('checkerboard', 'Checkerboard', 'Procedural checkerboard texture'),
 				('gridtexture', 'Grid texture', 'Procedural grid texture')
 			],
-			'default' : 'ldrtexture',
+			'default' : 'bitmap',
 			'save_in_preset': True
 		},
 	]
@@ -306,7 +445,7 @@ class mitsuba_tex_mapping(declarative_property_group):
 		return mapping_params
 
 @MitsubaAddon.addon_register_class
-class mitsuba_tex_ldrtexture(declarative_property_group):
+class mitsuba_tex_bitmap(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
 
 	controls = [
@@ -402,13 +541,13 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
 
 	controls = [
-		'darkColor',
-		'brightColor'
+		'color0',
+		'color1'
 	]
 
 	properties = [
 		{
-			'attr': 'darkColor',
+			'attr': 'color0',
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'name' : 'Dark color',
@@ -419,7 +558,7 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-			'attr': 'brightColor',
+			'attr': 'color1',
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'description' : 'Color of the bright patches',
@@ -434,24 +573,59 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 	def get_params(self):
 		params = ParamSet()
 		
-		params.add_color('darkColor', self.darkColor) 
-		params.add_color('brightColor', self.brightColor) 
+		params.add_color('color0', self.color0) 
+		params.add_color('color1', self.color1) 
 
 		return params
 
+@MitsubaAddon.addon_register_class
+class mitsuba_tex_scale(declarative_property_group):
+	ef_attach_to = ['mitsuba_texture']
+
+	controls = [
+		'scale',
+		'bump_bitmap'
+	]
+
+	properties = [
+		{
+			'type': 'string',
+			'name' : 'Ref. bump bitmap',
+			'attr': 'bump_bitmap',
+			'description' : 'Points to bump bitmap texture',
+			'save_in_preset': True
+		},
+		{
+			'attr': 'scale',
+			'type': 'float',
+			'name' : 'Scale',
+			'description' : 'Bump scale',
+			'default' : 1.0,
+			'min': 0.001,
+			'max': 100.0,
+			'save_in_preset': True
+		}
+	]
+
+	def get_params(self):
+		params = ParamSet()
+		params.add_float('scale', self.scale) 
+
+		return params
+		
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_gridtexture(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
 
 	controls = [
-		'darkColor',
-		'brightColor',
+		'color0',
+		'color1',
 		'lineWidth'
 	]
 
 	properties = [
 		{
-			'attr': 'darkColor',
+			'attr': 'color0',
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'name' : 'Dark color',
@@ -462,7 +636,7 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-			'attr': 'brightColor',
+			'attr': 'color1',
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'description' : 'Color of the bright patches',
@@ -487,8 +661,8 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 	def get_params(self):
 		params = ParamSet()
 		
-		params.add_color('darkColor', self.darkColor) 
-		params.add_color('brightColor', self.brightColor) 
+		params.add_color('color0', self.color0) 
+		params.add_color('color1', self.color1) 
 		params.add_float('lineWidth', self.lineWidth) 
 
 		return params

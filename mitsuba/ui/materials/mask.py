@@ -16,17 +16,19 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy
-
+import bpy,bl_ui
 from ... import MitsubaAddon
-from ...ui.textures import mitsuba_texture_base
+from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_texture_mapping(mitsuba_texture_base, bpy.types.Panel):
-	bl_label = 'Mitsuba UV Mapping'
+class ui_material_mask(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba mask Material'
 
-	MTS_COMPAT = {'bitmap', 'checkerboard', 'gridtexture'}
+	MTS_COMPAT = {'mask'}
 
 	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_mapping' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_mask' )
 	]
+	
+
+			

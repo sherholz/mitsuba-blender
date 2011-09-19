@@ -21,11 +21,11 @@ from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_material_roughmetal(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Rough Metal Material'
+class ui_material_roughplastic(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba Rough Plastic Material'
 
-	MTS_COMPAT = {'roughmetal'}
+	MTS_COMPAT = {'roughplastic'}
 	
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_roughmetal' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_roughplastic' )
 	]

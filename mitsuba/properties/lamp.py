@@ -20,6 +20,7 @@ from .. import MitsubaAddon
 
 from extensions_framework import declarative_property_group
 from ..properties.world import MediumParameter
+from extensions_framework.validate import Logic_Operator, Logic_OR as LO
 
 @MitsubaAddon.addon_register_class
 class mitsuba_lamp(declarative_property_group):
@@ -94,4 +95,83 @@ class mitsuba_lamp(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + MediumParameter('lamp', 'Lamp')
+	
+@MitsubaAddon.addon_register_class	
+class mitsuba_lamp_sun(declarative_property_group):
+	ef_attach_to = ['mitsuba_lamp']
+	
+	controls = [
+		'sunsky_type',
+		'turbidity',
+		'extend',
+		'sunsky_advanced',
+		'sunScale'
+	]
+	
+	visibility = {
+		'sunScale':				{ 'sunsky_advanced': True, 'sunsky_type': LO({'!=':'sky'}) },
+		'extend':				{ 'sunsky_type': LO(['sky','sunsky']) }
+	}
+	
+	properties = [
+		{
+			'type': 'float',
+			'attr': 'turbidity',
+			'name': 'turbidity',
+			'default': 3,
+			'min': 1.2,
+			'soft_min': 1.2,
+			'max': 30.0,
+			'soft_max': 30.0,
+		},
+		{
+			'type': 'enum',
+			'attr': 'sunsky_type',
+			'name': 'Sky Type',
+			'default': 'sunsky',
+			'items': [
+				('sunsky', 'Sun & Sky', 'sunsky'),
+				('sun', 'Sun Only', 'sun'),
+				('sky', 'Sky Only', 'sky'),
+			]
+		},
+		{
+			'type': 'bool',
+			'attr': 'sunsky_advanced',
+			'name': 'Advanced',
+			'default': False
+		},
+		{
+			'type': 'bool',
+			'attr': 'extend',
+			'name': 'Extend sky',
+			'description': 'Extend sky below horizont',
+			'default': False
+		},
+		{
+			'type': 'float',
+			'attr': 'sunScale',
+			'name': 'Relative sun disk size',
+			'default': 1.0,
+			'min': 0.0,
+			'soft_min': 0.0,
+			'max': 1.0,
+			'soft_max': 1.0
+		},
+	]
+	
+	def get_paramset(self, lamp_object):
+		params = ParamSet()
+		
+		params.add_float('turbidity', self.turbidity)
+		params.add_bool('extend', self.extend)
+		if self.sunsky_advanced and self.sunsky_type != 'sky':
+			params.add_float('sunScale', self.sunScale)
+		
+		#if self.sunsky_advanced and self.sunsky_type != 'sun':
+			#params.add_float('horizonbrightness', self.horizonbrightness)
+			#params.add_float('horizonsize', self.horizonsize)
+
+		
+		return params
 

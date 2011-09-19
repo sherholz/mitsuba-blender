@@ -4,7 +4,7 @@
 	Automatically converted from COLLADA
 
 -->
-<scene>
+<scene version="0.3.0">
 	<integrator id="integrator" type="volpath">
 		<integer name="maxDepth" value="$depth"/>
 	</integrator>
@@ -40,7 +40,7 @@
 		<float name="intensityScale" value="1.540006"/>
 	</luminaire>
 
-	<bsdf id="__diffmat" type="lambertian">
+	<bsdf id="__diffmat" type="diffuse">
 		<rgb name="reflectance" value="0.18 0.18 0.18"/>
 	</bsdf>
 
@@ -53,7 +53,7 @@
 		<float name="voffset" value="0.0"/>
 	</texture>
 
-	<bsdf id="__planemat" type="lambertian">
+	<bsdf id="__planemat" type="diffuse">
 		<ref id="__planetex" name="reflectance"/>
 	</bsdf>
 

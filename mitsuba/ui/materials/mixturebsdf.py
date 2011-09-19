@@ -16,24 +16,25 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy
+import bpy, bl_ui
 from ... import MitsubaAddon
+
 from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_material_composite(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Composite Material'
+class ui_material_mixturebsdf(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba Mixture Material'
 
-	MTS_COMPAT = {'composite'}
+	MTS_COMPAT = {'mixturebsdf'}
 
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_composite' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_mixturebsdf' )
 	]
 
 	def draw(self, context):
 		super().draw(context)
 
-		mat = bl_ui.properties_material.active_node_mat(context.material).mitsuba_material.mitsuba_mat_composite
+		mat = bl_ui.properties_material.active_node_mat(context.material).mitsuba_material.mitsuba_mat_mixturebsdf
 		weight = 0
 		missing = False
 		selfRef = False
