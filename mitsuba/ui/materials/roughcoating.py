@@ -21,11 +21,12 @@ from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_material_mirror(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Mirror Material'
+class ui_material_roughcoating(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba roughcoating Layer'
 
-	MTS_COMPAT = {'mirror'}
+	MTS_COMPAT = {'roughcoating'}
 	
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_mirror' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_roughcoating' )
 	]
+	

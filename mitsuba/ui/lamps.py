@@ -24,10 +24,13 @@ from extensions_framework.ui import property_group_renderer
 
 narrowui = 180
 
-@MitsubaAddon.addon_register_class
-class lamps(bl_ui.properties_data_lamp.DataButtonsPanel, property_group_renderer, bpy.types.Panel):
-	bl_label = 'Mitsuba Lamps'
+class lamps_panel(bl_ui.properties_data_lamp.DataButtonsPanel, property_group_renderer):
 	COMPAT_ENGINES = { MitsubaAddon.BL_IDNAME }
+	
+@MitsubaAddon.addon_register_class
+class lamps(lamps_panel):
+	bl_label = 'Mitsuba Lamps'
+	
 
 	display_property_groups = [
 		( ('lamp',), 'mitsuba_lamp' )
@@ -100,3 +103,14 @@ class lamps(bl_ui.properties_data_lamp.DataButtonsPanel, property_group_renderer
 				)
 			if lamp.type == 'HEMI':
 				layout.label('Note: covers the whole sphere')
+@MitsubaAddon.addon_register_class
+class ui_mitsuba_lamp_sun(lamps_panel):
+	bl_label = 'Mitsuba Sun + Sky'
+	
+	display_property_groups = [
+		( ('lamp','mitsuba_lamp'), 'mitsuba_lamp_sun' )
+	]
+	
+	@classmethod
+	def poll(cls, context):
+		return super().poll(context) and context.lamp.type == 'SUN'

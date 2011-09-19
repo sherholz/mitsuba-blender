@@ -17,15 +17,16 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
+
 from ... import MitsubaAddon
-from ...ui.materials import mitsuba_material_sub
+from ...ui.textures import mitsuba_texture_base
 
 @MitsubaAddon.addon_register_class
-class ui_material_microfacet(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Microfacet Material'
-
-	MTS_COMPAT = {'microfacet'}
+class ui_texture_scale(mitsuba_texture_base, bpy.types.Panel):
+	bl_label = 'Mitsuba Bump Scale'
+	
+	MTS_COMPAT = {'scale'}
 	
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_microfacet' )
+		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_scale' )
 	]

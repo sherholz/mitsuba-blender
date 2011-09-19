@@ -17,15 +17,16 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
+
 from ... import MitsubaAddon
-from ...ui.materials import mitsuba_material_sub
+from ...ui.textures import mitsuba_texture_base
 
 @MitsubaAddon.addon_register_class
-class ui_material_lambertian(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Lambertian Material'
-
-	MTS_COMPAT = {'lambertian'}
+class ui_texture_bitmap(mitsuba_texture_base, bpy.types.Panel):
+	bl_label = 'Mitsuba Bitmap Texture'
+	
+	MTS_COMPAT = {'bitmap'}
 	
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_lambertian' )
+		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_bitmap' )
 	]

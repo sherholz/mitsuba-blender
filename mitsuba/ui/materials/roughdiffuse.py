@@ -17,16 +17,15 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-
 from ... import MitsubaAddon
-from ...ui.textures import mitsuba_texture_base
+from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_texture_ldrtexture(mitsuba_texture_base, bpy.types.Panel):
-	bl_label = 'Mitsuba Bitmap Texture'
-	
-	MTS_COMPAT = {'ldrtexture'}
+class ui_material_roughdiffuse(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba rough diffuse Material'
+
+	MTS_COMPAT = {'roughdiffuse'}
 	
 	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_ldrtexture' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_roughdiffuse' )
 	]

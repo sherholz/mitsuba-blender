@@ -16,17 +16,27 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy
-
+import bpy,bl_ui
 from ... import MitsubaAddon
-from ...ui.textures import mitsuba_texture_base
+from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_texture_mapping(mitsuba_texture_base, bpy.types.Panel):
-	bl_label = 'Mitsuba UV Mapping'
+class ui_material_bump(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba bump Material'
 
-	MTS_COMPAT = {'bitmap', 'checkerboard', 'gridtexture'}
+	MTS_COMPAT = {'bump'}
 
 	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_mapping' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_bump' )
 	]
+	
+	#def draw(self, context):
+		#super().draw(context)
+		#mat = bl_ui.properties_material.active_node_mat(context.material).mitsuba_material.mitsuba_mat_scale
+		#if not context.material.name in bpy.data.textures:
+		#	BumpText = bpy.data.textures.new(context.material.name+'scaleId','NONE')
+			#BumpText.mitsuba_texture.type = 'scale'
+			#context.material.mitsuba_material.mitsuba_mat_bump.scaleId = context.material.name+'scaleId'
+			
+		#BumpText.mitsuba_texture.mitsuba_tex_scale.scale = 
+			

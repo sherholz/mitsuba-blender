@@ -21,11 +21,11 @@ from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_material_roughglass(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Rough Glass Material'
+class ui_material_sssbrdf(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba sssbrdf Material'
 
-	MTS_COMPAT = {'roughglass'}
-	
+	MTS_COMPAT = {'sssbrdf'}
+
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_roughglass' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_sssbrdf' )
 	]

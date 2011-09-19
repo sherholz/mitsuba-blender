@@ -120,15 +120,17 @@ class ParamSetItem(list):
 			exporter.parameter(self.type, self.name,
 				{ 'value' : "%s %s %s" % (self.value[0], self.value[1], self.value[2])})
 		elif self.type == "integer" or self.type == "float" \
-				or self.type ==	"string":
+				or self.type ==	"string" or self.type ==	"boolean":
 			exporter.parameter(self.type, self.name, { 'value' : "%s" % self.value })
 	
 	def export_ref(self, exporter):
-		if self.type == "reference_texture" or self.type == "reference_material" or self.type == 'reference_medium':
+		if self.type == "reference_texture" or self.type == 'reference_medium':
 			if self.name != "":
 				exporter.element('ref', {'id' : translate_id(self.value), 'name' : self.name})
 			else:
 				exporter.element('ref', {'id' : translate_id(self.value)})
+		if self.type == "reference_material":
+			exporter.element('ref', {'id' : translate_id(self.value)+'-material', 'name' : self.name})
 
 class ParamSet(list):
 	names = []
@@ -163,7 +165,7 @@ class ParamSet(list):
 		return self
 
 	def add_bool(self, name, value):
-		self.add('bool', name, bool(value))
+		self.add('boolean', name, str(value).lower())
 		return self
 
 	def add_string(self, name, value):
@@ -217,7 +219,7 @@ def MtsLaunch(mts_path, path, commandline):
 	mts_core_libpath = os.path.join(mts_path, "src/libcore")
 	mts_hw_libpath = os.path.join(mts_path, "src/libhw")
 	mts_bidir_libpath = os.path.join(mts_path, "src/libbidir")
-	env['LD_LIBRARY_PATH'] = mts_core_libpath + ":" + mts_render_libpath + ":" + mts_hw_libpath + ":" + mts_bidir_libpath
+	env['LD_LIBRARY_PATH'] = mts_core_libpath + ":" + mts_render_libpath + ":" + mts_hw_libpath + ":" + mts_bidir_libpath + ":" + mts_path
 	commandline[0] = os.path.join(mts_path, commandline[0])
 	return subprocess.Popen(commandline, env = env, cwd = path)
 
@@ -257,7 +259,7 @@ class MtsExporter:
 			MtsLog('Error: unable to write to file \"%s\"!' % self.adj_filename)
 			return False
 		self.out.write('<?xml version="1.0" encoding="utf-8"?>\n');
-		self.openElement('scene')
+		self.openElement('scene',{'version' : '0.3.0'})
 		return True
 
 	def writeFooter(self):
@@ -335,7 +337,7 @@ class MtsExporter:
 			self.parameter('rgb', 'intensity', { 'value' : "%f %f %f"
 					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
 			self.closeElement()
-			self.openElement('bsdf', { 'type' : 'lambertian'})
+			self.openElement('bsdf', { 'type' : 'diffuse'})
 			self.parameter('spectrum', 'reflectance', {'value' : '0'})
 			self.closeElement()
 			self.closeElement()
@@ -348,13 +350,26 @@ class MtsExporter:
 			objFile.write('f 4 3 2 1\n')
 			objFile.close()
 		elif ltype == 'SUN':
-			self.openElement('luminaire', { 'id' : '%s-light' % name, 'type' : 'directional'})
-			scale = mathutils.Matrix.Scale(-1, 4, mathutils.Vector([0, 0, 1]))
-			self.exportWorldTrafo(lamp.matrix_world * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([0, 0, 1])))
-			self.parameter('rgb', 'intensity', { 'value' : "%f %f %f"
-					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
-			self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.data.mitsuba_lamp.samplingWeight})
+			invmatrix = lamp.matrix_world
+			skyType = lamp.data.mitsuba_lamp.mitsuba_lamp_sun.sunsky_type
+			if skyType == 'sunsky':
+				self.openElement('luminaire', { 'id' : '%s-light' % name, 'type' : 'sunsky'})
+				self.parameter('boolean', 'extend', {'value' : '%s' % str(lamp.data.mitsuba_lamp.mitsuba_lamp_sun.extend).lower()})
+			elif skyType == 'sun':
+				self.openElement('luminaire', { 'id' : '%s-light' % name, 'type' : 'sun'})
+			elif skyType == 'sky':
+				self.openElement('luminaire', { 'id' : '%s-light' % name, 'type' : 'sky'})
+				self.parameter('boolean', 'extend', {'value' : '%s' % str(lamp.data.mitsuba_lamp.mitsuba_lamp_sun.extend).lower()})
+			self.openElement('transform', {'name' : 'toWorld'})
+			#fixes 'up' orientation of sky to blender world.
+			self.element('matrix', {'value' : '1.000000 0.000000 0.000000 0.000000 0.000000 0.000000 -1.000000 0.000000 0.000000 1.000000 0.000000 0.000000 0.000000 0.000000 0.000000 1.000000'})
 			self.closeElement()
+			#self.exportWorldTrafo()
+			self.parameter('float', 'turbidity', {'value' : '%f' % (lamp.data.mitsuba_lamp.mitsuba_lamp_sun.turbidity)})
+			self.parameter('vector', 'sunDirection', {'x':'%f' % invmatrix[2][0], 'y':'%f' % invmatrix[2][1], 'z':'%f' % invmatrix[2][2]})
+			self.closeElement()
+			#self.parameter('vector', 'sunDirection', {'x':'%f' % invmatrix[0][2], 'y':'%f' % invmatrix[1][2], 'z':'%f' % invmatrix[2][2]})
+
 		elif ltype == 'SPOT':
 			self.openElement('luminaire', { 'id' : '%s-light' % name, 'type' : 'spot'})
 			self.exportWorldTrafo(lamp.matrix_world * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([0, 0, 1])))
@@ -418,6 +433,16 @@ class MtsExporter:
 		self.openElement('texture', {'id' : '%s' % translate_id(tex.name), 'type' : tex.mitsuba_texture.type})
 		params.export(self)
 		self.closeElement()
+		
+	def exportBump(self, mat):
+		mmat = mat.mitsuba_material
+		self.openElement('bsdf', {'id' : '%s-material' % translate_id(mat.name), 'type' : mmat.type})
+		self.element('ref', {'name' : 'bump_ref', 'id' : '%s-material' % mmat.mitsuba_mat_bump.ref_name})
+		self.openElement('texture', {'type' : 'scale'})
+		self.parameter('float', 'scale', {'value' : '%f' % mmat.mitsuba_mat_bump.scale})		
+		self.element('ref', {'name' : 'bump_ref', 'id' : mmat.mitsuba_mat_bump.bump_texturename})
+		self.closeElement()
+		self.closeElement()
 
 	def exportMaterial(self, mat):
 		if not hasattr(mat, 'name') or mat.name in self.exported_materials:
@@ -430,16 +455,21 @@ class MtsExporter:
 		params = mmat.get_params()
 		twosided = False
 
-		if mmat.twosided and mmat.type in ['lambertian', 'phong', 'ward', 
-				'mirror', 'roughmetal', 'microfacet', 'composite']:
+		if mmat.twosided and mmat.type in ['diffuse', 'roughdiffuse', 'phong', 'mask', 'dipolebrdf', 'bump',  'sssbrdf', 'ward', 
+				'conductor', 'roughconductor', 'roughplastic', 'plastic', 'coating', 'roughcoating', 'mixturebsdf']:
 			twosided = True
-
+		
+			
 		for p in params:
 			if p.type == 'reference_material':
 				self.exportMaterial(self.findMaterial(p.value))
 			elif p.type == 'reference_texture':
 				self.exportTexture(self.findTexture(p.value))
-
+			
+		if mmat.type == 'bump':
+			self.exportBump(mat)
+			return
+			
 		if twosided:
 			self.openElement('bsdf', {'id' : '%s-material' % translate_id(mat.name), 'type' : 'twosided'})
 			self.openElement('bsdf', {'type' : mmat.type})
@@ -599,7 +629,7 @@ class MtsExporter:
 		(width, height) = resolution(scene)
 		
 		MtsLog('MtsBlend: Writing COLLADA file to "%s"' % self.dae_filename)
-		scene.collada_export(self.dae_filename)
+		scene.collada_export(self.dae_filename,0)
 
 		MtsLog("MtsBlend: Launching mtsimport")
 		command = ['mtsimport', '-r', '%dx%d' % (width, height),
