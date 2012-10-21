@@ -216,17 +216,21 @@ class MITSUBA_OT_material_add(bpy.types.Operator):
 def material_converter(report, scene, blender_mat):
 	try:
 		mitsuba_mat = blender_mat.mitsuba_material
-
-		mitsuba_mat.type = 'roughplastic'
-		mitsuba_mat.mitsuba_mat_roughplastic.diffuseReflectance_color =  [blender_mat.diffuse_intensity*i for i in blender_mat.diffuse_color]
-		mitsuba_mat.mitsuba_mat_roughplastic.specularAmount = 1.0
-		mitsuba_mat.mitsuba_mat_roughplastic.diffuseAmount = 1.0
-					
-		logHardness = math.log(blender_mat.specular_hardness)
-		specular_scale = 2.0 * max(0.0128415*logHardness**2 - 0.171266*logHardness + 0.575631, 0.0)
-		mitsuba_mat.mitsuba_mat_roughplastic.specularReflectance_color =  [specular_scale * blender_mat.specular_intensity*i for i in blender_mat.specular_color]
-		mitsuba_mat.mitsuba_mat_roughplastic.alphaB = min(max(0.757198 - 0.120395*logHardness, 0.0), 1.0)
-
+		if blender_mat.specular_intensity == 0:
+			mitsuba_mat.type = 'diffuse'
+			mitsuba_mat.mitsuba_mat_diffuse.reflectance_color = blender_mat.diffuse_color
+		else:
+			mitsuba_mat.type = 'roughplastic'
+			mitsuba_mat.mitsuba_mat_roughplastic.diffuseReflectance_color =  [i * blender_mat.diffuse_intensity for i in blender_mat.diffuse_color]
+			Roughness = math.exp(-blender_mat.specular_hardness/50)		#by eyeballing rule of Bartosz Styperek :/	
+			#Roughness = (1 - 1/blender_mat.specular_hardness)
+			mitsuba_mat.mitsuba_mat_roughplastic.specularReflectance_color =  [i * blender_mat.specular_intensity for i in blender_mat.specular_color]
+			mitsuba_mat.mitsuba_mat_roughplastic.alphaB = Roughness
+		if blender_mat.emit > 0:
+			mitsuba_emission = blender_mat.mitsuba_emission
+			mitsuba_emission.use_emission = True
+			mitsuba_emission.intensity = blender_mat.emit
+			mitsuba_emission.color = blender_mat.diffuse_color
 		report({'INFO'}, 'Converted blender material "%s"' % blender_mat.name)
 		return {'FINISHED'}
 	except Exception as err:

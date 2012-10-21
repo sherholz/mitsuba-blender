@@ -47,9 +47,65 @@ class mitsuba_camera(declarative_property_group):
 	ef_attach_to = ['Camera']
 
 	controls = [
+		'film',
+		'exposure',
+		'banner',
+		#'useDOF',
+		#'apertureRadius',
 		'exterior'
 	]
 
-	visibility = { }
-
-	properties = MediumParameter('exterior', 'Exterior medium')
+	visibility = {
+		'exposure': { 'film': 'ldrfilm'},
+		#'apertureRadius':			{ 'useDOF': True }
+	}
+	properties = [
+		{
+			'type': 'enum',
+			'attr': 'film',
+			'name': 'Output format',
+			'description': 'Determines the variant of the Ward model tou se',
+			'items': [
+				('hdrfilm', 'EXR', 'hdrfilm'),
+				('ldrfilm', 'PNG', 'ldrfilm')
+			],
+			'default': 'ldrfilm',
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'banner',
+			'name': 'Mitsuba logo',
+			'description': 'Render will containg small Mitsuba logo',
+			'default': True,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'exposure',
+			'type': 'float',
+			'description' : 'Reinhard tonemapping exposure',
+			'name' : 'Film exposure',
+			'default' : 1.0,
+			'min': -10.0,
+			'max': 10.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'useDOF',
+			'name': 'Use camera DOF',
+			'description': 'Camera DOF',
+			'default': False,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'apertureRadius',
+			'type': 'float',
+			'description' : 'DOF Aperture Radius',
+			'name' : 'Aperture Radius',
+			'default' : 0.03,
+			'min': 0.01,
+			'max': 1.0,
+			'save_in_preset': True
+		}
+	] + MediumParameter('exterior', 'Exterior medium')

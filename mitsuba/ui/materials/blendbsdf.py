@@ -16,17 +16,37 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy
-
+import bpy, bl_ui
 from ... import MitsubaAddon
-from ...ui.textures import mitsuba_texture_base
+
+from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_texture_mapping(mitsuba_texture_base, bpy.types.Panel):
-	bl_label = 'Mitsuba UV Mapping'
+class ui_material_blendbsdf(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba Blend Material'
 
-	MTS_COMPAT = {'bitmap', 'checkerboard', 'checkerboard'}
+	MTS_COMPAT = {'blendbsdf'}
 
 	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_mapping' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_blendbsdf' )
 	]
+
+	def draw(self, context):
+		super().draw(context)
+
+		mat = bl_ui.properties_material.active_node_mat(context.material).mitsuba_material.mitsuba_mat_blendbsdf
+		missing = False
+		selfRef = False
+
+		for i in range(1,2):
+			name = getattr(mat, "mat%i_name" % i)
+			if name == '':
+				missing = True
+			elif name == context.material.name:
+				selfRef = True
+		if selfRef:
+			row = self.layout.row()
+			row.label("Warning: self references not allowed!")
+		if missing:
+			row = self.layout.row()
+			row.label("Warning: missing material reference!")

@@ -22,7 +22,7 @@ from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
 class ui_material_roughconductor(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Rough Conductor Material'
+	bl_label = 'Mitsuba Rough Metal Material'
 
 	MTS_COMPAT = {'roughconductor'}
 	

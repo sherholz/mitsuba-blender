@@ -57,6 +57,18 @@ class engine(render_panel, bpy.types.Panel):
 	display_property_groups = [
 		( ('scene',), 'mitsuba_engine' )
 	]
+	
+	def draw(self, context):
+		super().draw(context)
+		
+		row = self.layout.row(align=True)
+		rd = context.scene.render
+		if bpy.app.version < (2, 63, 19 ):
+			row.prop(rd, "use_color_management")
+			if rd.use_color_management == True:
+				row.prop(rd, "use_color_unpremultiply")
+		else:
+			row.prop(rd, "use_color_unpremultiply")
 
 @MitsubaAddon.addon_register_class
 class integrator(render_panel, bpy.types.Panel):
@@ -70,6 +82,20 @@ class integrator(render_panel, bpy.types.Panel):
 		( ('scene',), 'mitsuba_integrator' )
 	]
 
+@MitsubaAddon.addon_register_class
+class irrcache(render_panel, bpy.types.Panel):
+	'''
+	Sampler settings UI Panel
+	'''
+
+	bl_label = 'Use Irradiance Cache'
+	bl_options = {'DEFAULT_CLOSED'}
+	display_property_groups = [
+		( ('scene',), 'mitsuba_irrcache' )
+	]
+	def draw_header(self, context):
+		self.layout.prop(context.scene.mitsuba_irrcache, "use_irrcache", text="")
+	
 @MitsubaAddon.addon_register_class
 class sampler(render_panel, bpy.types.Panel):
 	'''

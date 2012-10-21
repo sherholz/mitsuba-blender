@@ -21,11 +21,36 @@ from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
-class ui_material_roughdielectric(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Rough Glass Material'
+class ui_material_composite(mitsuba_material_sub, bpy.types.Panel):
+	bl_label = 'Mitsuba Composite Material'
 
-	MTS_COMPAT = {'roughdielectric'}
-	
+	MTS_COMPAT = {'composite'}
+
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_roughdielectric' )
+		( ('material', 'mitsuba_material'), 'mitsuba_mat_composite' )
 	]
+
+	def draw(self, context):
+		super().draw(context)
+
+		mat = bl_ui.properties_material.active_node_mat(context.material).mitsuba_material.mitsuba_mat_composite
+		weight = 0
+		missing = False
+		selfRef = False
+
+		for i in range(1,mat.nElements+1):
+			weight += getattr(mat, "mat%i_weight" % i)
+			name = getattr(mat, "mat%i_name" % i)
+			if name == '':
+				missing = True
+			elif name == context.material.name:
+				selfRef = True
+		if weight > 1:
+			row = self.layout.row()
+			row.label("Warning: material weights sum to >1!")
+		if selfRef:
+			row = self.layout.row()
+			row.label("Warning: self references not allowed!")
+		if missing:
+			row = self.layout.row()
+			row.label("Warning: missing material reference!")

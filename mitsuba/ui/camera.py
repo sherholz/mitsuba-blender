@@ -26,7 +26,7 @@ class world_panel(bl_ui.properties_data_camera.CameraButtonsPanel, property_grou
 	COMPAT_ENGINES = { MitsubaAddon.BL_IDNAME }
 
 @MitsubaAddon.addon_register_class
-class cameraes(world_panel):
+class camera(world_panel):
 	'''
 	Camera Settings
 	'''
