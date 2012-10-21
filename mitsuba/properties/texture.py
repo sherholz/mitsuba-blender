@@ -364,7 +364,8 @@ class mitsuba_texture(declarative_property_group):
 			'items': [
 				('bitmap', 'Bitmap', 'Low dynamic-range texture'),
 				('checkerboard', 'Checkerboard', 'Procedural checkerboard texture'),
-				('gridtexture', 'Grid texture', 'Procedural grid texture')
+				('checkerboard', 'Grid texture', 'Procedural grid texture'),
+				('wireframe', 'Wireframe texture', 'Wireframe texture')
 			],
 			'default' : 'bitmap',
 			'save_in_preset': True
@@ -614,7 +615,7 @@ class mitsuba_tex_scale(declarative_property_group):
 		return params
 		
 @MitsubaAddon.addon_register_class
-class mitsuba_tex_gridtexture(declarative_property_group):
+class mitsuba_tex_checkerboard(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
 
 	controls = [
@@ -664,6 +665,72 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 		params.add_color('color0', self.color0) 
 		params.add_color('color1', self.color1) 
 		params.add_float('lineWidth', self.lineWidth) 
+
+		return params
+		
+@MitsubaAddon.addon_register_class
+class mitsuba_tex_wireframe(declarative_property_group):
+	ef_attach_to = ['mitsuba_texture']
+
+	controls = [
+		'interiorColor',
+		'color1',
+		'lineWidth',
+		'stepWidth'
+	]
+
+	properties = [
+		{
+			'attr': 'interiorColor',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'name' : 'Polygon color',
+			'description' : 'Polygon color',
+			'default' : (0.2, 0.2, 0.2),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'color1',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Edge color',
+			'name' : 'Edge color',
+			'default' : (0.4, 0.4, 0.4),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'lineWidth',
+			'type': 'float',
+			'description' : 'Size of the grid lines in UV space',
+			'name' : 'Line width',
+			'default' : 0.01,
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'stepWidth',
+			'type': 'float',
+			'description' : 'Size of the grid lines in UV space',
+			'name' : 'Step Width',
+			'default' : 0.5,
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		}
+	]
+
+	def get_params(self):
+		params = ParamSet()
+		
+		params.add_color('interiorColor', self.interiorColor) 
+		params.add_color('color1', self.color1) 
+		params.add_float('lineWidth', self.lineWidth) 
+		params.add_float('stepWidth', self.stepWidth)
 
 		return params
 

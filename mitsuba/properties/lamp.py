@@ -20,6 +20,7 @@ from .. import MitsubaAddon
 
 from extensions_framework import declarative_property_group
 from ..properties.world import MediumParameter
+from ..export import ParamSet
 from extensions_framework.validate import Logic_Operator, Logic_OR as LO
 
 @MitsubaAddon.addon_register_class
@@ -31,6 +32,7 @@ class mitsuba_lamp(declarative_property_group):
 		'envmap_type',
 		'envmap_file',
 		'inside_medium',
+		'radius',
 		'medium'
 	]
 
@@ -93,6 +95,15 @@ class mitsuba_lamp(declarative_property_group):
 			'description': 'Check if the lamp lies within a participating medium',
 			'default': False,
 			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'radius',
+			'name': 'Point Size',
+			'description': 'For realism mitsuba uses small sphere as point Light aproximation',
+			'default': 0.1,
+			'min': 0.001,
+			'max': 30.0,
 		}
 	] + MediumParameter('lamp', 'Lamp')
 	
@@ -102,15 +113,21 @@ class mitsuba_lamp_sun(declarative_property_group):
 	
 	controls = [
 		'sunsky_type',
+		'albedo',
 		'turbidity',
-		'extend',
 		'sunsky_advanced',
-		'sunScale'
+		'stretch',
+		'resolution',
+		'sunScale',
+		'skyScale'		
 	]
 	
 	visibility = {
-		'sunScale':				{ 'sunsky_advanced': True, 'sunsky_type': LO({'!=':'sky'}) },
-		'extend':				{ 'sunsky_type': LO(['sky','sunsky']) }
+		'sunScale':				{ 'sunsky_advanced': True, 'sunsky_type': LO({'sun','sunsky'}) },
+		'skyScale':				{ 'sunsky_advanced': True, 'sunsky_type': LO({'sky','sunsky'}) },
+		'resolution':			{ 'sunsky_advanced': True },
+		'albedo':				{ 'sunsky_type': LO({'sky','sunsky'}) },
+		'stretch':				{ 'sunsky_advanced': True, 'sunsky_type': LO(['sky','sunsky']) }
 	}
 	
 	properties = [
@@ -136,37 +153,84 @@ class mitsuba_lamp_sun(declarative_property_group):
 			]
 		},
 		{
+			'attr': 'albedo',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Specifes the ground albedo. (Default:0.15)',
+			'name' : 'Ground Albedo',
+			'default' : (0.15, 0.15, 0.15),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
 			'type': 'bool',
 			'attr': 'sunsky_advanced',
 			'name': 'Advanced',
 			'default': False
 		},
 		{
-			'type': 'bool',
-			'attr': 'extend',
-			'name': 'Extend sky',
-			'description': 'Extend sky below horizont',
-			'default': False
+			'type': 'float',
+			'attr': 'stretch',
+			'name': 'Stretch Sky',
+			'description': 'Stretch factor to extend emitter below the horizon, must be in [1,2]. Default{1}, i.e. not used}',
+			'default': 1.0,
+			'min': 1.0,
+			'soft_min': 1.0,
+			'max': 2.0,
+			'soft_max': 2.0,
+		},
+		{
+			'type': 'float',
+			'attr': 'skyScale',
+			'name': 'Sky intensity',
+			'description': 'This parameter can be used to scale the the amount of illumination emitted by the sky emitter. \default{1}',
+			'default': 1.0,
+			'min': 0.0,
+			'soft_min': 0.0,
+			'max': 10.0,
+			'soft_max': 10.0
 		},
 		{
 			'type': 'float',
 			'attr': 'sunScale',
-			'name': 'Relative sun disk size',
+			'name': 'Sun intensity',
+			'description': 'This parameter can be used to scale the the amount of illumination emitted by the sky emitter. \default{1}',
 			'default': 1.0,
 			'min': 0.0,
 			'soft_min': 0.0,
-			'max': 1.0,
-			'soft_max': 1.0
+			'max': 10.0,
+			'soft_max': 10.0
 		},
+		{
+			'attr': 'resolution',
+			'type': 'int',
+			'name' : 'resolution',
+			'description' : 'Specifies the horizontal resolution of the precomputed image that is used to represent the sun/sky environment map \default{512, i.e. 512x256}',
+			'default' : 512,
+			'min': 128,
+			'max': 2048,
+			'save_in_preset': True
+		}
 	]
 	
 	def get_paramset(self, lamp_object):
 		params = ParamSet()
 		
 		params.add_float('turbidity', self.turbidity)
-		params.add_bool('extend', self.extend)
-		if self.sunsky_advanced and self.sunsky_type != 'sky':
+		if self.sunsky_advanced and self.sunsky_type != 'sun':
+			params.add_float('stretch', self.stretch)
+			params.add_color('albedo', self.albedo)
+		if self.sunsky_advanced and self.sunsky_type == 'sky':
+			params.add_float('scale', self.skyScale)
+		elif self.sunsky_advanced and self.sunsky_type == 'sun':
+			params.add_float('scale', self.sunScale)
+		elif self.sunsky_advanced and self.sunsky_type == 'sunsky':
+			params.add_float('skyScale', self.skyScale)
 			params.add_float('sunScale', self.sunScale)
+		if self.sunsky_advanced:
+			params.add_integer('resolution', self.resolution)
+			
 		
 		#if self.sunsky_advanced and self.sunsky_type != 'sun':
 			#params.add_float('horizonbrightness', self.horizonbrightness)

@@ -42,16 +42,22 @@ from ..ui import (
 )
 
 from ..ui.textures import (
-	main, bitmap, checkerboard, gridtexture, mapping, scale
+	main, bitmap, checkerboard, checkerboard, mapping, scale, wireframe
 )
 
 from ..ui.materials import (
-	main, diffuse, roughdiffuse, phong, hk, mask, dipolebrdf, bump, sssbrdf, ward,  roughplastic, plastic, roughdielectric,
-	roughconductor, dielectric, conductor, difftrans, coating, roughcoating, mixturebsdf, 
+	main, diffuse, roughdiffuse, phong, irawan, hk, mask, dipole, bump, rmbrdf, ward,  roughplastic, plastic, roughdielectric,
+	roughconductor, dielectric, thindielectric, conductor, difftrans, coating, roughcoating, mixturebsdf, blendbsdf,
 	emission
 )
 
 from .. import operators
+
+def _register_elm(elm, required=False):
+	try:
+		elm.COMPAT_ENGINES.add(MitsubaAddon.BL_IDNAME)
+	except:
+		pass
 
 def compatible(mod):
 	mod = getattr(bl_ui, mod)
@@ -62,13 +68,26 @@ def compatible(mod):
 			pass
 	del mod
 
-bl_ui.properties_data_lamp.DATA_PT_context_lamp.COMPAT_ENGINES.add(MitsubaAddon.BL_IDNAME)
-bl_ui.properties_render.RENDER_PT_render.COMPAT_ENGINES.add(MitsubaAddon.BL_IDNAME)
-bl_ui.properties_render.RENDER_PT_dimensions.COMPAT_ENGINES.add(MitsubaAddon.BL_IDNAME)
-bl_ui.properties_render.RENDER_PT_output.COMPAT_ENGINES.add(MitsubaAddon.BL_IDNAME)
+_register_elm(bl_ui.properties_data_lamp.DATA_PT_context_lamp)
+_register_elm(bl_ui.properties_render.RENDER_PT_render)
+_register_elm(bl_ui.properties_render.RENDER_PT_dimensions)
+_register_elm(bl_ui.properties_render.RENDER_PT_output)
+
+# Add Mitsuba dof elements to blender dof panel
+def mits_use_dof(self, context):
+
+	if context.scene.render.engine == MitsubaAddon.BL_IDNAME:
+		row = self.layout.row()
+
+		row.prop(context.camera.mitsuba_camera, "useDOF", text="Use Depth of Field")
+		if context.camera.mitsuba_camera.useDOF == True:
+			row = self.layout.row()
+			row.prop(context.camera.mitsuba_camera, "apertureRadius", text="DOF Aperture Radius")
+
+_register_elm(bl_ui.properties_data_camera.DATA_PT_camera_dof.append(mits_use_dof))
 
 compatible("properties_data_mesh")
-compatible("properties_data_camera")
+compatible("properties_data_camera") #for displaying default panel in camera
 compatible("properties_particle")
 
 @MitsubaAddon.addon_register_class
@@ -80,12 +99,10 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 	render_lock = threading.Lock()
 
 	def render(self, scene):
-		engine = scene.mitsuba_engine
-
 		if self is None or scene is None:
 			MtsLog('ERROR: Scene is missing!')
 			return
-		if engine.binary_path == '':
+		if scene.mitsuba_engine.binary_path == '':
 			MtsLog('ERROR: The binary path is unspecified!')
 			return
 
@@ -95,11 +112,9 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 				return
 
 			config_updates = {}
-			binary_path = os.path.abspath(efutil.filesystem_path(engine.binary_path))
+			binary_path = os.path.abspath(efutil.filesystem_path(scene.mitsuba_engine.binary_path))
 			if os.path.isdir(binary_path) and os.path.exists(binary_path):
 				config_updates['binary_path'] = binary_path
-			config_updates['preview_depth'] = str(engine.preview_depth)
-			config_updates['preview_spp'] = str(engine.preview_spp)
 
 			try:
 				for k, v in config_updates.items():
@@ -113,8 +128,8 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			else:
 				output_dir = os.path.dirname(scene_path)		
 
-			if scene.render.use_color_management == False:
-				MtsLog('WARNING: Color Management is switched off, render results may look too dark.')
+			#if scene.render.use_color_management == False:
+				#MtsLog('WARNING: Color Management is switched off, render results may look too dark.')
 
 			MtsLog('MtsBlend: Current directory = "%s"' % output_dir)
 			output_basename = efutil.scene_filename() + '.%s.%05i' % (scene.name, scene.frame_current)
@@ -175,7 +190,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 						
 		if (width, height) == (96, 96):
 			return
-
+		MtsLog('Preview Render Res: {0}'.format(width, height))
 		for object in [ob for ob in scene.objects if ob.is_visible(scene) and not ob.hide_render]:
 			for mat in get_instance_materials(object):
 				if mat is not None:
@@ -197,6 +212,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		output_file = os.path.join(tempdir, "matpreview.png")
 		scene_file = os.path.join(os.path.join(plugin_path(),
 			"matpreview"), "matpreview.xml")
+		MtsLog('Scene path: %s'%scene_file)
 		pm = likely_materials[0]
 		exporter = MtsExporter(tempdir, matfile,
 			bpy.data.materials, bpy.data.textures)
@@ -215,12 +231,12 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			['mitsuba', '-q', 
 				'-r%i' % refresh_interval,
 				'-b16',
-				'-o', output_file, '-Dmatfile=%s' % os.path.join(tempdir, matfile),
+				'-Dmatfile=%s' % os.path.join(tempdir, matfile),
 				'-Dwidth=%i' % width, 
 				'-Dheight=%i' % height, 
 				'-Dspp=%i' % preview_spp,
 				'-Ddepth=%i' % preview_depth,
-				'-o', output_file, scene_file])
+				'-o', output_file, scene_file], )
 
 		framebuffer_thread = MtsFilmDisplay()
 		framebuffer_thread.set_kick_period(refresh_interval)

@@ -38,11 +38,11 @@ param_specularReflectance = ColorTextureParameter('specularReflectance', 'Specul
 param_specularTransmittance = ColorTextureParameterFix('specularTransmitt', 'Specular transmittance', 'Specular transmittance value', default=(1.0, 1.0, 1.0)) # fixes only 'specularTransmittance' to long name error 
 param_bumpHeight = BumpTextureParameter('bump', 'Bump Texture', 'Bump height texture', default=1.0)
 param_scattCoeff = SpectrumTextureParameter('sigmaS', 'Scattering Coefficient', 'Scattering value', default=(0.8, 0.8, 0.8))
-param_absorptionCoefficient = SpectrumTextureParameter('sigmaA', 'Absorption Coefficient', 'Absorption value', default=(0.01, 0.01, 0.01))
+param_absorptionCoefficient = SpectrumTextureParameter('sigmaA', 'Absorption Coefficient', 'Absorption value', default=(0.0, 0.0, 0.0))
 param_extinctionCoeff = SpectrumTextureParameter('sigmaT', 'Extinction Coefficient', 'Extinction value', default=(0.8, 0.8, 0.8))
 param_albedo = SpectrumTextureParameter('albedo', 'Albedo', 'Albedo value', default=(0.01, 0.01, 0.01))
 param_alphaRoughness = FloatTextureParameter('alpha', 'Roughness', 'Roughness value', default=0.2)
-
+param_weightBlend = FloatTextureParameter('weight', 'Factor', 'Blending factor', default=0.2)
 def dict_merge(*args):
 	vis = {}
 	for vis_dict in args:
@@ -62,21 +62,24 @@ mat_names = {
 	'diffuse' : 'Diffuse',
 	'roughdiffuse' : 'Rough diffuse',
 	'phong' : 'Phong',
+	'irawan' : 'Woven cloth',
 	'hk' : 'Hanrahan-Krueger BSDF',
 	'mask' : 'Opacity mask',
-	'dipolebrdf': 'Dipole brdf',
+	'dipole': 'Dipole BRDF',
 	'bump' : 'Bump mapping',
-	'sssbrdf' : 'SSS brdf',
+	'rmbrdf' : 'random medium BRDF',
 	'coating' : 'Smooth dielectric coating',
 	'roughcoating': 'Rought dielectirc coating',
 	'ward' : 'Anisotropic Ward',
 	'conductor' : 'Smooth conductor',
 	'dielectric' : 'Smooth dielectric',
+	'thindielectric' : 'Thin Dielectric',
 	'roughconductor' : 'Rough conductor',
 	'roughdielectric' : 'Rough dielectric',
 	'roughplastic' : 'Rough plastic',
 	'plastic' : 'Smooth plastic',
 	'mixturebsdf' : 'Mix of materials',
+	'blendbsdf' : 'Blend of materials',
 	'difftrans' : 'Diffuse transmitter',
 	'none' : 'Passthrough material'
 }
@@ -127,8 +130,8 @@ class mitsuba_material(declarative_property_group):
 	]
 
 	visibility = {
-		'twosided' : { 'type' : O(['diffuse', 'hk',  'roughdiffuse', 'mask', 'phong','dipolebrdf', 'sssbrdf', 'ward',
-			'conductor', 'roughconductor', 'roughplastic', 'plastic', 'coating', 'roughcoating', 'mixturebsdf'])},
+		'twosided' : { 'type' : O(['diffuse', 'hk',  'roughdiffuse', 'mask', 'phong','dipolebrdf', 'rmbrdf', 'ward',
+			'conductor', 'roughconductor', 'roughplastic', 'plastic', 'coating', 'roughcoating', 'mixturebsdf','blendbsdf'])},
 		'exterior' : { 'is_medium_transition' : True },
 		'interior' : { 'is_medium_transition' : True }
 	}
@@ -363,6 +366,158 @@ class mitsuba_mat_phong(declarative_property_group):
 		params.add_float('exponent', self.exponent)
 		return params
 
+		
+@MitsubaAddon.addon_register_class
+class mitsuba_mat_irawan(declarative_property_group):
+	ef_attach_to = ['mitsuba_material']
+	controls = [
+		'filename',
+		'kdMultiplier',
+		'ksMultiplier',
+		['repeatU', 'repeatV'],
+		'kd',
+		'ks',
+		'warp_kd',
+		'warp_ks',
+		'weft_kd',
+		'weft_ks'
+	]
+
+	properties = [
+		{
+			'type': 'string',
+			'subtype': 'FILE_PATH',
+			'attr': 'filename',
+			'name': 'Cloth data',
+			'description': 'Path to a weave pattern description'
+		},
+		{
+			'attr': 'repeatU',
+			'type': 'float',
+			'name': 'U Scale',
+			'default': 120.0,
+			'min': -100.0,
+			'soft_min': -100.0,
+			'max': 200.0,
+			'soft_max': 200.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'repeatV',
+			'type': 'float',
+			'name': 'V Scale',
+			'default': 80.0,
+			'min': -100.0,
+			'soft_min': -100.0,
+			'max': 200.0,
+			'soft_max': 200.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'ksMultiplier',
+			'type': 'float',
+			'description' : 'Multiplicative factor of the  specular component',
+			'name' : 'ksMultiplier',
+			'default' : 4.34,
+			'min': 0.0,
+			'max': 10.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'kdMultiplier',
+			'type': 'float',
+			'description' : 'Multiplicative factor of the  diffuse component',
+			'name' : 'kdMultiplier',
+			'default' : 0.00553,
+			'min': 0.0,
+			'max': 10.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'kd',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Diffuse color',
+			'name' : 'Diffuse color',
+			'default' : (0.5, 0.5, 0.5),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'ks',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Specular color',
+			'name' : 'Specular color',
+			'default' : (0.5, 0.5, 0.5),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'warp_kd',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Diffuse color',
+			'name' : 'warp_kd',
+			'default' : (0.5, 0.5, 0.5),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'warp_ks',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Specular color',
+			'name' : 'warp_ks',
+			'default' : (0.5, 0.5, 0.5),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'weft_kd',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Diffuse color',
+			'name' : 'weft_kd',
+			'default' : (0.5, 0.5, 0.5),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'weft_ks',
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'description' : 'Specular color',
+			'name' : 'weft_ks',
+			'default' : (0.5, 0.5, 0.5),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		}
+	]
+	
+
+	def get_params(self):
+		params = ParamSet()
+		#file_relative		= efutil.path_relative_to_export(file_library_path) if obj.library else efutil.path_relative_to_export(file_path)
+		params.add_string('filename', efutil.path_relative_to_export(self.filename))
+		params.add_float('ksMultiplier', self.ksMultiplier)
+		params.add_float('kdMultiplier', self.kdMultiplier)
+		params.add_float('repeatU', self.repeatU)
+		params.add_float('repeatV', self.repeatV)
+		params.add_color('kd', self.kd)
+		params.add_color('ks', self.ks)
+		params.add_color('warp_kd', self.warp_kd)
+		params.add_color('warp_ks', self.warp_ks)
+		params.add_color('weft_kd', self.weft_kd)
+		params.add_color('weft_ks', self.weft_ks)
+		return params
+		
 def BumpProperty():
 	return [
 		{
@@ -409,8 +564,7 @@ class mitsuba_mat_bump(declarative_property_group):
 			'description' : 'Bump strength multiplier',
 			'name' : 'Strength',
 			'default' : 1.0,
-			'min': 0.000001,
-			'precision' : 6,
+			'min': 0.001,
 			'max': 100.0,
 			'save_in_preset': True
 		}
@@ -482,7 +636,7 @@ class mitsuba_mat_mask(declarative_property_group):
 		return params
 		
 @MitsubaAddon.addon_register_class
-class mitsuba_mat_sssbrdf(declarative_property_group):
+class mitsuba_mat_rmbrdf(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
 		'material',
@@ -651,37 +805,44 @@ class mitsuba_mat_hk(declarative_property_group):
 		return params
 		
 @MitsubaAddon.addon_register_class
-class mitsuba_mat_dipolebrdf(declarative_property_group):
+class mitsuba_mat_dipole(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
-		'sigmaS',
-		'sigmaA',
+		'material',
+		'useAlbSigmaT'
+	] +  param_scattCoeff.controls + param_absorptionCoefficient.controls + param_extinctionCoeff.controls + param_albedo.controls + [
+		'scale'
+	] +  param_alphaRoughness.controls + [
 		'extIOR',
 		'intIOR',
-		'g'
+		'irrSamples'
 	] 
 	
 	properties = [
 		{
-			'attr': 'sigmaS',
-			'type': 'float_vector',
-			'subtype': 'COLOR',
-			'description' : 'Specifes the scattering coefcient of the layer',
-			'name' : 'Scattering coefcient',
-			'default' : (0.5, 0.5, 0.5),
-			'min': 0.0,
-			'max': 1.0,
+			'type': 'string',
+			'attr': 'material',
+			'name': 'Preset name',
+			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
+			'default': '',
+			'save_in_preset': True
+		},
+		{			
+			'type': 'bool',
+			'attr': 'useAlbSigmaT',
+			'name': 'Use Albedo&SigmaT',
+			'description': 'Use Albedo&SigmaT instead SigmatS&SigmaA',
+			'default': False,
 			'save_in_preset': True
 		},
 		{
-			'attr': 'sigmaA',
-			'type': 'float_vector',
-			'subtype': 'COLOR',
-			'description' : 'Specifes the absorption coefcient of the layer',
-			'name' : 'Absorption coefcient',
-			'default' : (0.5, 0.5, 0.5),
-			'min': 0.0,
-			'max': 1.0,
+			'attr': 'scale',
+			'type': 'float',
+			'name' : 'Scale',
+			'description' : 'Density scale',
+			'default' : 1.0,
+			'min': 0.1,
+			'max': 50000.0,
 			'save_in_preset': True
 		},
 		{
@@ -705,31 +866,47 @@ class mitsuba_mat_dipolebrdf(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-			'attr': 'g',
-			'type': 'float',
-			'name' : 'Phase function',
-			'description' : 'Phase function',
-			'default' : 0.0,
-			'min': -1.0,
-			'max': 1.0,
+			'attr': 'irrSamples',
+			'type': 'int',
+			'name' : 'irrSamples',
+			'description' : 'Number of samples',
+			'default' : 16,
+			'min': 2,
+			'max': 128,
 			'save_in_preset': True
-		},
-	]
+		}
+	] + param_scattCoeff.properties + param_absorptionCoefficient.properties + param_extinctionCoeff.properties + param_albedo.properties + param_alphaRoughness.properties
 	
+	visibility = dict_merge(param_scattCoeff.visibility, param_absorptionCoefficient.visibility,param_extinctionCoeff.visibility, param_albedo.visibility, param_alphaRoughness.visibility)
 
+	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, param_albedo, { 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'useAlbSigmaT': False })
+	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'useAlbSigmaT': False })
+	
 	def get_params(self):
 		params = ParamSet()
-		params.add_color('sigmaS', self.sigmaS)
-		params.add_color('sigmaA', self.sigmaA)
-		params.add_float('extIOR', self.extIOR)
-		params.add_float('intIOR', self.intIOR)
-		params.add_float('g', self.g)
+		if self.material=='':
+			params.add_float('extIOR', self.extIOR)
+			params.add_float('intIOR', self.intIOR)
+			if self.useAlbSigmaT != True:
+				params.update(param_scattCoeff.get_params(self))
+				params.update(param_absorptionCoefficient.get_params(self))
+			else:
+				params.update(param_extinctionCoeff.get_params(self))
+				params.update(param_albedo.get_params(self))
+		else:
+			params.add_string('material', self.material)
+		#params.update(param_alphaRoughness.get_params(self))
+		params.add_float('scale', self.scale)
+		params.add_integer('irrSamples', self.irrSamples)
 		return params
 		
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_ward(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
+		'variant',
 		'diffuseAmount',
 		'specularAmount',
 		['alphaX', 'alphaY']
@@ -737,6 +914,19 @@ class mitsuba_mat_ward(declarative_property_group):
 	  + param_specularReflectance.controls
 
 	properties = [
+		{
+			'type': 'enum',
+			'attr': 'variant',
+			'name': 'Ward model',
+			'description': 'Determines the variant of the Ward model tou se',
+			'items': [
+				('ward', 'Ward', 'ward'),
+				('ward-duer', 'Ward-duer', 'ward-duer'),
+				('balanced', 'Balanced', 'balanced')
+			],
+			'default': 'ward',
+			'save_in_preset': True
+		},
 		{
 			'attr': 'diffuseAmount',
 			'type': 'float',
@@ -789,6 +979,7 @@ class mitsuba_mat_ward(declarative_property_group):
 		params = ParamSet()
 		params.update(param_diffuseReflectance.get_params(self))
 		params.update(param_specularReflectance.get_params(self))
+		params.add_string('variant', self.variant)
 		params.add_float('diffuseAmount', self.diffuseAmount)
 		params.add_float('specularAmount', self.specularAmount)
 		params.add_float('alphaX', self.alphaX)
@@ -800,42 +991,26 @@ class mitsuba_mat_ward(declarative_property_group):
 class mitsuba_mat_roughplastic(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
-		'diffuseAmount',
-		'specularAmount',
-		'alphaB',
+	] +  param_alphaRoughness.controls + [
+		'distribution',
 		['extIOR', 'intIOR']
 	] + param_diffuseReflectance.controls \
-	  + param_specularReflectance.controls
+	  + param_specularReflectance.controls + [
+	  'nonlinear'
+	 ]
 
 	properties = [
 		{
-			'attr': 'diffuseAmount',
-			'type': 'float',
-			'description' : 'Diffuse reflection lobe multiplier',
-			'name' : 'Diffuse amount',
-			'default' : 0.8,
-			'min': 0.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
-		{
-			'attr': 'specularAmount',
-			'type': 'float',
-			'description' : 'Specular reflection lobe multiplier',
-			'name' : 'Specular amount',
-			'default' : 0.2,
-			'min': 0.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
-		{
-			'attr': 'alphaB',
-			'type': 'float',
-			'name': 'Roughness',
-			'description' : 'Roughness value (0.3=coarse, 0.001=very fine)',
-			'default' : 0.1,
-			'min': 0.001,
-			'max': 1.0,
+			'type': 'enum',
+			'attr': 'distribution',
+			'name': 'Roughness model',
+			'description': 'Specifes the type of microfacet normal distribution used to model the surface roughness',
+			'items': [
+				('beckmann', 'Beckmann', 'beckmann'),
+				('ggx', 'Ggx', 'ggx'),
+				('phong', 'Phong', 'phong')
+			],
+			'default': 'beckmann',
 			'save_in_preset': True
 		},
 		{
@@ -857,57 +1032,47 @@ class mitsuba_mat_roughplastic(declarative_property_group):
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
+		},
+		{			
+			'type': 'bool',
+			'attr': 'nonlinear',
+			'name': 'Use internal scattering',
+			'description': 'Support for nonlinear color shifs',
+			'default': False,
+			'save_in_preset': True
 		}
 	] + param_diffuseReflectance.properties \
-	  + param_specularReflectance.properties
+	  + param_specularReflectance.properties \
+	  + param_alphaRoughness.properties
 	
 	visibility = dict_merge(
 		param_diffuseReflectance.visibility,
-		param_specularReflectance.visibility
+		param_specularReflectance.visibility,
+		param_alphaRoughness.visibility
 	)
 
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_diffuseReflectance.get_params(self))
 		params.update(param_specularReflectance.get_params(self))
-		params.add_float('diffuseAmount', self.diffuseAmount)
-		params.add_float('specularAmount', self.specularAmount)
-		params.add_float('alphaB', self.alphaB)
+		params.add_string('distribution', self.distribution)
+		params.update(param_alphaRoughness.get_params(self))
 		params.add_float('extIOR', self.extIOR)
 		params.add_float('intIOR', self.intIOR)
+		params.add_bool('nonlinear', self.nonlinear)
 		return params
 
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_plastic(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
-		'diffuseAmount',
-		'specularAmount',
 		['extIOR', 'intIOR']
 	] + param_diffuseReflectance.controls \
-	  + param_specularReflectance.controls
+	  + param_specularReflectance.controls  + [
+	  'nonlinear'
+	 ]
 
 	properties = [
-		{
-			'attr': 'diffuseAmount',
-			'type': 'float',
-			'description' : 'Diffuse reflection lobe multiplier',
-			'name' : 'Diffuse amount',
-			'default' : 0.8,
-			'min': 0.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
-		{
-			'attr': 'specularAmount',
-			'type': 'float',
-			'description' : 'Specular reflection lobe multiplier',
-			'name' : 'Specular amount',
-			'default' : 0.2,
-			'min': 0.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
 		{
 			'attr': 'extIOR',
 			'type': 'float',
@@ -927,6 +1092,14 @@ class mitsuba_mat_plastic(declarative_property_group):
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
+		},
+		{			
+			'type': 'bool',
+			'attr': 'nonlinear',
+			'name': 'Use internal scattering',
+			'description': 'Support for nonlinear color shifs',
+			'default': False,
+			'save_in_preset': True
 		}
 	] + param_diffuseReflectance.properties \
 	  + param_specularReflectance.properties
@@ -940,10 +1113,9 @@ class mitsuba_mat_plastic(declarative_property_group):
 		params = ParamSet()
 		params.update(param_diffuseReflectance.get_params(self))
 		params.update(param_specularReflectance.get_params(self))
-		params.add_float('diffuseAmount', self.diffuseAmount)
-		params.add_float('specularAmount', self.specularAmount)
 		params.add_float('extIOR', self.extIOR)
 		params.add_float('intIOR', self.intIOR)
+		params.add_bool('nonlinear', self.nonlinear)
 		return params
 
 @MitsubaAddon.addon_register_class
@@ -1015,7 +1187,7 @@ class mitsuba_mat_roughdielectric(declarative_property_group):
 	visibility = dict_merge({
 		'alphaU' : { 'distribution' : 'as' },
 		'alphaV' : { 'distribution' : 'as' }
-	},
+		},
 		param_alphaRoughness.visibility, param_specularReflectance.visibility, param_specularTransmittance.visibility
 	)
 	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
@@ -1137,6 +1309,45 @@ class mitsuba_mat_roughconductor(declarative_property_group):
 			params.add_color('k', self.k)
 		else:
 			params.add_string('material', self.material)
+		return params
+
+@MitsubaAddon.addon_register_class
+class mitsuba_mat_thindielectric(declarative_property_group):
+	ef_attach_to = ['mitsuba_material']
+	controls =  param_specularReflectance.controls + param_specularTransmittance.controls + [
+		['extIOR', 'intIOR']
+	]
+
+	properties = param_specularReflectance.properties + param_specularTransmittance.properties + [
+		{
+			'attr': 'extIOR',
+			'type': 'float',
+			'name' : 'Ext. IOR',
+			'description' : 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default' : 1,
+			'min': 1.0,
+			'max': 10.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'intIOR',
+			'type': 'float',
+			'name' : 'Int. IOR',
+			'description' : 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default' : 1.5,
+			'min': 1.0,
+			'max': 10.0,
+			'save_in_preset': True
+		}
+	]
+	visibility = dict_merge(param_specularReflectance.visibility, param_specularTransmittance.visibility)
+
+	def get_params(self):
+		params = ParamSet()
+		params.update(param_specularReflectance.get_params(self))
+		params.update(param_specularTransmittance.get_params(self))
+		params.add_float('extIOR', self.extIOR)
+		params.add_float('intIOR', self.intIOR)
 		return params
 
 @MitsubaAddon.addon_register_class
@@ -1286,7 +1497,7 @@ class mitsuba_mat_coating(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
 		'thickness',
-		]  + param_absorptionCoefficient.controls + [
+		]  + param_absorptionCoefficient.controls  + param_specularTransmittance.controls + [
 		['extIOR', 'intIOR'],
 		#'ref_name', hide -only for export
 		'mat_list'
@@ -1323,14 +1534,15 @@ class mitsuba_mat_coating(declarative_property_group):
 			'max': 10.0,
 			'save_in_preset': True
 		}
-	] + CoatingProperty() + param_absorptionCoefficient.properties
+	] + CoatingProperty() + param_absorptionCoefficient.properties + param_specularTransmittance.properties
 	
-	visibility = param_absorptionCoefficient.visibility
+	visibility = dict_merge(param_absorptionCoefficient.visibility, param_specularTransmittance.visibility)
 
 	def get_params(self):
 		params = ParamSet()
 		params.add_float('thickness', self.thickness)
 		params.update(param_absorptionCoefficient.get_params(self))
+		params.update(param_specularTransmittance.get_params(self))
 		params.add_float('extIOR', self.extIOR)
 		params.add_float('intIOR', self.intIOR)
 		params.add_reference('material', "bsdf", getattr(self, "ref_name"))
@@ -1360,15 +1572,28 @@ def RoughCoatingProperty():
 class mitsuba_mat_roughcoating(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
+		'distribution',
 		'thickness',
-		'alpha',
-		] + param_absorptionCoefficient.controls + [
+		] +  param_alphaRoughness.controls + param_absorptionCoefficient.controls + param_specularTransmittance.controls + [
 		['extIOR', 'intIOR'],
 		#'ref_name', hide -only for export
 		'mat_list'
 	]
 
 	properties = [
+		{
+			'type': 'enum',
+			'attr': 'distribution',
+			'name': 'Roughness model',
+			'description': 'Specifes the type of microfacet normal distribution used to model the surface roughness',
+			'items': [
+				('beckmann', 'Beckmann', 'beckmann'),
+				('ggx', 'Ggx', 'ggx'),
+				('phong', 'Phong', 'phong')
+			],
+			'default': 'beckmann',
+			'save_in_preset': True
+		},
 		{
 			'attr': 'thickness',
 			'type': 'int',
@@ -1409,15 +1634,17 @@ class mitsuba_mat_roughcoating(declarative_property_group):
 			'max': 10.0,
 			'save_in_preset': True
 		}
-	] + RoughCoatingProperty() + param_absorptionCoefficient.properties
+	] + RoughCoatingProperty() + param_absorptionCoefficient.properties + param_alphaRoughness.properties + param_specularTransmittance.properties
 	
-	visibility = param_absorptionCoefficient.visibility
+	visibility = dict_merge(param_absorptionCoefficient.visibility, param_alphaRoughness.visibility, param_specularTransmittance.visibility)
 
 	def get_params(self):
 		params = ParamSet()
 		params.add_float('thickness', self.thickness)
+		params.add_string('distribution', self.distribution)
 		params.update(param_absorptionCoefficient.get_params(self))
-		params.add_float('alpha', self.alpha)
+		params.update(param_alphaRoughness.get_params(self))
+		params.update(param_specularTransmittance.get_params(self))
 		params.add_float('extIOR', self.extIOR)
 		params.add_float('intIOR', self.intIOR)
 		params.add_reference('material', "bsdf", getattr(self, "ref_name"))
@@ -1503,3 +1730,64 @@ class mitsuba_mat_mixturebsdf(declarative_property_group):
 		params.add_string('weights', weights)
 		return params
 
+@MitsubaAddon.addon_register_class
+class mitsuba_mat_blendbsdf(declarative_property_group):
+	ef_attach_to = ['mitsuba_material']
+	controls = param_weightBlend.controls + [
+		#'mat1_name',
+		#'mat2_name',
+		'mat_list1',
+		'mat_list2'
+	]
+
+	properties = param_weightBlend.properties + [
+		{
+			'attr': 'weight',
+			'type': 'float',
+			'name': 'Blend factor',
+			'min': 0.0,
+			'max': 1.0,
+			'default' : 0.0,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'mat1_name',
+			'type': 'string',
+			'name': 'Second material name',
+			'save_in_preset': True
+		},
+		{
+			'attr': 'mat2_name',
+			'type': 'string',
+			'name': 'First material name',
+			'save_in_preset': True
+		},
+		{
+			'type': 'prop_search',
+			'attr': 'mat_list1',
+			'src': lambda s,c: s.object,
+			'src_attr': 'material_slots',
+			'trg': lambda s,c: c.mitsuba_mat_blendbsdf,
+			'trg_attr': 'mat1_name',
+			'name': 'Material 1 reference'
+		},
+		{
+			'type': 'prop_search',
+			'attr': 'mat_list2',
+			'src': lambda s,c: s.object,
+			'src_attr': 'material_slots',
+			'trg': lambda s,c: c.mitsuba_mat_blendbsdf,
+			'trg_attr': 'mat2_name',
+			'name': 'Material 1 reference'
+		}
+	]
+	visibility = param_weightBlend.visibility
+	#visibility = mitsuba_mat_blendbsdf_visibility()
+
+	def get_params(self):
+		params = ParamSet()
+		#params.add_float('weight', self.weight)
+		params.update(param_weightBlend.get_params(self))
+		params.add_reference('material', "bsdf1", self.mat1_name)
+		params.add_reference('material', "bsdf2", self.mat2_name)
+		return params

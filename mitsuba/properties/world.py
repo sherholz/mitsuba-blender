@@ -52,7 +52,7 @@ class mitsuba_medium_data(declarative_property_group):
 	ef_attach_to = []	# not attached
 	
 	controls = [
-		'type', 'g', 'densityMultiplier', 'sigmaT', 'albedo'
+		'type', 'material', 'g', 'densityMultiplier', 'sigmaT', 'albedo'
 	]
 
 	properties = [
@@ -64,6 +64,14 @@ class mitsuba_medium_data(declarative_property_group):
 				('homogeneous', 'Homogeneous', 'homogeneous'),
 				('heterogeneous', 'Heterogeneous', 'heterogeneous'),
 			],
+			'save_in_preset': True
+		},
+		{
+			'type': 'string',
+			'attr': 'material',
+			'name': 'Preset name',
+			'description' : 'Name of a material preset (Cu=copper)',
+			'default': '',
 			'save_in_preset': True
 		},
 		{
@@ -115,6 +123,12 @@ class mitsuba_medium_data(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
+	
+	visibility = {
+
+			'sigmaT' : { 'material' : '' },
+			'albedo' : { 'material' : '' }
+		}
 
 
 @MitsubaAddon.addon_register_class

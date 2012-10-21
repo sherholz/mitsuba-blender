@@ -62,6 +62,18 @@ class lamps(lamps_panel):
 				layout.prop(lamp.mitsuba_lamp, "envmap_file", text="HDRI file")
 			layout.prop(lamp.mitsuba_lamp, "intensity", text="Intensity")
 			layout.prop(lamp.mitsuba_lamp, "samplingWeight", text = "Sampling weight")
+			
+			# Point LAMP: Blender Properties
+			if lamp.type == 'POINT':
+				wide_ui = context.region.width > narrowui
+				
+				if wide_ui:
+					#col = split.column()
+					col=layout.row()
+				else:
+					col=layout.column()
+				col.prop(lamp.mitsuba_lamp, "radius", text="Size")
+				col=layout.row()
 
 			# SPOT LAMP: Blender Properties
 			if lamp.type == 'SPOT':
@@ -114,3 +126,4 @@ class ui_mitsuba_lamp_sun(lamps_panel):
 	@classmethod
 	def poll(cls, context):
 		return super().poll(context) and context.lamp.type == 'SUN'
+

@@ -17,9 +17,10 @@
 # ##### END GPL LICENSE BLOCK #####
 
 from .. import MitsubaAddon
-
+from ..export import ParamSet
 from extensions_framework import declarative_property_group
 from extensions_framework import util as efutil
+from extensions_framework.validate import Logic_OR as O, Logic_AND as A, Logic_Operator as LO
 
 @MitsubaAddon.addon_register_class
 class mitsuba_sampler(declarative_property_group):
@@ -33,9 +34,14 @@ class mitsuba_sampler(declarative_property_group):
 
 	controls = [
 		'type',
-		'sampleCount'
+		'sampleCount',
+		'scramble'
 	]
+	visibility = {
+		'scramble' : { 'type':  O(['halton','hammersley', 'sobol'])}
 
+	}
+	
 	properties = [
 		{
 			'type': 'enum',
@@ -44,9 +50,12 @@ class mitsuba_sampler(declarative_property_group):
 			'description': 'Specifies the type of sampler to use',
 			'default': 'ldsampler',
 			'items': [
-				('independent', 'Independent', 'independent'),
+				('sobol', 'Sobol QMC sampler', 'sobol'),
+				('hammersley', 'Hammersley QMC sampler', 'hammersley'),
+				('halton', 'Halton QMC sampler', 'halton'),
+				('ldsampler', 'Low discrepancy', 'ldsampler'),
 				('stratified', 'Stratified', 'stratified'),
-				('ldsampler', 'Low discrepancy', 'ldsampler')
+				('independent', 'Independent', 'independent'),
 			],
 			'save_in_preset': True
 		},
@@ -55,10 +64,29 @@ class mitsuba_sampler(declarative_property_group):
 			'attr': 'sampleCount',
 			'name': 'Pixel samples',
 			'description': 'Number of samples to use for estimating the illumination at each pixel',
-			'default': 8,
+			'default': 16,
 			'min': 1,
-			'max': 10240,
+			'max': 16384,
+			'save_in_preset': True
+		},
+		{
+			'type': 'int',
+			'attr': 'scramble',
+			'name': 'Scramble value',
+			'description': 'This plugin can operate in one of three scrambling modes: -1, 0, gt= : 1',
+			'default': -1,
+			'min': -1,
+			'max': 1024,
 			'save_in_preset': True
 		}
 	]
 
+	def get_params(self):
+		params = ParamSet()
+		params.add_integer('sampleCount', self.sampleCount)
+		if self.type == 'halton' or self.type == 'hammersley':
+			params.add_integer('scramble', self.scramble)
+		elif self.type == 'sobol':
+			params.add_integer('scramble', str(int(self.scramble)+1))
+
+		return params
