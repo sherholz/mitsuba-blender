@@ -602,7 +602,15 @@ class MtsExporter:
       self.exportMatrix(camera.matrix_world * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([1, 0, 0])) * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([0, 0, 1])))
       self.closeElement()
       if cam.type == 'PERSP':
-         self.parameter('string', 'focalLength', {'value' : '%smm' % str(int(cam.lens))})
+         if cam.sensor_fit == 'VERTICAL':
+            sensor = cam.sensor_height
+            axis = 'y'
+         else:
+            sensor = cam.sensor_width
+            axis = 'x'
+         fov = math.degrees(2.0 * math.atan((sensor / 2.0) / cam.lens))
+         self.parameter('float', 'fov', {'value' : fov})
+         self.parameter('string', 'fovAxis', {'value' : axis})
       self.parameter('float', 'nearClip', {'value' : str(cam.clip_start)})
       self.parameter('float', 'farClip', {'value' : str(cam.clip_end)})
       if mcam.useDOF == True:
@@ -688,6 +696,14 @@ class MtsExporter:
       self.closeElement()
       self.closeElement()
          
+   def renderVisibility(self, scene, obj):
+      for i in range(len(scene.render.layers.active.layers)):
+         if scene.render.layers.active.layers[i] == True and obj.layers[i] == True:
+            return True
+      return False
+
+   def removeObj(self, obj):
+      self.element('remove', { 'id' : translate_id(obj.data.name) + "-mesh_0"})
 
    def export(self, scene):
       if scene.mitsuba_engine.binary_path == '':
@@ -727,6 +743,10 @@ class MtsExporter:
             #self.exportSampler(scene.mitsuba_sampler,obj)
          idx = idx+1
       self.exportIntegrator(scene.mitsuba_integrator,scene.mitsuba_irrcache)
+      for obj in scene.objects:
+         if obj.type == 'MESH':
+            if self.renderVisibility(scene, obj) == False:
+               self.removeObj(obj)
       #self.exportSpaheGroup(InstanceOBJ)  #this will never ever ever work :/
       self.writeFooter()
       (width, height) = resolution(scene)
