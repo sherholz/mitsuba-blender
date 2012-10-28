@@ -18,6 +18,7 @@
 
 import bpy, os, copy, subprocess, math, mathutils
 import string
+import array, struct, zlib
 from math import radians
 from extensions_framework import util as efutil
 from ..outputs import MtsLog
@@ -91,6 +92,14 @@ translate_name_map = list(map(chr, [
    233,  234,  235,  236,  237,  238,  239,  240,
    241,  242,  243,  244,  245,  246,  95,  248,
    249,  250,  251,  252,  253,  254,  255]))
+
+
+class InvalidGeometryException(Exception):
+	pass
+
+class UnexportableObjectException(Exception):
+	pass
+
 
 
 def translate_id(name):
@@ -238,9 +247,8 @@ class MtsExporter:
       (path, ext) = os.path.splitext(mts_basename)
       if ext == '.xml':
          mts_basename = path
-      self.dae_filename = mts_basename + ".dae"
       self.xml_filename = mts_basename + ".xml"
-      self.adj_filename = mts_basename + "_adjustments.xml"
+      self.srl_filename = mts_basename + ".serialized"
       self.meshes_dir = os.path.join(directory, "meshes")
       self.exported_materials = []
       self.exported_textures = []
@@ -256,9 +264,9 @@ class MtsExporter:
 
    def writeHeader(self):
       try:
-         self.out = open(self.adj_filename, 'w')
+         self.out = open(self.xml_filename, 'w', encoding='utf-8', newline="\n")
       except IOError:
-         MtsLog('Error: unable to write to file \"%s\"!' % self.adj_filename)
+         MtsLog('Error: unable to write to file \"%s\"!' % self.xml_filename)
          return False
       self.out.write('<?xml version="1.0" encoding="utf-8"?>\n');
       self.openElement('scene',{'version' : '0.4.1'})
@@ -320,7 +328,6 @@ class MtsExporter:
       if lamp.data.mitsuba_lamp.inside_medium:
          self.exportMedium(scene.mitsuba_media.media[lamp.data.mitsuba_lamp.lamp_medium])
       if ltype == 'POINT':
-         self.element('remove', { 'id' : '%s-light' % name})
          self.openElement('shape', { 'type' : 'sphere'})
          self.exportPoint(lamp.location)
          self.parameter('float', 'radius', {'value' : lamp.data.mitsuba_lamp.radius})
@@ -333,7 +340,6 @@ class MtsExporter:
          self.closeElement()
          self.closeElement()
       elif ltype == 'AREA':
-         self.element('remove', { 'id' : '%s-light' % name})
          self.openElement('shape', { 'type' : 'obj'} )
          (size_x, size_y) = (lamp.data.size, lamp.data.size)
          if lamp.data.shape == 'RECTANGLE':
@@ -418,7 +424,7 @@ class MtsExporter:
    def exportIntegrator(self, integrator, irrcache):
       IntegParams = integrator.get_params()
       if irrcache.use_irrcache == True:
-         self.element('remove', { 'id' : 'integrator'})
+         #self.element('remove', { 'id' : 'integrator'})
          IrrParams = irrcache.get_params()
          self.openElement('integrator', { 'id' : 'irrcache', 'type' : 'irrcache'})
          IrrParams.export(self)
@@ -525,22 +531,12 @@ class MtsExporter:
          return
       mult = lamp.intensity
       name = translate_id(obj.data.name) + "-mesh_0"
-      self.openElement('append', { 'id' : name})
       self.openElement('emitter', { 'id' : '%s-emission' % name, 'type' : 'area'})
       self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.samplingWeight})
       self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
             % (lamp.color.r*mult, lamp.color.g*mult, lamp.color.b*mult)})
       self.closeElement()
-      self.closeElement()
    
-   def exportNormalMode(self, obj):
-      mesh = obj.data.mitsuba_mesh
-      name = translate_id(obj.data.name) + "-mesh_0"
-      if mesh.normals == 'facenormals':
-         self.openElement('append', { 'id' : name})
-         self.parameter('boolean', 'faceNormals', {'value' : 'true'})
-         self.closeElement()
-               
    def exportMediumReference(self, scene, obj, role, mediumName):
       if mediumName == "":
          return
@@ -548,13 +544,10 @@ class MtsExporter:
          MtsLog("Error: medium transitions cannot be instantiated (at least for now)!")
          return
       self.exportMedium(scene.mitsuba_media.media[mediumName])
-      shapeName = translate_id(obj.data.name) + "-mesh_0"
-      self.openElement('append', { 'id' : shapeName})
       if role == '':
          self.element('ref', { 'id' : mediumName})
       else:
          self.element('ref', { 'name' : role, 'id' : mediumName})
-      self.closeElement()
 
    def exportPreviewMesh(self, scene, material):
       mmat = material.mitsuba_material
@@ -594,8 +587,7 @@ class MtsExporter:
       camType = 'orthographic' if cam.type == 'ORTHO' else 'spherical' if cam.type == 'PANO' else 'perspective'
       if mcam.useDOF == True:
          camType = 'telecentric' if cam.type == 'ORTHO' else 'thinlens'
-      #self.openElement('append', { 'id' : '%s-camera' % translate_id(camera.name)}) # for fixing cam mirror effect replace default cam matrix
-      self.openElement('sensor', { 'id' : '%s-camera' % translate_id(camera.name), 'type' : str(camType)}) # changed element to sensor instead of append
+      self.openElement('sensor', { 'id' : '%s-camera' % translate_id(camera.name), 'type' : str(camType)})
       self.openElement('transform', {'name' : 'toWorld'})
       if cam.type == 'ORTHO':
          self.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
@@ -614,10 +606,8 @@ class MtsExporter:
       self.parameter('float', 'nearClip', {'value' : str(cam.clip_start)})
       self.parameter('float', 'farClip', {'value' : str(cam.clip_end)})
       if mcam.useDOF == True:
-         #self.openElement('append', { 'id' : '%s-camera' % translate_id(camera.name)})
          self.parameter('float', 'apertureRadius', {'value' : str(mcam.apertureRadius)})
          self.parameter('float', 'focusDistance', {'value' : str(cam.dof_distance)})
-         #self.closeElement()
       self.exportSampler(scene.mitsuba_sampler, camera)
       self.openElement('film', {'id' : '%s-camera_film' % translate_id(camera.name),'type':str(mcam.film)})
       if str(mcam.film) == 'ldrfilm':
@@ -696,71 +686,219 @@ class MtsExporter:
       self.closeElement()
       self.closeElement()
          
-   def renderVisibility(self, scene, obj):
-      for i in range(len(scene.render.layers.active.layers)):
-         if scene.render.layers.active.layers[i] == True and obj.layers[i] == True:
-            return True
+   def isRenderable(self, scene, obj):
+      if not obj.hide_render:
+         for i in range(len(scene.layers)):
+            if scene.layers[i] == True and obj.layers[i] == True:
+               return True
       return False
 
-   def removeObj(self, obj):
-      self.element('remove', { 'id' : translate_id(obj.data.name) + "-mesh_0"})
+   def openSerialized(self):
+      self.mesh_index = 0
+      self.mesh_offset = []
+      try:
+         self.srl = open(self.srl_filename, 'wb')
+      except IOError:
+         MtsLog('Error: unable to write to file \"%s\"!' % self.srl_filename)
+         return False
+      return True
 
+   def closeSerialized(self):
+      for i, o in enumerate(self.mesh_offset):
+         self.srl.write(struct.pack('<Q', o))
+      self.srl.write(struct.pack('<I', self.mesh_index))
+      self.srl.close()
+
+   # Serialize Mesh for mitsuba, based on Lux geometry exporter
+   def exportMesh(self, scene, obj):
+      try:
+         mesh = obj.to_mesh(scene, True, 'RENDER')
+         if mesh is None:
+            raise UnexportableObjectException('Cannot create render/export mesh')
+         
+         # collate faces by mat index
+         ffaces_mats = {}
+         mesh_faces = mesh.tessfaces if bpy.app.version > (2, 62, 1 ) else mesh.faces # bmesh
+         for f in mesh_faces:
+            mi = f.material_index
+            if mi not in ffaces_mats.keys(): ffaces_mats[mi] = []
+            ffaces_mats[mi].append( f )
+         material_indices = ffaces_mats.keys()
+
+         if len(mesh.materials) > 0 and mesh.materials[0] != None:
+         	  mats = [(i, mat) for i, mat in enumerate(mesh.materials)]
+         else:
+         	  mats = [(0, None)]
+         
+         for i, mat in mats:
+            try:
+               if i not in material_indices: continue
+               
+               uv_textures = mesh.tessface_uv_textures if bpy.app.version > (2, 62, 0 ) else mesh.uv_textures # bmesh
+               if len(uv_textures) > 0:
+                  if uv_textures.active and uv_textures.active.data:
+                     uv_layer = uv_textures.active.data
+               else:
+                  uv_layer = None
+               
+               # Export data
+               points = array.array('d',[])
+               normals = array.array('d',[])
+               uvs = array.array('d',[])
+               ntris = 0
+               face_vert_indices = array.array('I',[])      # list of face vert indices
+               
+               # Caches
+               vert_vno_indices = {}      # mapping of vert index to exported vert index for verts with vert normals
+               vert_use_vno = set()      # Set of vert indices that use vert normals
+               
+               vert_index = 0            # exported vert index
+               for face in ffaces_mats[i]:
+                  fvi = []
+                  for j, vertex in enumerate(face.vertices):
+                     v = mesh.vertices[vertex]
+                     
+                     if face.use_smooth:
+                        
+                        if uv_layer:
+                           vert_data = (v.co[:], v.normal[:], uv_layer[face.index].uv[j][:] )
+                        else:
+                           vert_data = (v.co[:], v.normal[:], tuple() )
+                        
+                        if vert_data not in vert_use_vno:
+                           vert_use_vno.add(vert_data)
+                           
+                           points.extend( vert_data[0] )
+                           normals.extend( vert_data[1] )
+                           uvs.extend( vert_data[2] )
+                           
+                           vert_vno_indices[vert_data] = vert_index
+                           fvi.append(vert_index)
+                           
+                           vert_index += 1
+                        else:
+                           fvi.append(vert_vno_indices[vert_data])
+                        
+                     else:
+                        # all face-vert-co-no are unique, we cannot
+                        # cache them
+                        points.extend( v.co[:] )
+                        normals.extend( face.normal[:] )
+                        if uv_layer: uvs.extend( uv_layer[face.index].uv[j][:] )
+                        
+                        fvi.append(vert_index)
+                        
+                        vert_index += 1
+                  
+                  # For Mitsuba, we need to triangulate quad faces
+                  face_vert_indices.extend( fvi[0:3] )
+                  ntris += 3
+                  if len(fvi) == 4:
+                     face_vert_indices.extend([ fvi[0], fvi[2], fvi[3] ])
+                     ntris += 3
+               
+               del vert_vno_indices
+               del vert_use_vno
+               
+               # create material xml
+               if mat != None:
+                  if not mat.mitsuba_emission.use_emission:
+                     self.exportMaterial(mat)
+                  mmat = mat.mitsuba_material
+                  if mmat.is_medium_transition:
+                     self.exportMediumReference(scene, obj, 'interior', mmat.interior_medium)
+                     self.exportMediumReference(scene, obj, 'exterior', mmat.exterior_medium)
+               
+               # create shape xml
+               self.openElement('shape', { 'id' : translate_id(obj.data.name) + "-mesh_" + str(i), 'type' : 'serialized'})
+               self.parameter('string', 'filename', {'value' : '%s' % self.srl_filename})
+               self.parameter('integer', 'shapeIndex', {'value' : '%d' % self.mesh_index})
+               self.exportWorldTrafo(obj.matrix_world)
+               if mat != None:
+                  if mat.mitsuba_emission.use_emission:
+                     self.exportEmission(obj)
+                  else:
+                     self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % translate_id(mesh.materials[i].name)})
+               if obj.data.mitsuba_mesh.normals == 'facenormals':
+                  self.parameter('boolean', 'faceNormals', {'value' : 'true'})
+               self.closeElement()
+               
+               # create serialized data
+               self.mesh_index += 1
+               self.mesh_offset.append(self.srl.tell())
+               MtsLog('Serializing %s %d' %(translate_id(obj.data.name), self.mesh_index))
+               self.srl.write(struct.pack('<HH', 0x041C, 0x0004))
+               
+               encoder = zlib.compressobj()
+               self.srl.write(encoder.compress(struct.pack('<I', 0x2001)))
+               self.srl.write(encoder.compress(bytes(translate_id(obj.data.name) + "\0",'latin-1')))
+               self.srl.write(encoder.compress(struct.pack('<QQ', vert_index, int(ntris/3))))
+               self.srl.write(encoder.compress(points.tostring()))
+               self.srl.write(encoder.compress(normals.tostring()))
+               if uv_layer:
+                  self.srl.write(encoder.compress(uvs.tostring()))
+               self.srl.write(encoder.compress(face_vert_indices.tostring()))
+               self.srl.write(encoder.flush())
+               
+               
+            except InvalidGeometryException as err:
+               MtsLog('Mesh export failed, skipping this mesh: %s' % err)
+         
+         del ffaces_mats
+         bpy.data.meshes.remove(mesh)
+         
+      except UnexportableObjectException as err:
+         MtsLog('Object export failed, skipping this object: %s' % err)
+
+   def isDupli(self, ob):
+      return ob.type == 'EMPTY' and ob.dupli_type != 'NONE'
+    
    def export(self, scene):
       if scene.mitsuba_engine.binary_path == '':
          MtsLog("Error: the Mitsuba binary path was not specified!")
          return False
 
       idx = 0
-      # Force scene update; NB, scene.update() doesn't work
-      scene.frame_set(scene.frame_current)
+      # Force scene update; NB, scene.update() doesn't work *** Why?
+      # scene.frame_set(scene.frame_current)
    
-      MtsLog('MtsBlend: Writing adjustments file to "%s"' % self.adj_filename)
+      MtsLog('MtsBlend: Writing Mitsuba xml scene file to "%s"' % self.xml_filename)
       if not self.writeHeader():
          return False
 
+      if not self.openSerialized():
+         return False
 
       isInstance = False
       InstanceOBJ=0
-      for obj in scene.objects:
+      renderableObjs = [ob for ob in scene.objects if self.isRenderable(scene, ob)]
+      for obj in renderableObjs:
          if obj.type == 'LAMP':
             self.exportLamp(scene, obj, idx)
-         elif obj.type == 'MESH':
-            self.exportNormalMode(obj)
+            
+         elif obj.type == 'EMPTY':
+            # handle duplis
+            if self.isDupli(obj):
+               obj.dupli_list_create(scene)
+               dupobs = [(dob.object, dob.matrix) for dob in obj.dupli_list]
+               for dupob, dupob_mat in dupobs:
+                  if self.isRenderable(scene, dupob):
+                     self.exportMesh(scene, dupob)
+               obj.dupli_list_clear()
+            
+         elif obj.type in ['MESH','CURVE','FONT']:
             #if len(obj.particle_systems) and obj.particle_systems[0].settings.dupli_object.type == 'MESH': #this if freaking not working :/
             #   isInstance = True
-             #  InstanceOBJ = obj
-            for mat in obj.data.materials:
-               self.exportMaterial(mat)
-            if len(obj.data.materials) > 0 and obj.data.materials[0] != None:
-               if obj.data.materials[0].mitsuba_emission.use_emission:
-                  self.exportEmission(obj)
-               mmat = obj.data.materials[0].mitsuba_material
-               if mmat.is_medium_transition:
-                  self.exportMediumReference(scene, obj, 'interior', mmat.interior_medium)
-                  self.exportMediumReference(scene, obj, 'exterior', mmat.exterior_medium)
+            #  InstanceOBJ = obj
+            self.exportMesh(scene, obj)
+            
          elif obj.type == 'CAMERA':
             self.exportCameraSettings(scene, obj)
-            #self.exportSampler(scene.mitsuba_sampler,obj)
+            
          idx = idx+1
       self.exportIntegrator(scene.mitsuba_integrator,scene.mitsuba_irrcache)
-      for obj in scene.objects:
-         if obj.type == 'MESH':
-            if self.renderVisibility(scene, obj) == False:
-               self.removeObj(obj)
       #self.exportSpaheGroup(InstanceOBJ)  #this will never ever ever work :/
+      self.closeSerialized()
       self.writeFooter()
-      (width, height) = resolution(scene)
       
-      MtsLog('MtsBlend: Writing COLLADA file to "%s"' % self.dae_filename)
-      scene.collada_export(self.dae_filename,apply_modifiers=True)
-
-      MtsLog("MtsBlend: Launching mtsimport")
-      command = ['mtsimport', '-r', '%dx%d' % (width, height),
-         '-n', '-l', 'ldrfilm', self.dae_filename, self.xml_filename, self.adj_filename]
-      if scene.mitsuba_integrator.motionblur:
-         command += ['-z']
-      process = MtsLaunch(scene.mitsuba_engine.binary_path,
-         self.output_directory, command);
-      if process.wait() != 0:
-         return False
       return True
