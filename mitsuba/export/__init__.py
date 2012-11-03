@@ -95,10 +95,10 @@ translate_name_map = list(map(chr, [
 
 
 class InvalidGeometryException(Exception):
-	pass
+   pass
 
 class UnexportableObjectException(Exception):
-	pass
+   pass
 
 
 
@@ -316,7 +316,7 @@ class MtsExporter:
             value += "%f " % trafo[j][i]  #2.62 matrix fix
       self.element('matrix', {'value' : value})
       self.closeElement()
-	  
+   
    def exportPoint(self, location):
       self.parameter('point', 'center', {'x' : location[0],'y' : location[1],'z' : location[2]})
 
@@ -726,9 +726,9 @@ class MtsExporter:
          material_indices = ffaces_mats.keys()
 
          if len(mesh.materials) > 0 and mesh.materials[0] != None:
-         	  mats = [(i, mat) for i, mat in enumerate(mesh.materials)]
+            mats = [(i, mat) for i, mat in enumerate(mesh.materials)]
          else:
-         	  mats = [(0, None)]
+            mats = [(0, None)]
          
          for i, mat in mats:
             try:
@@ -829,8 +829,18 @@ class MtsExporter:
                MtsLog('Serializing %s %d' %(translate_id(obj.data.name), self.mesh_index))
                self.srl.write(struct.pack('<HH', 0x041C, 0x0004))
                
+               # create flags
+               flags = 0
+               # turn on double precision
+               flags = flags | 0x2000
+               # turn on vertex normals
+               flags = flags | 0x0001
+               # turn on uv layer
+               if uv_layer:
+                  flags = flags | 0x0002
+               
                encoder = zlib.compressobj()
-               self.srl.write(encoder.compress(struct.pack('<I', 0x2001)))
+               self.srl.write(encoder.compress(struct.pack('<I', flags)))
                self.srl.write(encoder.compress(bytes(translate_id(obj.data.name) + "\0",'latin-1')))
                self.srl.write(encoder.compress(struct.pack('<QQ', vert_index, int(ntris/3))))
                self.srl.write(encoder.compress(points.tostring()))
@@ -852,7 +862,7 @@ class MtsExporter:
 
    def isDupli(self, ob):
       return ob.type == 'EMPTY' and ob.dupli_type != 'NONE'
-    
+   
    def export(self, scene):
       if scene.mitsuba_engine.binary_path == '':
          MtsLog("Error: the Mitsuba binary path was not specified!")
@@ -861,7 +871,7 @@ class MtsExporter:
       idx = 0
       # Force scene update; NB, scene.update() doesn't work *** Why?
       # scene.frame_set(scene.frame_current)
-   
+
       MtsLog('MtsBlend: Writing Mitsuba xml scene file to "%s"' % self.xml_filename)
       if not self.writeHeader():
          return False
