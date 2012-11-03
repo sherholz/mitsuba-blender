@@ -232,7 +232,7 @@ def MtsLaunch(mts_path, path, commandline):
    env = copy.copy(os.environ)
    env['LD_LIBRARY_PATH'] = mts_path
    commandline[0] = os.path.join(mts_path, commandline[0])
-   return subprocess.Popen(commandline, env = env, cwd = path)
+   return subprocess.Popen(commandline, env = env, cwd = path)    #, stdout=subprocess.PIPE)
 
 class MtsExporter:
    '''
@@ -662,25 +662,26 @@ class MtsExporter:
 
       self.closeElement()
 
-   def exportSpaheGroup(self, obj):
+   def exportSpaheGroup(self, obj_emitter, obj_particle):
       #obj - particle emmiter
       #obj.dupli_object.name- instance object duplicated by particle emitter
-      self.openElement('shape', {'id': '%s-shapeGroup'%obj.particle_systems[0].settings.dupli_object.name, 'type' : 'shapegroup'} )
-      self.element('ref', {'name' : 'shape', 'id' : '%s-mesh_0'%obj.particle_systems[0].settings.dupli_object.name})
+      self.openElement('shape', {'id': '%s-shapeGroup' % obj_particle.name, 'type' : 'shapegroup'} )
+      self.element('ref', {'name' : 'shape', 'id' : '%s-mesh_0' % obj_particle.name})
       self.closeElement()
-      for particle in obj.particle_systems[0].particles:
+      psys = obj_emitter.particle_systems[0]
+      for particle in psys.particles:
          self.openElement('shape', {'type' : 'instance'} )
-         self.element('ref', {'id' : '%s-shapeGroup'%obj.particle_systems[0].settings.dupli_object.name})
+         self.element('ref', {'id' : '%s-shapeGroup' % obj_particle.name})
          vecLoc = mathutils.Vector((particle.location[0], particle.location[1], particle.location[2]))
          quat = mathutils.Quaternion((particle.rotation[0], particle.rotation[1], particle.rotation[2], particle.rotation[3]))
          eulerMat = quat.to_euler().to_matrix()         
          vecScale = mathutils.Matrix.Scale(particle.size, 4)
-         matTran = obj.matrix_world*mathutils.Matrix.Translation(vecLoc)
+         matTran = obj_emitter.matrix_world*mathutils.Matrix.Translation(vecLoc)
          matScal = matTran*vecScale
          matFinal = matScal*eulerMat.to_4x4()
          self.exportWorldTrafo(matFinal)
          self.closeElement()
-      self.openElement('append', { 'id' : '%s-mesh_0'%obj.particle_systems[0].settings.dupli_object.name})
+      self.openElement('append', { 'id' : '%s-mesh_0' % obj_particle.name})
       self.openElement('transform', {'name' : 'toWorld'})
       self.element('matrix', {'value' : '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1'})
       self.closeElement()
@@ -710,7 +711,7 @@ class MtsExporter:
       self.srl.close()
 
    # Serialize Mesh for mitsuba, based on Lux geometry exporter
-   def exportMesh(self, scene, obj):
+   def exportMesh(self, scene, obj, passedObjectName = None, passedMatrix = None):
       try:
          mesh = obj.to_mesh(scene, True, 'RENDER')
          if mesh is None:
@@ -809,11 +810,20 @@ class MtsExporter:
                      self.exportMediumReference(scene, obj, 'interior', mmat.interior_medium)
                      self.exportMediumReference(scene, obj, 'exterior', mmat.exterior_medium)
                
+               # Generate a name for this object.
+               if passedObjectName == None:
+                  name_to_use = obj.name
+               else:
+                  name_to_use = passedObjectName
+                  
                # create shape xml
-               self.openElement('shape', { 'id' : translate_id(obj.data.name) + "-mesh_" + str(i), 'type' : 'serialized'})
+               self.openElement('shape', { 'id' : translate_id(name_to_use) + '-mesh_' + str(self.mesh_index), 'type' : 'serialized'})
                self.parameter('string', 'filename', {'value' : '%s' % self.srl_filename})
                self.parameter('integer', 'shapeIndex', {'value' : '%d' % self.mesh_index})
-               self.exportWorldTrafo(obj.matrix_world)
+               if passedMatrix == None:
+                  self.exportWorldTrafo(obj.matrix_world)
+               else:
+                  self.exportWorldTrafo(passedMatrix)
                if mat != None:
                   if mat.mitsuba_emission.use_emission:
                      self.exportEmission(obj)
@@ -826,7 +836,7 @@ class MtsExporter:
                # create serialized data
                self.mesh_index += 1
                self.mesh_offset.append(self.srl.tell())
-               MtsLog('Serializing %s %d' %(translate_id(obj.data.name), self.mesh_index))
+               MtsLog('Serializing %s %d' %(translate_id(name_to_use), self.mesh_index))
                self.srl.write(struct.pack('<HH', 0x041C, 0x0004))
                
                # create flags
@@ -841,7 +851,7 @@ class MtsExporter:
                
                encoder = zlib.compressobj()
                self.srl.write(encoder.compress(struct.pack('<I', flags)))
-               self.srl.write(encoder.compress(bytes(translate_id(obj.data.name) + "\0",'latin-1')))
+               self.srl.write(encoder.compress(bytes(translate_id(name_to_use) + "\0",'latin-1')))
                self.srl.write(encoder.compress(struct.pack('<QQ', vert_index, int(ntris/3))))
                self.srl.write(encoder.compress(points.tostring()))
                self.srl.write(encoder.compress(normals.tostring()))
@@ -860,6 +870,52 @@ class MtsExporter:
       except UnexportableObjectException as err:
          MtsLog('Object export failed, skipping this object: %s' % err)
 
+   # Atom's particle support (Taken from Pixie exporter). 10312012.
+   # Only export particles that are alive, 
+   # or have been born since the last frame
+   def valid_particle(self, pa, cfra):
+        return not (pa.birth_time > cfra or (pa.birth_time + pa.die_time) < cfra)
+
+   def get_particles(self, scene, ob, psys):
+        # Fetch the particles that are alive on this frame.
+        loc = []
+        rot = []
+        scale = []
+
+        cfra = scene.frame_current
+
+        # Atom 08152012.
+        # Slight revision to samples for hair.
+        for pa in [p for p in psys.particles if self.valid_particle(p, cfra)]:
+            position = pa.location
+            ok_to_use = False
+            if psys.settings.type == 'HAIR':
+                # Hair is always dead, so just forward the size.
+                ok_to_use = True
+                # Hair needs the scale of the emitter object for final size.
+                mult = (ob.scale[0]+ob.scale[1]+ob.scale[2])/3    #Rough estimate...
+                size = pa.size * mult
+                
+                # Hair particles must be offset in the z-axis by their hair length.
+                position[2] = pa.location[2] + 76    #76 is guestimate... #psys.settings.hair_length
+            else:        
+                if pa.alive_state != 'ALIVE':
+                    # Returning a zero for scale just messes up the transform matrix in Renderman.
+                    # Creates a singular matrix.
+                    # So there is no reason to add this particle.
+                    ok_to_use = False
+                else:
+                    size = pa.size
+                    ok_to_use = True
+                    
+            if ok_to_use == True:
+                loc.append(position )
+                rot.append(pa.rotation )
+                scale.append(size)
+            
+        return (loc, rot, scale)
+   # Atom end particle support code.
+    
    def isDupli(self, ob):
       return ob.type == 'EMPTY' and ob.dupli_type != 'NONE'
    
@@ -883,6 +939,7 @@ class MtsExporter:
       InstanceOBJ=0
       renderableObjs = [ob for ob in scene.objects if self.isRenderable(scene, ob)]
       for obj in renderableObjs:
+         #shouldExportParticles = False    # Default to NOT exporting particles.
          if obj.type == 'LAMP':
             self.exportLamp(scene, obj, idx)
             
@@ -897,17 +954,51 @@ class MtsExporter:
                obj.dupli_list_clear()
             
          elif obj.type in ['MESH','CURVE','FONT']:
-            #if len(obj.particle_systems) and obj.particle_systems[0].settings.dupli_object.type == 'MESH': #this if freaking not working :/
-            #   isInstance = True
-            #  InstanceOBJ = obj
-            self.exportMesh(scene, obj)
+            #Atom 10312012.
+            if len(obj.particle_systems):
+               # This object contains a particle system.
+               psys = obj.particle_systems[0]
+               if psys.settings.render_type == 'OBJECT':
+                  # Only support object type for now.
+                  ob_particle = psys.settings.dupli_object
+                  if ob_particle != None:
+                     # Use the particle name as the basis for all particles
+                     base_name = ob_particle.name
+                     
+                     # Fetch all the alive particles on this frame.
+                     loc, rot, scale = self.get_particles(scene, obj, psys)
+                     l = len(loc)    # Note: I am assuming all three lists are the same length.
+                     for n in range(l):
+                        # Create a matrix for this particle.
+                        vecLoc = mathutils.Vector((loc[n][0], loc[n][1], loc[n][2]))
+                        quat = mathutils.Quaternion((rot[n][0], rot[n][1], rot[n][2], rot[n][3]))
+                        eulerMat = quat.to_euler().to_matrix()         
+                        vecScale = mathutils.Matrix.Scale(scale[n], 4)
+                        matTran = obj.matrix_world*mathutils.Matrix.Translation(vecLoc)
+                        matScal = matTran*vecScale
+                        particle_matrix = matScal*eulerMat.to_4x4()
+
+                        # Rename the particle for this instance. (which is not really an instance, just another mesh).
+                        new_name = "%s_%04d" % (base_name,int(n))    # Name only supports up to 9,999 particles.
+
+                        # Now export our particle as an object whose mesh is derived from the particle source object.
+                        self.exportMesh(scene, ob_particle, new_name, particle_matrix)            # We need to export the particle source mesh.
+
+                  if psys.settings.use_render_emitter == True:
+                     # We need to export the emitter.
+                     self.exportMesh(scene, obj)
+            else:
+               # Export this object as a mesh.
+               self.exportMesh(scene, obj)
             
          elif obj.type == 'CAMERA':
             self.exportCameraSettings(scene, obj)
             
          idx = idx+1
       self.exportIntegrator(scene.mitsuba_integrator,scene.mitsuba_irrcache)
-      #self.exportSpaheGroup(InstanceOBJ)  #this will never ever ever work :/
+      #if shouldExportParticles == True:
+      #  print("Attempting to export particles.")
+      #  self.exportSpaheGroup(ob_particle)  #Atom 10312012.
       self.closeSerialized()
       self.writeFooter()
       
