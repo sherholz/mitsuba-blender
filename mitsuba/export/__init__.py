@@ -235,12 +235,6 @@ def MtsLaunch(mts_path, path, commandline):
    return subprocess.Popen(commandline, env = env, cwd = path)    #, stdout=subprocess.PIPE)
 
 class MtsExporter:
-   '''
-      Exports the scene using COLLADA and write additional information
-      to an "adjustments" file. Thim mechanism is used to capture 
-      any information that gets lost in translation when using the 
-      Blender COLLADA exporter.
-   '''
 
    def __init__(self, directory, filename, materials = None, textures = None):
       mts_basename = os.path.join(directory, filename)
@@ -250,11 +244,15 @@ class MtsExporter:
       self.xml_filename = mts_basename + ".xml"
       self.srl_filename = mts_basename + ".serialized"
       self.meshes_dir = os.path.join(directory, "meshes")
+      self.exported_cameras = []
+      self.exported_meshes = {}
       self.exported_materials = []
       self.exported_textures = []
       self.exported_media = []
       self.materials = materials if materials != None else bpy.data.materials
       self.textures = textures if textures != None else bpy.data.textures
+      self.hemi_lights = 0
+      self.shape_index = 0
       self.indent = 0
       self.stack = []
       if directory[-1] != '/':
@@ -373,6 +371,11 @@ class MtsExporter:
          objFile.write('f 4 3 2 1\n')
          objFile.close()
       elif ltype == 'SUN':
+         # sun is considered hemi light by Mitsuba
+         if self.hemi_lights >= 1:
+            # Mitsuba supports only one hemi light
+            return False
+         self.hemi_lights += 1
          invmatrix = lamp.matrix_world
          skyType = lamp.data.mitsuba_lamp.mitsuba_lamp_sun.sunsky_type
          LampParams = getattr(lamp.data.mitsuba_lamp, 'mitsuba_lamp_sun' ).get_paramset(lamp)
@@ -407,6 +410,10 @@ class MtsExporter:
             self.element('ref', {'id' : lamp.data.mitsuba_lamp.lamp_medium})
          self.closeElement()
       elif ltype == 'HEMI':
+         if self.hemi_lights >= 1:
+            # Mitsuba supports only one hemi light
+            return False
+         self.hemi_lights += 1
          if lamp.data.mitsuba_lamp.envmap_type == 'constant':
             self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'constant'})
             self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.data.mitsuba_lamp.samplingWeight})
@@ -581,6 +588,9 @@ class MtsExporter:
       self.closeElement()
 
    def exportCameraSettings(self, scene, camera):
+      if camera.name in self.exported_cameras:
+         return
+      self.exported_cameras += [camera.name]
       mcam = camera.data.mitsuba_camera
       cam = camera.data
       # detect sensor type
@@ -710,8 +720,60 @@ class MtsExporter:
       self.srl.write(struct.pack('<I', self.mesh_index))
       self.srl.close()
 
+   def exportShapeGroup(self, scene, object, data):
+      group_id = translate_id(data['id']) + '-shapeGroup_' + str(self.shape_index)
+      obj = object['obj']
+      object['mtx'] = obj.matrix_world
+
+      self.openElement('shape', { 'id' : group_id, 'type' : 'shapegroup'})
+      self.exportShape(scene, object, data)
+      self.closeElement()
+      return group_id
+      
+   def exportInstance(self, scene, object, data):
+      obj = object['obj']
+      mtx = object['mtx']
+      
+      self.openElement('shape', { 'id' : translate_id(data['id']) + '-instance_' + str(self.shape_index), 'type' : 'instance'})
+      self.element('ref', {'id' : data['group_id']})
+      if mtx == None:
+         self.exportWorldTrafo(obj.matrix_world)
+      else:
+         self.exportWorldTrafo(mtx)
+      self.closeElement()
+      
+      self.shape_index += 1
+      
+   def exportShape(self, scene, object, data):
+      obj = object['obj']
+      mtx = object['mtx']
+      
+      self.openElement('shape', { 'id' : translate_id(data['id']) + '-shape_' + str(self.shape_index), 'type' : 'serialized'})
+      self.parameter('string', 'filename', {'value' : self.srl_filename})
+      self.parameter('integer', 'shapeIndex', {'value' : data['shapeIndex']})
+      if mtx == None:
+         self.exportWorldTrafo(obj.matrix_world)
+      else:
+         self.exportWorldTrafo(mtx)
+      if data['material'] != None:
+         if data['material'].mitsuba_emission.use_emission:
+            self.exportEmission(obj)
+         else:
+            self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % translate_id(data['material'].name)})
+      if obj.data.mitsuba_mesh.normals == 'facenormals':
+         self.parameter('boolean', 'faceNormals', {'value' : 'true'})
+      self.closeElement()
+      
+      self.shape_index += 1
+      
    # Serialize Mesh for mitsuba, based on Lux geometry exporter
-   def exportMesh(self, scene, obj, passedObjectName = None, passedMatrix = None):
+   def exportMesh(self, scene, obj, passedObjectName = None, passedMatrix = None):        
+      if obj.data.name in self.exported_meshes:
+         self.exported_meshes[obj.data.name]['objects'] += [{'obj' : obj, 'mtx' : passedMatrix}]
+         return False
+      else:
+         self.exported_meshes[obj.data.name] = {'meshes' : [], 'objects' : [{'obj' : obj, 'mtx' : passedMatrix}]}
+      
       try:
          mesh = obj.to_mesh(scene, True, 'RENDER')
          if mesh is None:
@@ -815,23 +877,13 @@ class MtsExporter:
                   name_to_use = obj.name
                else:
                   name_to_use = passedObjectName
-                  
-               # create shape xml
-               self.openElement('shape', { 'id' : translate_id(name_to_use) + '-mesh_' + str(self.mesh_index), 'type' : 'serialized'})
-               self.parameter('string', 'filename', {'value' : '%s' % self.srl_filename})
-               self.parameter('integer', 'shapeIndex', {'value' : '%d' % self.mesh_index})
-               if passedMatrix == None:
-                  self.exportWorldTrafo(obj.matrix_world)
-               else:
-                  self.exportWorldTrafo(passedMatrix)
-               if mat != None:
-                  if mat.mitsuba_emission.use_emission:
-                     self.exportEmission(obj)
-                  else:
-                     self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % translate_id(mesh.materials[i].name)})
-               if obj.data.mitsuba_mesh.normals == 'facenormals':
-                  self.parameter('boolean', 'faceNormals', {'value' : 'true'})
-               self.closeElement()
+               
+               # Store a list of exported meshes for later use to export shapes
+               self.exported_meshes[obj.data.name]['meshes'] += [{
+                  'loop' : i,
+                  'id' : translate_id(name_to_use),
+                  'shapeIndex' : self.mesh_index,
+                  'material' : mat}]
                
                # create serialized data
                self.mesh_index += 1
@@ -839,7 +891,7 @@ class MtsExporter:
                MtsLog('Serializing %s %d' %(translate_id(name_to_use), self.mesh_index))
                self.srl.write(struct.pack('<HH', 0x041C, 0x0004))
                
-               # create flags
+               # create mesh flags
                flags = 0
                # turn on double precision
                flags = flags | 0x2000
@@ -849,6 +901,7 @@ class MtsExporter:
                if uv_layer:
                   flags = flags | 0x0002
                
+               # encode serialized mesh
                encoder = zlib.compressobj()
                self.srl.write(encoder.compress(struct.pack('<I', flags)))
                self.srl.write(encoder.compress(bytes(translate_id(name_to_use) + "\0",'latin-1')))
@@ -916,17 +969,26 @@ class MtsExporter:
         return (loc, rot, scale)
    # Atom end particle support code.
     
-   def isDupli(self, ob):
-      return ob.type == 'EMPTY' and ob.dupli_type != 'NONE'
-   
+   def exportDuplis(self, scene, obj):
+      obj.dupli_list_create(scene)
+
+      if obj.dupli_type == 'GROUP':
+         group_offset = obj.dupli_group.dupli_offset
+         offset_vector = mathutils.Vector((-group_offset[0], -group_offset[1], -group_offset[2]))
+         dupobs = [(dob.object, obj.matrix_world * mathutils.Matrix.Translation(offset_vector) * dob.matrix_original) for dob in obj.dupli_list]
+      elif obj.dupli_type in ['FACES', 'VERTS']:
+         parent_matrix = obj.matrix_world.copy()
+         dupobs = [(dob.object, obj.matrix_parent_inverse * dob.matrix) for dob in obj.dupli_list]
+      for dupob, dupob_mat in dupobs:
+         if self.isRenderable(scene, dupob):
+            self.exportMesh(scene, dupob, None, dupob_mat)
+      
+      obj.dupli_list_clear()
+
    def export(self, scene):
       if scene.mitsuba_engine.binary_path == '':
          MtsLog("Error: the Mitsuba binary path was not specified!")
          return False
-
-      idx = 0
-      # Force scene update; NB, scene.update() doesn't work *** Why?
-      # scene.frame_set(scene.frame_current)
 
       MtsLog('MtsBlend: Writing Mitsuba xml scene file to "%s"' % self.xml_filename)
       if not self.writeHeader():
@@ -935,23 +997,31 @@ class MtsExporter:
       if not self.openSerialized():
          return False
 
+      cam_idx = 0
+      # Always export all Cameras, active camera last
+      allCameras = [cam for cam in scene.objects if cam.type == 'CAMERA' and cam.name != scene.camera.name]
+      for camera in allCameras:
+         self.exportCameraSettings(scene, camera)
+      self.exportCameraSettings(scene, scene.camera)
+
+      lamp_idx = 0
+      # Get all renderable LAMPS
+      renderableLamps = [lmp for lmp in scene.objects if self.isRenderable(scene, lmp) and lmp.type == 'LAMP']
+      for lamp in renderableLamps:
+         self.exportLamp(scene, lamp, lamp_idx)
+         lamp_idx += 1
+
+      obj_idx = 0
       isInstance = False
       InstanceOBJ=0
-      renderableObjs = [ob for ob in scene.objects if self.isRenderable(scene, ob)]
+      # Get all renderable objects of type EMPTY, MESH, CURVE and FONT
+      renderableObjs = [ob for ob in scene.objects if self.isRenderable(scene, ob) and ob.type in ['EMPTY', 'MESH', 'CURVE', 'FONT'] ]
       for obj in renderableObjs:
          #shouldExportParticles = False    # Default to NOT exporting particles.
-         if obj.type == 'LAMP':
-            self.exportLamp(scene, obj, idx)
-            
-         elif obj.type == 'EMPTY':
-            # handle duplis
-            if self.isDupli(obj):
-               obj.dupli_list_create(scene)
-               dupobs = [(dob.object, dob.matrix) for dob in obj.dupli_list]
-               for dupob, dupob_mat in dupobs:
-                  if self.isRenderable(scene, dupob):
-                     self.exportMesh(scene, dupob)
-               obj.dupli_list_clear()
+         if obj.type == 'EMPTY':
+            # Handle EMPTY with type GROUP duplis
+            if obj.dupli_type == 'GROUP':
+               self.exportDuplis(scene, obj)
             
          elif obj.type in ['MESH','CURVE','FONT']:
             #Atom 10312012.
@@ -988,13 +1058,29 @@ class MtsExporter:
                      # We need to export the emitter.
                      self.exportMesh(scene, obj)
             else:
-               # Export this object as a mesh.
-               self.exportMesh(scene, obj)
-            
-         elif obj.type == 'CAMERA':
-            self.exportCameraSettings(scene, obj)
-            
-         idx = idx+1
+               if obj.dupli_type != 'NONE':
+                  self.exportDuplis(scene, obj)
+               else:
+                  if obj.parent != None and obj.parent.dupli_type != 'NONE':
+                     # Skip if current object has a parent and the parent has duplis
+                     continue
+                  # Export this object as a mesh.
+                  self.exportMesh(scene, obj)
+
+         obj_idx += 1
+      
+      # Now export the shape nodes collected when exporting the meshes and materials
+      for mesh_name, mesh_group in self.exported_meshes.items():
+         for mesh_data in mesh_group['meshes']:
+            if len(mesh_group['objects']) == 1:
+               self.exportShape(scene, mesh_group['objects'][0], mesh_data)
+            elif len(mesh_group['objects']) > 1:
+               # Shape Groups and Instances are not exported yet, for now they are exported as independent shapes
+               #group_id = self.exportShapeGroup(scene, mesh_group['objects'][0], mesh_data)
+               for mesh_obj in mesh_group['objects']:
+                  #self.exportInstance(scene, mesh_obj, mesh_data)
+                  self.exportShape(scene, mesh_obj, mesh_data)
+         
       self.exportIntegrator(scene.mitsuba_integrator,scene.mitsuba_irrcache)
       #if shouldExportParticles == True:
       #  print("Attempting to export particles.")
