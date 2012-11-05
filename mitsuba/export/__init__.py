@@ -821,10 +821,14 @@ class MtsExporter:
                   for j, vertex in enumerate(face.vertices):
                      v = mesh.vertices[vertex]
                      
+                     if uv_layer:
+                        # Flip UV Y axis. Blender UV coord is bottom-left, Mitsuba is top-left.
+                        uv_coord = (uv_layer[face.index].uv[j][0], 1.0 - uv_layer[face.index].uv[j][1])
+                        
                      if face.use_smooth:
                         
                         if uv_layer:
-                           vert_data = (v.co[:], v.normal[:], uv_layer[face.index].uv[j][:] )
+                           vert_data = (v.co[:], v.normal[:], uv_coord )
                         else:
                            vert_data = (v.co[:], v.normal[:], tuple() )
                         
@@ -847,7 +851,7 @@ class MtsExporter:
                         # cache them
                         points.extend( v.co[:] )
                         normals.extend( face.normal[:] )
-                        if uv_layer: uvs.extend( uv_layer[face.index].uv[j][:] )
+                        if uv_layer: uvs.extend( uv_coord )
                         
                         fvi.append(vert_index)
                         
