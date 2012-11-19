@@ -321,14 +321,10 @@ class SceneExporter:
 		if twosided:
 			self.closeElement()
 
-	def exportEmission(self, obj):
-		lamp = obj.data.materials[0].mitsuba_emission
-		if obj.data.users > 1:
-			MtsLog("Error: emitters cannot be instantiated!")
-			return
+	def exportEmission(self, ob_mat):
+		lamp = ob_mat.mitsuba_emission
 		mult = lamp.intensity
-		name = translate_id(obj.data.name) + "-mesh_0"
-		self.openElement('emitter', { 'id' : '%s-emission' % name, 'type' : 'area'})
+		self.openElement('emitter', { 'type' : 'area'})
 		self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.samplingWeight})
 		self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
 				% (lamp.color.r*mult, lamp.color.g*mult, lamp.color.b*mult)})
