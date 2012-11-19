@@ -330,8 +330,7 @@ class GeometryExporter(object):
 						shape_params
 					)
 					# Only export Shapegroup and cache this mesh_definition if we plan to use instancing
-					if self.allow_instancing(obj):
-						self.exportShapeDefinition(obj, mesh_definition)
+					if self.allow_instancing(obj) and self.exportShapeDefinition(obj, mesh_definition):
 						shape_params = ParamSet().add_reference(
 							'id',
 							'',
@@ -542,8 +541,7 @@ class GeometryExporter(object):
 						shape_params
 					)
 					# Only export Shapegroup and cache this mesh_definition if we plan to use instancing
-					if self.allow_instancing(obj):
-						self.exportShapeDefinition(obj, mesh_definition)
+					if self.allow_instancing(obj) and self.exportShapeDefinition(obj, mesh_definition):
 						shape_params = ParamSet().add_reference(
 							'id',
 							'',
@@ -610,7 +608,7 @@ class GeometryExporter(object):
 			if ob_mat != None and not ob_mat.mitsuba_emission.use_emission:
 				self.mts_context.exportMaterial(ob_mat)
 			else:
-				return false
+				return False
 			#mmat = ob_mat.mitsuba_material
 			#if mmat.is_medium_transition:
 			#	self.exportMediumReference(scene, obj, 'interior', mmat.interior_medium)
@@ -630,6 +628,7 @@ class GeometryExporter(object):
 		self.mts_context.closeElement()
 		
 		MtsLog('Mesh definition exported: %s' % me_name)
+		return True
 			
 	def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None):
 		
@@ -669,7 +668,7 @@ class GeometryExporter(object):
 			
 			if ob_mat != None and me_shape_type != 'instance':
 				if ob_mat.mitsuba_emission.use_emission:
-					self.mts_context.exportEmission(obj)
+					self.mts_context.exportEmission(ob_mat)
 				else:
 					self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % translate_id(ob_mat.name)})
 			self.mts_context.closeElement()
