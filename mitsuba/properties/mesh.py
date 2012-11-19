@@ -26,6 +26,7 @@ class mitsuba_mesh(declarative_property_group):
 	ef_attach_to = ['Mesh', 'SurfaceCurve', 'TextCurve', 'Curve']
 
 	controls = [
+		'mesh_type',
 		'normals'
 	]
 
@@ -33,6 +34,17 @@ class mitsuba_mesh(declarative_property_group):
 	}
 
 	properties = [
+		{
+			'type': 'enum',
+			'attr': 'mesh_type',
+			'name': 'Export as',
+			'items': [
+				('global', 'Use default setting', 'global'),
+				('native', 'Serialized mesh', 'native'),
+				('binary_ply', 'Binary PLY', 'binary_ply')
+			],
+			'default': 'global'
+		},
 		{
 			'type': 'enum',
 			'attr': 'normals',

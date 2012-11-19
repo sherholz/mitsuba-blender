@@ -27,7 +27,7 @@ from extensions_framework import util as efutil
 
 from .. import MitsubaAddon
 from ..outputs import MtsLog
-from ..export import MtsExporter
+from ..export.scene import SceneExporter
 
 class MITSUBA_MT_base(bpy.types.Menu):
 	preset_operator = "script.execute_preset"
@@ -137,7 +137,7 @@ class EXPORT_OT_mitsuba(bpy.types.Operator):
 			else:
 				scene = bpy.data.scenes[self.properties.scene]
 
-			result = MtsExporter(
+			result = SceneExporter(
 				directory = self.properties.directory,
 				filename = self.properties.filename).export(scene)
 

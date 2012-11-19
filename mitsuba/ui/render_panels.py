@@ -149,3 +149,12 @@ class sampler(render_panel, bpy.types.Panel):
 		( ('scene',), 'mitsuba_sampler' )
 	]
 
+@MitsubaAddon.addon_register_class
+class testing(render_panel):
+	bl_label = 'Mitsuba Test/Debugging Options'
+	bl_options = {'DEFAULT_CLOSED'}
+	
+	display_property_groups = [
+		( ('scene',), 'mitsuba_testing' )
+	]
+

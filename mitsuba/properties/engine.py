@@ -22,6 +22,30 @@ from extensions_framework import declarative_property_group
 from extensions_framework import util as efutil
 
 @MitsubaAddon.addon_register_class
+class mitsuba_testing(declarative_property_group):
+	"""
+	Properties related to exporter and scene testing
+	"""
+	
+	ef_attach_to = ['Scene']
+	
+	controls = [
+		'object_analysis',
+	]
+	
+	visibility = {}
+	
+	properties = [
+		{
+			'type': 'bool',
+			'attr': 'object_analysis',
+			'name': 'Debug: print object analysis',
+			'description': 'Show extra output as objects are processed',
+			'default': False
+		},
+	]
+
+@MitsubaAddon.addon_register_class
 class mitsuba_engine(declarative_property_group):
 	ef_attach_to = ['Scene']
 
@@ -29,6 +53,8 @@ class mitsuba_engine(declarative_property_group):
 		'export_mode',
 		'render_mode',
 		'binary_path',
+		'mesh_type',
+		'partial_export',
 		'refresh_interval'
 	]
 
@@ -69,6 +95,26 @@ class mitsuba_engine(declarative_property_group):
 			'name': 'Executable path',
 			'description': 'Path to the Mitsuba install',
 			'default': efutil.find_config_value('mitsuba', 'defaults', 'binary_path', '')
+		},
+		{
+			'type': 'enum',
+			'attr': 'mesh_type',
+			'name': 'Default mesh format',
+			'description': 'Sets whether to export scene geometry as Serialized or PLY files. Serialized is faster and recommended',
+			'items': [
+				('native', 'Serialized mesh', 'native'),
+				('binary_ply', 'Binary PLY', 'binary_ply')
+			],
+			'default': 'native',
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'partial_export',
+			'name': 'Partial Mesh Export',
+			'description': 'Skip exporting Mesh files that already exist. Try disabling this if you have geometry issues',
+			'default': False,
+			'save_in_preset': True
 		},
 		{
 			'type': 'int',
