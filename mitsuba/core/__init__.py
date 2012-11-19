@@ -29,7 +29,8 @@ from .. import MitsubaAddon, plugin_path
 
 from ..outputs import MtsLog, MtsFilmDisplay
 from ..export import (get_instance_materials, 
-		resolution, MtsLaunch, MtsExporter)
+		resolution, MtsLaunch)
+from ..export.scene import SceneExporter
 
 from ..properties import (
 	engine, sampler, integrator, lamp, texture,
@@ -134,7 +135,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			MtsLog('MtsBlend: Current directory = "%s"' % output_dir)
 			output_basename = efutil.scene_filename() + '.%s.%05i' % (scene.name, scene.frame_current)
 
-			result = MtsExporter(
+			result = SceneExporter(
 				directory = output_dir,
 				filename = output_basename,
 			).export(scene)
@@ -214,7 +215,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			"matpreview"), "matpreview.xml")
 		MtsLog('Scene path: %s'%scene_file)
 		pm = likely_materials[0]
-		exporter = MtsExporter(tempdir, matfile,
+		exporter = SceneExporter(tempdir, matfile,
 			bpy.data.materials, bpy.data.textures)
 		exporter.adj_filename = os.path.join(tempdir, matfile)
 		if not exporter.writeHeader():
