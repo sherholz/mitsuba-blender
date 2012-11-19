@@ -498,6 +498,8 @@ class SceneExporter:
 		if not self.writeHeader():
 			return False
 
+		self.exportIntegrator(scene.mitsuba_integrator,scene.mitsuba_irrcache)
+
 		cam_idx = 0
 		# Always export all Cameras, active camera last
 		allCameras = [cam for cam in scene.objects if cam.type == 'CAMERA' and cam.name != scene.camera.name]
