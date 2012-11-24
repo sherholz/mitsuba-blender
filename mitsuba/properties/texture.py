@@ -364,7 +364,7 @@ class mitsuba_texture(declarative_property_group):
 			'items': [
 				('bitmap', 'Bitmap', 'Low dynamic-range texture'),
 				('checkerboard', 'Checkerboard', 'Procedural checkerboard texture'),
-				('checkerboard', 'Grid texture', 'Procedural grid texture'),
+				('gridtexture', 'Grid texture', 'Procedural grid texture'),
 				('wireframe', 'Wireframe texture', 'Wireframe texture')
 			],
 			'default' : 'bitmap',
@@ -615,7 +615,7 @@ class mitsuba_tex_scale(declarative_property_group):
 		return params
 		
 @MitsubaAddon.addon_register_class
-class mitsuba_tex_checkerboard(declarative_property_group):
+class mitsuba_tex_gridtexture(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
 
 	controls = [

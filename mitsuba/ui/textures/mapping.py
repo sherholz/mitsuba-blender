@@ -25,7 +25,7 @@ from ...ui.textures import mitsuba_texture_base
 class ui_texture_mapping(mitsuba_texture_base, bpy.types.Panel):
 	bl_label = 'Mitsuba UV Mapping'
 
-	MTS_COMPAT = {'bitmap', 'checkerboard', 'checkerboard'}
+	MTS_COMPAT = {'bitmap', 'checkerboard', 'gridtexture'}
 
 	display_property_groups = [
 		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_mapping' )
