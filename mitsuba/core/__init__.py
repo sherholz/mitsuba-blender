@@ -43,7 +43,7 @@ from ..ui import (
 )
 
 from ..ui.textures import (
-	main, bitmap, checkerboard, checkerboard, mapping, scale, wireframe
+	main, bitmap, checkerboard, gridtexture, mapping, scale, wireframe
 )
 
 from ..ui.materials import (
