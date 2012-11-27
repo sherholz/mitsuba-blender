@@ -635,6 +635,17 @@ class GeometryExporter(object):
 		# Don't export empty definitions
 		if len(mesh_definitions) < 1: return
 		
+		# Let's test if matrix can be inverted, don't export singular matrix
+		try:
+			if matrix is not None:
+				test_matrix = matrix[0].copy()
+			else:
+				test_matrix = obj.matrix_world.copy()
+			test_inverted = test_matrix.copy().invert()
+		except ValueError:
+			MtsLog('WARNING: skipping export of singular matrix in object "%s" - "%s"!' %(obj.name,mesh_definitions[0][0]))
+			return
+			
 		for me_name, me_mat_index, me_shape_type, me_shape_params in mesh_definitions:
 			
 			if parent != None:
