@@ -51,8 +51,11 @@ class layers(render_panel):
 		rd = scene.render
 
 		row = layout.row()
-		row.template_list(rd, "layers", rd.layers, "active_index", rows=2)
-
+		if bpy.app.version < (2, 65, 3 ):
+			row.template_list(rd, "layers", rd.layers, "active_index", rows=2)
+		else:
+			row.template_list("RENDER_UL_renderlayers", "", rd, "layers", rd, "active_index", rows=2)
+		col = row.column(align=True)
 		col = row.column(align=True)
 		col.operator("scene.render_layer_add", icon='ZOOMIN', text="")
 		col.operator("scene.render_layer_remove", icon='ZOOMOUT', text="")
