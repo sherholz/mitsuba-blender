@@ -56,7 +56,7 @@ from .. import operators
 
 def _register_elm(elm, required=False):
 	try:
-		elm.COMPAT_ENGINES.add(MitsubaAddon.BL_IDNAME)
+		elm.COMPAT_ENGINES.add('MITSUBA_RENDER')
 	except:
 		pass
 
@@ -64,7 +64,7 @@ def compatible(mod):
 	mod = getattr(bl_ui, mod)
 	for subclass in mod.__dict__.values():
 		try:
-			subclass.COMPAT_ENGINES.add(MitsubaAddon.BL_IDNAME)
+			subclass.COMPAT_ENGINES.add('MITSUBA_RENDER')
 		except:
 			pass
 	del mod
@@ -77,7 +77,7 @@ _register_elm(bl_ui.properties_render.RENDER_PT_output)
 # Add Mitsuba dof elements to blender dof panel
 def mits_use_dof(self, context):
 
-	if context.scene.render.engine == MitsubaAddon.BL_IDNAME:
+	if context.scene.render.engine == 'MITSUBA_RENDER':
 		row = self.layout.row()
 
 		row.prop(context.camera.mitsuba_camera, "useDOF", text="Use Depth of Field")
@@ -93,7 +93,7 @@ compatible("properties_particle")
 
 @MitsubaAddon.addon_register_class
 class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
-	bl_idname			= MitsubaAddon.BL_IDNAME
+	bl_idname			= 'MITSUBA_RENDER'
 	bl_label			= 'Mitsuba'
 	bl_use_preview      = True
 

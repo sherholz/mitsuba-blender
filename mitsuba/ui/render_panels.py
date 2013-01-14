@@ -28,7 +28,7 @@ class render_panel(bl_ui.properties_render.RenderButtonsPanel, property_group_re
 	Base class for render engine settings panels
 	'''
 	
-	COMPAT_ENGINES = { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES = { 'MITSUBA_RENDER' }
 
 @MitsubaAddon.addon_register_class
 class layers(render_panel):

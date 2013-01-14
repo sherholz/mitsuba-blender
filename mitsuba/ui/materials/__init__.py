@@ -38,7 +38,7 @@ def copy(value):
 		raise Exception("Copy: don't know how to handle '%s'" % str(vlaue))
 
 class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES	= { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 	MTS_PROPS	   = ['type']
 
 	def validate(self, context):
@@ -73,7 +73,7 @@ class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, prop
 		return mat.mitsuba_material
 
 class mitsuba_material_sub(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES	= { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 	MTS_COMPAT		= set()
 	MTS_PROPS	   = []
 
@@ -120,7 +120,7 @@ class mitsuba_material_sub(bl_ui.properties_material.MaterialButtonsPanel, prope
 @MitsubaAddon.addon_register_class
 class MATERIAL_PT_preview_mts(bl_ui.properties_material.MaterialButtonsPanel, bpy.types.Panel):
 	bl_label = "Preview"
-	COMPAT_ENGINES	= { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 
 	def draw(self, context):
 		if not hasattr(context, 'material'):
@@ -147,7 +147,7 @@ class MATERIAL_PT_preview_mts(bl_ui.properties_material.MaterialButtonsPanel, bp
 class MATERIAL_PT_context_material_mts(bl_ui.properties_material.MaterialButtonsPanel, bpy.types.Panel):
 	bl_label = ""
 	bl_options = {'HIDE_HEADER'}
-	COMPAT_ENGINES	= { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 
 	@classmethod
 	def poll(cls, context):
