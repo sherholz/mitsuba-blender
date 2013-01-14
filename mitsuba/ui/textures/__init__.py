@@ -26,7 +26,7 @@ from ... import MitsubaAddon
 class TEXTURE_PT_context_texture_mts(bl_ui.properties_texture.TextureButtonsPanel, bpy.types.Panel):
 	bl_label = ""
 	bl_options = {'HIDE_HEADER'}
-	COMPAT_ENGINES	= { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 
 	@classmethod
 	def poll(cls, context):
@@ -78,7 +78,7 @@ class mitsuba_texture_base(bl_ui.properties_texture.TextureButtonsPanel, propert
 	This is the base class for all Mitsuba texture sub-panels.
 	'''
 	
-	COMPAT_ENGINES	= { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 	MTS_COMPAT		= set()
 
 	@classmethod

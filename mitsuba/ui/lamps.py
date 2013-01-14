@@ -25,7 +25,7 @@ from extensions_framework.ui import property_group_renderer
 narrowui = 180
 
 class lamps_panel(bl_ui.properties_data_lamp.DataButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES = { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES = { 'MITSUBA_RENDER' }
 	
 @MitsubaAddon.addon_register_class
 class lamps(lamps_panel):

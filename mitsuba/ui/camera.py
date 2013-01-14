@@ -23,7 +23,7 @@ from .. import MitsubaAddon
 from extensions_framework.ui import property_group_renderer
 
 class world_panel(bl_ui.properties_data_camera.CameraButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES = { MitsubaAddon.BL_IDNAME }
+	COMPAT_ENGINES = { 'MITSUBA_RENDER' }
 
 @MitsubaAddon.addon_register_class
 class camera(world_panel):
