@@ -136,7 +136,6 @@ class ColorTextureParameter(TextureParameterBase):
 		'roughplastic': 'diffuseReflectance',
 		'plastic': 'diffuseReflectance',
 		'conductor': 'specularReflectance',
-		#'mirror': 'specularReflectance',
 		'dielectric': 'specularReflectance',
 		'roughdielectric': 'specularReflectance',
 		'roughconductor': 'specularReflectance'

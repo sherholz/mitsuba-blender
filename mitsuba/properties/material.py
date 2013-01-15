@@ -67,7 +67,6 @@ mat_names = {
 	'mask' : 'Opacity mask',
 	'dipole': 'Dipole BRDF',
 	'bump' : 'Bump mapping',
-	'rmbrdf' : 'random medium BRDF',
 	'coating' : 'Smooth dielectric coating',
 	'roughcoating': 'Rought dielectirc coating',
 	'ward' : 'Anisotropic Ward',
@@ -130,7 +129,7 @@ class mitsuba_material(declarative_property_group):
 	]
 
 	visibility = {
-		'twosided' : { 'type' : O(['diffuse', 'hk',  'roughdiffuse', 'mask', 'phong','dipolebrdf', 'rmbrdf', 'ward',
+		'twosided' : { 'type' : O(['diffuse', 'hk',  'roughdiffuse', 'mask', 'phong', 'ward',
 			'conductor', 'roughconductor', 'roughplastic', 'plastic', 'coating', 'roughcoating', 'mixturebsdf','blendbsdf'])},
 		'exterior' : { 'is_medium_transition' : True },
 		'interior' : { 'is_medium_transition' : True }
@@ -635,103 +634,6 @@ class mitsuba_mat_mask(declarative_property_group):
 		params.add_reference('material', "bsdf", getattr(self, "ref_name"))
 		return params
 		
-@MitsubaAddon.addon_register_class
-class mitsuba_mat_rmbrdf(declarative_property_group):
-	ef_attach_to = ['mitsuba_material']
-	controls = [
-		'material',
-		'useAlbSigmaT'
-	] +  param_scattCoeff.controls + param_absorptionCoefficient.controls + param_extinctionCoeff.controls + param_albedo.controls + [
-		'extIOR',
-		'intIOR',
-		'g',
-		'alpha',
-	]
-	
-	properties = [
-		{
-			'type': 'string',
-			'attr': 'material',
-			'name': 'Preset name',
-			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
-			'default': '',
-			'save_in_preset': True
-		},
-		{			
-			'type': 'bool',
-			'attr': 'useAlbSigmaT',
-			'name': 'Use Albedo&SigmaT',
-			'description': 'Use Albedo&SigmaT instead SigmatS&SigmaA',
-			'default': False,
-			'save_in_preset': True
-		},
-		{
-			'attr': 'extIOR',
-			'type': 'float',
-			'name' : 'Ext. IOR',
-			'description' : 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		},
-		{
-			'attr': 'intIOR',
-			'type': 'float',
-			'name' : 'Int. IOR',
-			'description' : 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1.5,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		},
-		{
-			'attr': 'g',
-			'type': 'float',
-			'name' : 'Phase function',
-			'description' : 'Phase function',
-			'default' : 0.0,
-			'min': -1.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
-		{
-			'attr': 'alpha',
-			'type': 'float',
-			'name' : 'alpha',
-			'description' : 'roughness of the unresolved surface micro-geometry',
-			'default' : 0.2,
-			'min': 0.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
-	] + param_scattCoeff.properties + param_absorptionCoefficient.properties + param_extinctionCoeff.properties + param_albedo.properties
-	
-	visibility = dict_merge(param_scattCoeff.visibility, param_absorptionCoefficient.visibility,param_extinctionCoeff.visibility, param_albedo.visibility)
-
-	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'useAlbSigmaT': True })
-	visibility = texture_append_visibility(visibility, param_albedo, { 'useAlbSigmaT': True })
-	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'useAlbSigmaT': False })
-	
-	def get_params(self):
-		params = ParamSet()
-		if self.material=='':
-			if self.useAlbSigmaT != True:
-				params.update(param_scattCoeff.get_params(self))
-				params.update(param_absorptionCoefficient.get_params(self))
-				params.add_float('intIOR', self.intIOR)
-			else:
-				params.update(param_extinctionCoeff.get_params(self))
-				params.update(param_albedo.get_params(self))
-				params.add_float('intIOR', self.intIOR)
-		else:
-			params.add_string('material', self.material)
-		params.add_float('extIOR', self.extIOR)
-		params.add_float('g', self.g)
-		params.add_float('alpha', self.alpha)
-		return params
-
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_hk(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
