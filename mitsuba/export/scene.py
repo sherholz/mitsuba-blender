@@ -292,7 +292,7 @@ class SceneExporter:
 		params = mmat.get_params()
 		twosided = False
 
-		if mmat.twosided and mmat.type in ['diffuse', 'roughdiffuse', 'phong', 'irawan', 'mask', 'dipole', 'bump',  'rmbrdf', 'ward', 
+		if mmat.twosided and mmat.type in ['diffuse', 'roughdiffuse', 'phong', 'irawan', 'mask', 'dipole', 'bump', 'ward', 
 				'conductor', 'roughconductor', 'roughplastic', 'plastic', 'coating', 'roughcoating', 'mixturebsdf','blendbsdf', 'dielectric', 'thindielectric', 'roughdielectric']:
 			twosided = True
 		
