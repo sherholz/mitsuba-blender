@@ -56,7 +56,6 @@ class layers(render_panel):
 		else:
 			row.template_list("RENDER_UL_renderlayers", "", rd, "layers", rd, "active_index", rows=2)
 		col = row.column(align=True)
-		col = row.column(align=True)
 		col.operator("scene.render_layer_add", icon='ZOOMIN', text="")
 		col.operator("scene.render_layer_remove", icon='ZOOMOUT', text="")
 
