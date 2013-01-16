@@ -59,27 +59,28 @@ def texture_append_visibility(vis_main, textureparam_object, vis_append):
 	return vis_main
 
 mat_names = {
-	'diffuse' : 'Diffuse',
+	'diffuse' : 'Smooth diffuse',
 	'roughdiffuse' : 'Rough diffuse',
-	'phong' : 'Phong',
-	'irawan' : 'Woven cloth',
-	'hk' : 'Hanrahan-Krueger BSDF',
-	'mask' : 'Opacity mask',
-	'dipole': 'Dipole BRDF',
-	'bump' : 'Bump mapping',
-	'coating' : 'Smooth dielectric coating',
-	'roughcoating': 'Rought dielectirc coating',
-	'ward' : 'Anisotropic Ward',
-	'conductor' : 'Smooth conductor',
 	'dielectric' : 'Smooth dielectric',
-	'thindielectric' : 'Thin Dielectric',
-	'roughconductor' : 'Rough conductor',
+	'thindielectric' : 'Thin dielectric',
 	'roughdielectric' : 'Rough dielectric',
-	'roughplastic' : 'Rough plastic',
+	'conductor' : 'Smooth conductor',
+	'roughconductor' : 'Rough conductor',
 	'plastic' : 'Smooth plastic',
-	'mixturebsdf' : 'Mix of materials',
-	'blendbsdf' : 'Blend of materials',
+	'roughplastic' : 'Rough plastic',
+	'coating' : 'Smooth dielectric coating',
+	'roughcoating': 'Rough dielectirc coating',
+	'bump' : 'Bump map modifier',
+	'phong' : 'Modified Phong BRDF',
+	'ward' : 'Anisotropic Ward BRDF',
+	'mixturebsdf' : 'Mixture material',
+	'blendbsdf' : 'Blended material',
+	'mask' : 'Opacity mask',
+	'twosided' : 'Two-sided BRDF adapter',
+	'irawan' : 'Irawan & Marschner Woven cloth BRDF',
+	'hk' : 'Hanrahan-Krueger BSDF',
 	'difftrans' : 'Diffuse transmitter',
+	'dipole': 'Dipole BRDF',
 	'none' : 'Passthrough material'
 }
 
@@ -122,15 +123,12 @@ class mitsuba_material(declarative_property_group):
 	ef_attach_to = ['Material']
 	
 	controls = [
-		'twosided',
 		'is_medium_transition',
 		'interior',
 		'exterior'
 	]
 
 	visibility = {
-		'twosided' : { 'type' : O(['diffuse', 'hk',  'roughdiffuse', 'mask', 'phong', 'ward',
-			'conductor', 'roughconductor', 'roughplastic', 'plastic', 'coating', 'roughcoating', 'mixturebsdf','blendbsdf'])},
 		'exterior' : { 'is_medium_transition' : True },
 		'interior' : { 'is_medium_transition' : True }
 	}
@@ -149,14 +147,6 @@ class mitsuba_material(declarative_property_group):
 			'attr': 'type',
 			'name': 'Type',
 			'default': 'diffuse',
-			'save_in_preset': True
-		},
-		{
-			'type': 'bool',
-			'attr': 'twosided',
-			'name': 'Use two-sided shading',
-			'description': 'Use two-sided shading for this material? This only makes sense for non-transparent/translucent materials.',
-			'default': False,
 			'save_in_preset': True
 		},
 		{
@@ -1655,13 +1645,13 @@ class mitsuba_mat_blendbsdf(declarative_property_group):
 		{
 			'attr': 'mat1_name',
 			'type': 'string',
-			'name': 'Second material name',
+			'name': 'First material name',
 			'save_in_preset': True
 		},
 		{
 			'attr': 'mat2_name',
 			'type': 'string',
-			'name': 'First material name',
+			'name': 'Second material name',
 			'save_in_preset': True
 		},
 		{
@@ -1680,7 +1670,7 @@ class mitsuba_mat_blendbsdf(declarative_property_group):
 			'src_attr': 'material_slots',
 			'trg': lambda s,c: c.mitsuba_mat_blendbsdf,
 			'trg_attr': 'mat2_name',
-			'name': 'Material 1 reference'
+			'name': 'Material 2 reference'
 		}
 	]
 	visibility = param_weightBlend.visibility
@@ -1692,4 +1682,54 @@ class mitsuba_mat_blendbsdf(declarative_property_group):
 		params.update(param_weightBlend.get_params(self))
 		params.add_reference('material', "bsdf1", self.mat1_name)
 		params.add_reference('material', "bsdf2", self.mat2_name)
+		return params
+
+@MitsubaAddon.addon_register_class
+class mitsuba_mat_twosided(declarative_property_group):
+	ef_attach_to = ['mitsuba_material']
+	controls = [
+		#'mat1_name',
+		#'mat2_name',
+		'mat_list1',
+		'mat_list2'
+	]
+
+	properties = [
+		{
+			'attr': 'mat1_name',
+			'type': 'string',
+			'name': 'First material name',
+			'save_in_preset': True
+		},
+		{
+			'attr': 'mat2_name',
+			'type': 'string',
+			'name': 'Second material name',
+			'save_in_preset': True
+		},
+		{
+			'type': 'prop_search',
+			'attr': 'mat_list1',
+			'src': lambda s,c: s.object,
+			'src_attr': 'material_slots',
+			'trg': lambda s,c: c.mitsuba_mat_twosided,
+			'trg_attr': 'mat1_name',
+			'name': 'Material 1 reference'
+		},
+		{
+			'type': 'prop_search',
+			'attr': 'mat_list2',
+			'src': lambda s,c: s.object,
+			'src_attr': 'material_slots',
+			'trg': lambda s,c: c.mitsuba_mat_twosided,
+			'trg_attr': 'mat2_name',
+			'name': 'Material 2 reference'
+		}
+	]
+
+	def get_params(self):
+		params = ParamSet()
+		params.add_reference('material', "bsdf1", self.mat1_name)
+		if self.mat2_name != '':
+			params.add_reference('material', "bsdf2", self.mat2_name)
 		return params
