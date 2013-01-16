@@ -47,9 +47,9 @@ from ..ui.textures import (
 )
 
 from ..ui.materials import (
-	main, diffuse, roughdiffuse, phong, irawan, hk, mask, dipole, bump, ward,  roughplastic, plastic, roughdielectric,
-	roughconductor, dielectric, thindielectric, conductor, difftrans, coating, roughcoating, mixturebsdf, blendbsdf,
-	emission
+	main, diffuse, roughdiffuse, dielectric, thindielectric, roughdielectric, conductor, roughconductor, plastic, roughplastic,
+	coating, roughcoating, bump, phong, ward, mixturebsdf, blendbsdf, mask, twosided, irawan, hk, difftrans,
+	dipole, emission
 )
 
 from .. import operators

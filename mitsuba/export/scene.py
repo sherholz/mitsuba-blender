@@ -290,13 +290,7 @@ class SceneExporter:
 			self.element('null', {'id' : '%s-material' % translate_id(mat.name)})
 			return
 		params = mmat.get_params()
-		twosided = False
 
-		if mmat.twosided and mmat.type in ['diffuse', 'roughdiffuse', 'phong', 'irawan', 'mask', 'dipole', 'bump', 'ward', 
-				'conductor', 'roughconductor', 'roughplastic', 'plastic', 'coating', 'roughcoating', 'mixturebsdf','blendbsdf', 'dielectric', 'thindielectric', 'roughdielectric']:
-			twosided = True
-		
-			
 		for p in params:
 			if p.type == 'reference_material':
 				self.exportMaterial(self.findMaterial(p.value))
@@ -307,19 +301,13 @@ class SceneExporter:
 			self.exportBump(mat)
 			return
 			
-		if twosided:
-			self.openElement('bsdf', {'id' : '%s-material' % translate_id(mat.name), 'type' : 'twosided'})
-			self.openElement('bsdf', {'type' : mmat.type})
-		elif mmat.type == 'dipole':
+		if mmat.type == 'dipole':
 			self.openElement('subsurface', {'id' : '%s-material' % translate_id(mat.name), 'type' : mmat.type})
 		else:
 			self.openElement('bsdf', {'id' : '%s-material' % translate_id(mat.name), 'type' : mmat.type})
 
 		params.export(self)
 		self.closeElement()
-		
-		if twosided:
-			self.closeElement()
 
 	def exportEmission(self, ob_mat):
 		lamp = ob_mat.mitsuba_emission
