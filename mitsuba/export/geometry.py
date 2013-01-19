@@ -769,7 +769,7 @@ class GeometryExporter(object):
 		mesh_definitions = []
 		mesh_definition = (
 			obj.name,
-			psys.settings.material,
+			psys.settings.material - 1,
 			'hair',
 			shape_params
 		)

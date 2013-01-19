@@ -22,7 +22,7 @@ from ...ui.materials import mitsuba_material_sub
 
 @MitsubaAddon.addon_register_class
 class ui_material_roughdielectric(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Rough Glass Material'
+	bl_label = 'Mitsuba Rough Dielectric Material'
 
 	MTS_COMPAT = {'roughdielectric'}
 	
