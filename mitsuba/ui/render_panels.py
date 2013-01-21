@@ -136,8 +136,14 @@ class irrcache(render_panel, bpy.types.Panel):
 	display_property_groups = [
 		( ('scene',), 'mitsuba_irrcache' )
 	]
+
 	def draw_header(self, context):
 		self.layout.prop(context.scene.mitsuba_irrcache, "use_irrcache", text="")
+
+	def draw(self, context):
+		self.layout.active = (context.scene.mitsuba_irrcache.use_irrcache)
+		return super().draw(context)
+
 	
 @MitsubaAddon.addon_register_class
 class sampler(render_panel, bpy.types.Panel):

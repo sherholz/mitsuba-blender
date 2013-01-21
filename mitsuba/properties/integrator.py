@@ -601,31 +601,16 @@ class mitsuba_irrcache(declarative_property_group):
 	
 	controls = [
 		'resolution',
-		'overture',
 		'quality',
 		'gradients',
 		'clampNeighbor',
 		'clampScreen',
+		'overture',
 		'qualityAdjustment',
+		'indirectOnly',
 		'debug',
-		'influenceMin',
-		'influenceMax',
-		'direct'
 	]
 	
-	visibility = {
-		'resolution': 			{ 'use_irrcache': True },
-		'overture':			{ 'use_irrcache': True },
-		'quality': 				{ 'use_irrcache': True },
-		'gradients': 				{ 'use_irrcache': True },
-		'clampNeighbor': 				{ 'use_irrcache': True },
-		'clampScreen': 				{ 'use_irrcache': True },
-		'qualityAdjustment': 				{ 'use_irrcache': True },
-		'debug': 				{ 'use_irrcache': True },
-		'influenceMin': 				{ 'use_irrcache': True },
-		'influenceMax': 				{ 'use_irrcache': True },
-		'direct': 				{ 'use_irrcache': True }
-	}
 	properties = [
 		{
 			'type': 'bool',
@@ -660,10 +645,10 @@ class mitsuba_irrcache(declarative_property_group):
 		},
 		{
 			'type': 'bool',
-			'attr': 'direct',
-			'name': 'Include direct illumination',
-			'description': 'If set to false, direct illumination will be suppressed - useful for checking the interpolation quality',
-			'default' : True,
+			'attr': 'indirectOnly',
+			'name': 'Show indirect illumination only',
+			'description': 'Only show indirect ilumination? Useful for checking the interpolation quality',
+			'default' : False,
 			'save_in_preset': True
 		},		
 		{
@@ -681,26 +666,6 @@ class mitsuba_irrcache(declarative_property_group):
 			'description': 'If set to true, the irradiance cache will be filled by a parallel overture pass before the main rendering process starts. This is strongly recommended.',
 			'default' : True,
 			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'influenceMax',
-			'name': 'Max. influence region',
-			'description': 'Maximum influence region of an irradiance sample (default=64*min)',
-			'save_in_preset': True,
-			'min': 0.0,
-			'max': 100,
-			'default': 0.32
-		},
-		{
-			'type': 'float',
-			'attr': 'influenceMin',
-			'name': 'Min. influence region',
-			'description': 'Minimum influence region of an irradiance sample (relative to scene size, in [0,1])',
-			'save_in_preset': True,
-			'min': 0.0,
-			'max': 100,
-			'default': 0.005
 		},
 		{
 			'type': 'float',
@@ -733,16 +698,15 @@ class mitsuba_irrcache(declarative_property_group):
 			'default': 14
 		}
 	]
+
 	def get_params(self):
 		params = ParamSet()
 		params.add_bool('clampNeighbor', self.clampNeighbor)
 		params.add_bool('clampScreen', self.clampScreen)
 		params.add_bool('debug', self.debug)
-		params.add_bool('direct', self.direct)
+		params.add_bool('indirectOnly', self.indirectOnly)
 		params.add_bool('gradients', self.gradients)
 		params.add_bool('overture', self.overture)
-		params.add_float('influenceMax', self.influenceMax)
-		params.add_float('influenceMin', self.influenceMin)
 		params.add_float('quality', self.quality)
 		params.add_float('qualityAdjustment', self.qualityAdjustment)
 		params.add_integer('resolution', self.resolution)
