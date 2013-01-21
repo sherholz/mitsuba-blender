@@ -403,15 +403,15 @@ class SceneExporter:
 		self.parameter('integer', 'height', {'value' : '%d' % height})
 		#self.parameter('float', 'gamma', {'value' : '-1'})
 		self.closeElement() # closing film element
-		if scene.mitsuba_integrator.motionblur:
-			frameTime = 1.0/scene.render.fps
-			shuttertime = scene.mitsuba_integrator.shuttertime
-			shutterOpen = (scene.frame_current - shuttertime/2) * frameTime
-			shutterClose = (scene.frame_current + shuttertime/2) * frameTime
-			#self.openElement('prepend', {'id' : '%s-camera' % translate_id(camera.name)})
-			self.parameter('float', 'shutterOpen', {'value' : str(shutterOpen)})
-			self.parameter('float', 'shutterClose', {'value' : str(shutterClose)})
-			#self.closeElement()
+		#if scene.mitsuba_integrator.motionblur:
+		#	frameTime = 1.0/scene.render.fps
+		#	shuttertime = scene.mitsuba_integrator.shuttertime
+		#	shutterOpen = (scene.frame_current - shuttertime/2) * frameTime
+		#	shutterClose = (scene.frame_current + shuttertime/2) * frameTime
+		#	#self.openElement('prepend', {'id' : '%s-camera' % translate_id(camera.name)})
+		#	self.parameter('float', 'shutterOpen', {'value' : str(shutterOpen)})
+		#	self.parameter('float', 'shutterClose', {'value' : str(shutterClose)})
+		#	#self.closeElement()
 		if mcam.exterior_medium != '':
 			self.exportMedium(scene.mitsuba_media.media[mcam.exterior_medium])
 			#self.openElement('prepend', {'id' : '%s-camera' % translate_id(camera.name)})
