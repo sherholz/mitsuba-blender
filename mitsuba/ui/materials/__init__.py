@@ -24,7 +24,6 @@ from ...outputs import MtsLog
 from extensions_framework.ui import property_group_renderer
 from extensions_framework import util as efutil
 
-material_cache = {}
 cached_spp = None
 cached_depth = None
 
@@ -39,34 +38,10 @@ def copy(value):
 
 class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-	MTS_PROPS	   = ['type']
-
-	def validate(self, context):
-		global material_cache
-		mat = context.material
-		if mat.name in material_cache:
-			mat_cached = material_cache[mat.name]
-		else:
-			mat_cached = {}
-			material_cache[mat.name] = mat_cached
-
-		mat = self.get_contents(mat)
-		repaint = False
-		for prop in self.MTS_PROPS:
-			prop_value = copy(getattr(mat, prop))
-			prop_cache_value = mat_cached[prop] if prop in mat_cached else None
-			if prop_cache_value != prop_value:
-				mat_cached[prop] = prop_value
-				repaint = True
-		if repaint:
-			# Cause a repaint
-			MtsLog("Forcing a repaint")
-			#context.material.preview_render_type = context.material.preview_render_type 
 
 	def draw(self, context):
 		if not hasattr(context, 'material'):
 			return
-		self.validate(context)
 		return super().draw(context)
 
 	def get_contents(self, mat):
@@ -75,7 +50,6 @@ class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, prop
 class mitsuba_material_sub(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 	MTS_COMPAT		= set()
-	MTS_PROPS	   = []
 
 	@classmethod
 	def poll(cls, context):
@@ -90,31 +64,6 @@ class mitsuba_material_sub(bl_ui.properties_material.MaterialButtonsPanel, prope
 	def draw(self, context):
 		if not hasattr(context, 'material'):
 			return
-		mat = context.material
-		sub_type = getattr(bpy.types, 'mitsuba_mat_%s' % mat.mitsuba_material.type)
-		global material_cache
-		if mat.name in material_cache:
-			mat_cached = material_cache[mat.name]
-		else:
-			mat_cached = {}
-			material_cache[mat.name] = mat_cached
-	
-		mat = getattr(mat.mitsuba_material, 'mitsuba_mat_%s' %
-				mat.mitsuba_material.type)
-		props = sub_type.get_exportable_properties()
-
-		repaint = False
-		for prop_entry in props:
-			prop = prop_entry['attr']
-			prop_value = copy(getattr(mat, prop) if hasattr(mat, prop) else None)
-			prop_cache_value = mat_cached[prop] if prop in mat_cached else None
-			if prop_cache_value != copy(prop_value):
-				mat_cached[prop] = prop_value
-				repaint = True
-		if repaint:
-			# Cause a repaint
-			MtsLog("Forcing a repaint")
-			#context.material.preview_render_type = context.material.preview_render_type 
 		return super().draw(context)
 
 @MitsubaAddon.addon_register_class
