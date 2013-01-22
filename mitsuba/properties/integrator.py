@@ -596,6 +596,64 @@ class mitsuba_integrator(declarative_property_group):
 		return params
 
 @MitsubaAddon.addon_register_class
+class mitsuba_adaptive(declarative_property_group):
+	ef_attach_to = ['Scene']
+	
+	controls = [
+		'maxError',
+		'pValue',
+		'maxSampleFactor',
+	]
+	
+	properties = [
+		{
+			'type': 'bool',
+			'attr': 'use_adaptive',
+			'name': 'Use Adaptive Integrator',
+			'default': False,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'maxError',
+			'name': 'Max Relative Error',
+			'description': 'Maximum relative error threshold.',
+			'save_in_preset': True,
+			'min': 0,
+			'max': 1,
+			'default': 0.05
+		},
+		{
+			'type': 'float',
+			'attr': 'pValue',
+			'name': 'Required P-value',
+			'description': 'Required p-value to accept a sample.',
+			'save_in_preset': True,
+			'min': 0,
+			'max': 1,
+			'default': 0.05
+		},
+		{
+			'type': 'int',
+			'attr': 'maxSampleFactor',
+			'name': 'Max Number of Samples',
+			'description': 'Maximum number of samples to be generated relative to the number of configured pixel samples.',
+			'save_in_preset': True,
+			'min': 0,
+			'max': 100,
+			'default': 32
+		}
+	]
+
+	def get_params(self):
+		params = ParamSet()
+		params.add_float('maxError', self.maxError)
+		params.add_float('pValue', self.pValue)
+		params.add_integer('maxSampleFactor', self.maxSampleFactor)
+
+		return params
+
+@MitsubaAddon.addon_register_class
 class mitsuba_irrcache(declarative_property_group):
 	ef_attach_to = ['Scene']
 	

@@ -218,21 +218,20 @@ class SceneExporter:
 				self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.data.mitsuba_lamp.samplingWeight})
 				self.closeElement()
 
-	def exportIntegrator(self, integrator, irrcache):
-		IntegParams = integrator.get_params()
-		if irrcache.use_irrcache == True:
-			#self.element('remove', { 'id' : 'integrator'})
-			IrrParams = irrcache.get_params()
+	def exportIntegrator(self, scene):
+		pIndent = self.indent
+		IntegParams = scene.mitsuba_integrator.get_params()
+		if scene.mitsuba_adaptive.use_adaptive == True:
+			AdpParams = scene.mitsuba_adaptive.get_params()
+			self.openElement('integrator', { 'id' : 'adaptive', 'type' : 'adaptive'})
+			AdpParams.export(self)
+		if scene.mitsuba_irrcache.use_irrcache == True:
+			IrrParams = scene.mitsuba_irrcache.get_params()
 			self.openElement('integrator', { 'id' : 'irrcache', 'type' : 'irrcache'})
 			IrrParams.export(self)
-			self.openElement('integrator', { 'id' : 'integrator', 'type' : integrator.type})
-			#self.openElement('integrator', {  'id' : '%s_integrator' % translate_id(camera.name), 'type' : integrator.type})
-			IntegParams.export(self)
-			self.closeElement()
-			self.closeElement()
-		else:
-			self.openElement('integrator', { 'id' : 'integrator', 'type' : integrator.type})
-			IntegParams.export(self)
+		self.openElement('integrator', { 'id' : 'integrator', 'type' : scene.mitsuba_integrator.type})
+		IntegParams.export(self)
+		while self.indent > pIndent:
 			self.closeElement()
 
 	def exportSampler(self, sampler, camera):
@@ -486,7 +485,7 @@ class SceneExporter:
 		if not self.writeHeader():
 			return False
 
-		self.exportIntegrator(scene.mitsuba_integrator,scene.mitsuba_irrcache)
+		self.exportIntegrator(scene)
 
 		cam_idx = 0
 		# Always export all Cameras, active camera last
