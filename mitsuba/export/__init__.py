@@ -23,77 +23,6 @@ from math import radians
 from extensions_framework import util as efutil
 from ..outputs import MtsLog
 
-# From collada_internal.cpp
-
-translate_start_name_map = list(map(chr, [
-   95,  95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   65,  66,  67,  68,  69,  70,  71,  72,
-   73,  74,  75,  76,  77,  78,  79,  80,
-   81,  82,  83,  84,  85,  86,  87,  88,
-   89,  90,  95,  95,  95,  95,  95,  95,
-   97,  98,  99,  100,  101,  102,  103,  104,
-   105,  106,  107,  108,  109,  110,  111,  112,
-   113,  114,  115,  116,  117,  118,  119,  120,
-   121,  122,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  192,
-   193,  194,  195,  196,  197,  198,  199,  200,
-   201,  202,  203,  204,  205,  206,  207,  208,
-   209,  210,  211,  212,  213,  214,  95,  216,
-   217,  218,  219,  220,  221,  222,  223,  224,
-   225,  226,  227,  228,  229,  230,  231,  232,
-   233,  234,  235,  236,  237,  238,  239,  240,
-   241,  242,  243,  244,  245,  246,  95,  248,
-   249,  250,  251,  252,  253,  254,  255]))
-
-translate_name_map = list(map(chr, [
-   95,  95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  45,  95,  95,  48,
-   49,  50,  51,  52,  53,  54,  55,  56,
-   57,  95,  95,  95,  95,  95,  95,  95,
-   65,  66,  67,  68,  69,  70,  71,  72,
-   73,  74,  75,  76,  77,  78,  79,  80,
-   81,  82,  83,  84,  85,  86,  87,  88,
-   89,  90,  95,  95,  95,  95,  95,  95,
-   97,  98,  99,  100,  101,  102,  103,  104,
-   105,  106,  107,  108,  109,  110,  111,  112,
-   113,  114,  115,  116,  117,  118,  119,  120,
-   121,  122,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  95,  95,
-   95,  95,  95,  95,  95,  95,  183,  95,
-   95,  95,  95,  95,  95,  95,  95,  192,
-   193,  194,  195,  196,  197,  198,  199,  200,
-   201,  202,  203,  204,  205,  206,  207,  208,
-   209,  210,  211,  212,  213,  214,  95,  216,
-   217,  218,  219,  220,  221,  222,  223,  224,
-   225,  226,  227,  228,  229,  230,  231,  232,
-   233,  234,  235,  236,  237,  238,  239,  240,
-   241,  242,  243,  244,  245,  246,  95,  248,
-   249,  250,  251,  252,  253,  254,  255]))
-
-
 class ExportProgressThread(efutil.TimerThread):
 	message = '%i%%'
 	KICK_PERIOD = 0.2
@@ -140,19 +69,6 @@ class ExportCache(object):
 			raise Exception('Item %s not found in %s!' % (ck, self.name))
 
 
-def translate_id(name):
-   # Doesn't handle duplicates at the moment
-   result = ""
-   if len(name) == 0:
-      return name
-   result += translate_start_name_map[ord(name[0])]
-   for i in range(1, len(name)):
-      result += translate_name_map[ord(name[i])]
-   result.replace('-','_')
-   result.replace('.','_')
-   result.replace(' ','_')
-   return result
-
 class ParamSetItem(list):
    type      = None
    type_name   = None
@@ -179,11 +95,11 @@ class ParamSetItem(list):
    def export_ref(self, exporter):
       if self.type == "reference_texture" or self.type == 'reference_medium' or self.type == 'reference_id':
          if self.name != "":
-            exporter.element('ref', {'id' : translate_id(self.value), 'name' : self.name})
+            exporter.element('ref', {'id' : self.value, 'name' : self.name})
          else:
-            exporter.element('ref', {'id' : translate_id(self.value)})
+            exporter.element('ref', {'id' : self.value})
       elif self.type == "reference_material":
-         exporter.element('ref', {'id' : translate_id(self.value)+'-material', 'name' : self.name})
+         exporter.element('ref', {'id' : self.value+'-material', 'name' : self.name})
 
 class ParamSet(list):
    names = []
