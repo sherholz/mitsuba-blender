@@ -126,6 +126,25 @@ class integrator(render_panel, bpy.types.Panel):
 	]
 
 @MitsubaAddon.addon_register_class
+class adaptive(render_panel, bpy.types.Panel):
+	'''
+	Adaptive settings UI Panel
+	'''
+
+	bl_label = 'Use Adaptive Integrator'
+	bl_options = {'DEFAULT_CLOSED'}
+	display_property_groups = [
+		( ('scene',), 'mitsuba_adaptive' )
+	]
+
+	def draw_header(self, context):
+		self.layout.prop(context.scene.mitsuba_adaptive, "use_adaptive", text="")
+
+	def draw(self, context):
+		self.layout.active = (context.scene.mitsuba_adaptive.use_adaptive)
+		return super().draw(context)
+	
+@MitsubaAddon.addon_register_class
 class irrcache(render_panel, bpy.types.Panel):
 	'''
 	Sampler settings UI Panel
@@ -144,7 +163,6 @@ class irrcache(render_panel, bpy.types.Panel):
 		self.layout.active = (context.scene.mitsuba_irrcache.use_irrcache)
 		return super().draw(context)
 
-	
 @MitsubaAddon.addon_register_class
 class sampler(render_panel, bpy.types.Panel):
 	'''
