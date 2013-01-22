@@ -37,6 +37,9 @@ class emission(mitsuba_material_base, bpy.types.Panel):
 		return mat.mitsuba_emission
 
 	def draw_header(self, context):
-		if hasattr(context, "material"):
-			mat = bl_ui.properties_material.active_node_mat(context.material)
-			self.layout.prop(mat.mitsuba_emission, "use_emission", text="")
+		self.layout.prop(context.material.mitsuba_emission, "use_emission", text="")
+
+	def draw(self, context):
+		self.layout.active = (context.material.mitsuba_emission.use_emission)
+		return super().draw(context)
+

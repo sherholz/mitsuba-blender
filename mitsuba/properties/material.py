@@ -184,13 +184,6 @@ class mitsuba_emission(declarative_property_group):
 		'samplingWeight',
 	]
 	
-	visibility = {
-		'intensity': 			{ 'use_emission': True },
-		'intensity':			{ 'use_emission': True },
-		'color': 				{ 'use_emission': True },
-		'samplingWeight':		{ 'use_emission': True }
-	}
-	
 	properties = [
 		{
 			'type': 'bool',
