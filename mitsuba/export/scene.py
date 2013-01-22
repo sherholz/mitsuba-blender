@@ -21,7 +21,7 @@ import string
 import struct, zlib
 from math import radians
 from extensions_framework import util as efutil
-from ..export 			import translate_id, resolution
+from ..export 			import resolution
 from ..export			import geometry		as export_geometry
 from ..outputs import MtsLog
 
@@ -111,7 +111,7 @@ class SceneExporter:
 
 	def exportLamp(self, scene, lamp, idx):
 		ltype = lamp.data.type
-		name = translate_id(lamp.name)
+		name = lamp.name
 		mult = lamp.data.mitsuba_lamp.intensity
 		if lamp.data.mitsuba_lamp.inside_medium:
 			self.exportMedium(scene.mitsuba_media.media[lamp.data.mitsuba_lamp.lamp_medium])
@@ -237,7 +237,7 @@ class SceneExporter:
 	def exportSampler(self, sampler, camera):
 		samplerParams = sampler.get_params()
 		mcam = camera.data.mitsuba_camera
-		self.openElement('sampler', { 'id' : '%s-camera_sampler'% translate_id(camera.name), 'type' : sampler.type})
+		self.openElement('sampler', { 'id' : '%s-camera_sampler'% camera.name, 'type' : sampler.type})
 		#self.parameter('integer', 'sampleCount', { 'value' : '%i' % sampler.sampleCount})
 		samplerParams.export(self)
 		self.closeElement()
@@ -266,13 +266,13 @@ class SceneExporter:
 			if p.type == 'reference_texture':
 				self.exportTexture(self.findTexture(p.value))
 
-		self.openElement('texture', {'id' : '%s' % translate_id(tex.name), 'type' : tex.mitsuba_texture.type})
+		self.openElement('texture', {'id' : '%s' % tex.name, 'type' : tex.mitsuba_texture.type})
 		params.export(self)
 		self.closeElement()
 		
 	def exportBump(self, mat):
 		mmat = mat.mitsuba_material
-		self.openElement('bsdf', {'id' : '%s-material' % translate_id(mat.name), 'type' : mmat.type})
+		self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
 		self.element('ref', {'name' : 'bump_ref', 'id' : '%s-material' % mmat.mitsuba_mat_bump.ref_name})
 		self.openElement('texture', {'type' : 'scale'})
 		self.parameter('float', 'scale', {'value' : '%f' % mmat.mitsuba_mat_bump.scale})		
@@ -286,7 +286,7 @@ class SceneExporter:
 		self.exported_materials += [mat.name]
 		mmat = mat.mitsuba_material
 		if mmat.type == 'none':
-			self.element('null', {'id' : '%s-material' % translate_id(mat.name)})
+			self.element('null', {'id' : '%s-material' % mat.name})
 			return
 		params = mmat.get_params()
 
@@ -301,9 +301,9 @@ class SceneExporter:
 			return
 			
 		if mmat.type == 'dipole':
-			self.openElement('subsurface', {'id' : '%s-material' % translate_id(mat.name), 'type' : mmat.type})
+			self.openElement('subsurface', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
 		else:
-			self.openElement('bsdf', {'id' : '%s-material' % translate_id(mat.name), 'type' : mmat.type})
+			self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
 
 		params.export(self)
 		self.closeElement()
@@ -346,7 +346,7 @@ class SceneExporter:
 		self.element('translate', { 'z' : '0.01'})
 		self.closeElement()
 		if mmat.type != 'none':
-			self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % translate_id(material.name)})
+			self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % material.name})
 		if lamp and lamp.use_emission:
 			mult = lamp.intensity
 			self.openElement('emitter', {'type' : 'area'})
@@ -370,7 +370,7 @@ class SceneExporter:
 		camType = 'orthographic' if cam.type == 'ORTHO' else 'spherical' if cam.type == 'PANO' else 'perspective'
 		if mcam.useDOF == True:
 			camType = 'telecentric' if cam.type == 'ORTHO' else 'thinlens'
-		self.openElement('sensor', { 'id' : '%s-camera' % translate_id(camera.name), 'type' : str(camType)})
+		self.openElement('sensor', { 'id' : '%s-camera' % camera.name, 'type' : str(camType)})
 		self.openElement('transform', {'name' : 'toWorld'})
 		if cam.type == 'ORTHO':
 			self.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
@@ -392,7 +392,7 @@ class SceneExporter:
 			self.parameter('float', 'apertureRadius', {'value' : str(mcam.apertureRadius)})
 			self.parameter('float', 'focusDistance', {'value' : str(cam.dof_distance)})
 		self.exportSampler(scene.mitsuba_sampler, camera)
-		self.openElement('film', {'id' : '%s-camera_film' % translate_id(camera.name),'type':str(mcam.film)})
+		self.openElement('film', {'id' : '%s-camera_film' % camera.name,'type':str(mcam.film)})
 		if str(mcam.film) == 'ldrfilm':
 			self.parameter('float', 'exposure', {'value' : str(mcam.exposure)})
 		#self.parameter('string', 'toneMappingMethod', {'value' : 'gamma'})
@@ -407,15 +407,11 @@ class SceneExporter:
 		#	shuttertime = scene.mitsuba_integrator.shuttertime
 		#	shutterOpen = (scene.frame_current - shuttertime/2) * frameTime
 		#	shutterClose = (scene.frame_current + shuttertime/2) * frameTime
-		#	#self.openElement('prepend', {'id' : '%s-camera' % translate_id(camera.name)})
 		#	self.parameter('float', 'shutterOpen', {'value' : str(shutterOpen)})
 		#	self.parameter('float', 'shutterClose', {'value' : str(shutterClose)})
-		#	#self.closeElement()
 		if mcam.exterior_medium != '':
 			self.exportMedium(scene.mitsuba_media.media[mcam.exterior_medium])
-			#self.openElement('prepend', {'id' : '%s-camera' % translate_id(camera.name)})
 			self.element('ref', { 'name' : 'exterior', 'id' : mcam.exterior_medium})
-			#self.closeElement()
 		self.closeElement() # closing sensor element 
 
 	def exportMedium(self, medium):
@@ -453,7 +449,7 @@ class SceneExporter:
 		return False
 
 	def exportShapeGroup(self, scene, object, data):
-		group_id = translate_id(data['id']) + '-shapeGroup_' + str(self.shape_index)
+		group_id = data['id'] + '-shapeGroup_' + str(self.shape_index)
 		obj = object['obj']
 		object['mtx'] = obj.matrix_world
 
@@ -466,7 +462,7 @@ class SceneExporter:
 		obj = object['obj']
 		mtx = object['mtx']
 		
-		self.openElement('shape', { 'id' : translate_id(data['id']) + '-instance_' + str(self.shape_index), 'type' : 'instance'})
+		self.openElement('shape', { 'id' : data['id'] + '-instance_' + str(self.shape_index), 'type' : 'instance'})
 		self.element('ref', {'id' : data['group_id']})
 		if mtx == None:
 			self.exportWorldTrafo(obj.matrix_world)

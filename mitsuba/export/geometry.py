@@ -40,7 +40,7 @@ from bpy.app.handlers import persistent
 from extensions_framework import util as efutil
 
 from ..outputs import MtsLog
-from ..export import ParamSet, ExportProgressThread, ExportCache, translate_id
+from ..export import ParamSet, ExportProgressThread, ExportCache
 
 class InvalidGeometryException(Exception):
 	pass
@@ -617,12 +617,12 @@ class GeometryExporter(object):
 			ob_mat = None
 			MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(me_mat_index+1, obj.name))
 		
-		self.mts_context.openElement('shape', { 'id' : translate_id(me_name) + '-shapegroup_%i' % (me_mat_index), 'type' : 'shapegroup'})
-		self.mts_context.openElement('shape', { 'id' : translate_id(me_name) + '-shape_%i' % (me_mat_index), 'type' : me_shape_type})
+		self.mts_context.openElement('shape', { 'id' : me_name + '-shapegroup_%i' % (me_mat_index), 'type' : 'shapegroup'})
+		self.mts_context.openElement('shape', { 'id' : me_name + '-shape_%i' % (me_mat_index), 'type' : me_shape_type})
 		me_shape_params.export(self.mts_context)
 		
 		if ob_mat != None:
-			self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % translate_id(ob_mat.name)})
+			self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
 
 		self.mts_context.closeElement()
 		self.mts_context.closeElement()
@@ -681,7 +681,7 @@ class GeometryExporter(object):
 				if ob_mat.mitsuba_emission.use_emission:
 					self.mts_context.exportEmission(ob_mat)
 				else:
-					self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % translate_id(ob_mat.name)})
+					self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
 			self.mts_context.closeElement()
 			
 	def BSpline(self, points, dimension, degree, u):
