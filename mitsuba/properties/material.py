@@ -98,6 +98,7 @@ class MATERIAL_OT_set_mitsuba_type(bpy.types.Operator):
 	
 	def execute(self, context):
 		context.material.mitsuba_material.set_type(self.properties.mat_name)
+		context.material.preview_render_type = context.material.preview_render_type
 		return {'FINISHED'}
 
 @MitsubaAddon.addon_register_class
@@ -135,6 +136,18 @@ class mitsuba_material(declarative_property_group):
 
 	properties = [
 		# Material Type Select
+		{
+			'type': 'enum',
+			'attr': 'surface',
+			'name': 'Type',
+			'description': 'Surface type',
+			'items': [
+				('bsdf', 'BSDF', 'bsdf'),
+				('emitter', 'Emitter', 'emitter')
+			],
+			'default': 'bsdf',
+			'save_in_preset': True
+		},
 		{
 			'attr': 'type_label',
 			'name': 'Mitsuba material type',
@@ -185,13 +198,6 @@ class mitsuba_emission(declarative_property_group):
 	]
 	
 	properties = [
-		{
-			'type': 'bool',
-			'attr': 'use_emission',
-			'name': 'Use Emission',
-			'default': False,
-			'save_in_preset': True
-		},
 		{
 			'type': 'float',
 			'attr': 'intensity',

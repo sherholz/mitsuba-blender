@@ -605,7 +605,7 @@ class GeometryExporter(object):
 		try:
 			ob_mat = obj.material_slots[me_mat_index].material
 			# create material xml
-			if ob_mat != None and not ob_mat.mitsuba_emission.use_emission:
+			if ob_mat != None and ob_mat.mitsuba_material.surface != 'emitter':
 				self.mts_context.exportMaterial(ob_mat)
 			else:
 				return False
@@ -656,7 +656,7 @@ class GeometryExporter(object):
 			try:
 				ob_mat = mat_object.material_slots[me_mat_index].material
 				# create material xml
-				if ob_mat != None and not ob_mat.mitsuba_emission.use_emission:
+				if ob_mat != None and ob_mat.mitsuba_material.surface != 'emitter':
 					self.mts_context.exportMaterial(ob_mat)
 				#mmat = ob_mat.mitsuba_material
 				#if mmat.is_medium_transition:
@@ -678,7 +678,7 @@ class GeometryExporter(object):
 				self.mts_context.exportWorldTrafo(obj.matrix_world)
 			
 			if ob_mat != None and me_shape_type != 'instance':
-				if ob_mat.mitsuba_emission.use_emission:
+				if ob_mat.mitsuba_material.surface == 'emitter':
 					self.mts_context.exportEmission(ob_mat)
 				else:
 					self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})

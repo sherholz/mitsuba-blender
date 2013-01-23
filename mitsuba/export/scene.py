@@ -347,7 +347,7 @@ class SceneExporter:
 		self.closeElement()
 		if mmat.type != 'none':
 			self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % material.name})
-		if lamp and lamp.use_emission:
+		if lamp and mmat.surface == 'emitter':
 			mult = lamp.intensity
 			self.openElement('emitter', {'type' : 'area'})
 			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
