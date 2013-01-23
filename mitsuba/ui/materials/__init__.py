@@ -59,7 +59,9 @@ class mitsuba_material_sub(bl_ui.properties_material.MaterialButtonsPanel, prope
 		if not hasattr(context, 'material'):
 			return False
 
-		return super().poll(context) and context.material.mitsuba_material.type in cls.MTS_COMPAT
+		return super().poll(context) and \
+				context.material.mitsuba_material.surface == 'bsdf' and \
+				context.material.mitsuba_material.type in cls.MTS_COMPAT
 
 	def draw(self, context):
 		if not hasattr(context, 'material'):
@@ -148,4 +150,7 @@ class MATERIAL_PT_context_material_mts(bl_ui.properties_material.MaterialButtons
 		elif mat:
 			split.template_ID(space, "pin_id")
 			split.separator()
+
+		if slot:
+			layout.prop(mat.mitsuba_material, "surface", expand=True)
 

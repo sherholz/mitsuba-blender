@@ -21,16 +21,14 @@ from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_base
 
 @MitsubaAddon.addon_register_class
-class main(mitsuba_material_base, bpy.types.Panel):
+class MATERIAL_PT_material_utils(mitsuba_material_base):
 	'''
-	Material Editor UI Panel
+	Material Utils UI Panel
 	'''
 
-	bl_label	= 'Mitsuba Materials'
-
-	display_property_groups = [
-		( ('material',), 'mitsuba_material' )
-	]
+	bl_label	= 'Mitsuba Material Utils'
+	bl_options = {'DEFAULT_CLOSED'}
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 	
 	def draw(self, context):
 		row = self.layout.row(align=True)
@@ -42,7 +40,33 @@ class main(mitsuba_material_base, bpy.types.Panel):
 		row.operator("mitsuba.convert_all_materials", icon='WORLD_DATA')
 		row = self.layout.row(align=True)
 		row.operator("mitsuba.convert_material", icon='MATERIAL_DATA')
-		row = self.layout.row(align=True)
 
+@MitsubaAddon.addon_register_class
+class MATERIAL_PT_material_bsdf(mitsuba_material_base, bpy.types.Panel):
+	'''
+	Material BSDF UI Panel
+	'''
+
+	bl_label	= 'Mitsuba BSDF Material'
+	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
+
+	display_property_groups = [
+		( ('material',), 'mitsuba_material' )
+	]
+
+	@classmethod
+	def poll(cls, context):
+		'''
+		Only show Mitsuba panel if mitsuba_material.material in MTS_COMPAT
+		'''
+		if not hasattr(context, 'material'):
+			return False
+
+		return super().poll(context) and \
+				context.material.mitsuba_material.surface == 'bsdf'
+
+	def draw(self, context):
+		row = self.layout.row(align=True)
 		row.menu('MATERIAL_MT_mitsuba_type', text=context.material.mitsuba_material.type_label)
 		super().draw(context)
+
