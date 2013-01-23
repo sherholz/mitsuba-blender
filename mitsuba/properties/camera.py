@@ -48,28 +48,48 @@ class mitsuba_camera(declarative_property_group):
 
 	controls = [
 		'film',
+		'pixelFormat',
 		'exposure',
 		'banner',
-		#'useDOF',
-		#'apertureRadius',
 		'exterior'
 	]
 
 	visibility = {
 		'exposure': { 'film': 'ldrfilm'},
-		#'apertureRadius':			{ 'useDOF': True }
 	}
 	properties = [
+		{
+			'type': 'bool',
+			'attr': 'use_film',
+			'name': 'Camera Film',
+			'description': 'Override global settings',
+			'default': False,
+			'save_in_preset': True
+		},
 		{
 			'type': 'enum',
 			'attr': 'film',
 			'name': 'Output format',
-			'description': 'Determines the variant of the Ward model tou se',
+			'description': 'Select output file format to override Scene global setting',
 			'items': [
 				('hdrfilm', 'EXR', 'hdrfilm'),
 				('ldrfilm', 'PNG', 'ldrfilm')
 			],
 			'default': 'ldrfilm',
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'pixelFormat',
+			'name': 'Pixel Format',
+			'description': 'Select Pixel Format to override Scene global setting',
+			'items': [
+				('rgb', 'RGB', 'rgb'),
+				('rgba', 'RGBA', 'rgba'),
+				('luminance', 'Luminance', 'luminance'),
+				('luminanceAlpha', 'Luminance Alpha', 'luminanceAlpha')
+			],
+			'default': 'rgb',
 			'save_in_preset': True
 		},
 		{

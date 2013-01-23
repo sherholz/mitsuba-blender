@@ -37,5 +37,9 @@ class camera(world_panel):
 		( ('camera',), 'mitsuba_camera' )
 	]
 
+	def draw_header(self, context):
+		self.layout.prop(context.camera.mitsuba_camera, "use_film", text="")
+
 	def draw(self, context):
+		self.layout.active = (context.camera.mitsuba_camera.use_film)
 		super().draw(context)

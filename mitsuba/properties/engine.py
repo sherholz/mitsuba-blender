@@ -148,3 +148,64 @@ class mitsuba_engine(declarative_property_group):
 		},
 	]
 
+@MitsubaAddon.addon_register_class
+class mitsuba_film(declarative_property_group):
+	ef_attach_to = ['Scene']
+
+	controls = [
+		'film',
+		'pixelFormat',
+		'exposure',
+		'banner',
+	]
+
+	visibility = {
+		'exposure': { 'film': 'ldrfilm'},
+	}
+	properties = [
+		{
+			'type': 'enum',
+			'attr': 'film',
+			'name': 'Output format',
+			'description': 'Select output file format to override Scene global setting',
+			'items': [
+				('hdrfilm', 'EXR', 'hdrfilm'),
+				('ldrfilm', 'PNG', 'ldrfilm')
+			],
+			'default': 'ldrfilm',
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'pixelFormat',
+			'name': 'Pixel Format',
+			'description': 'Select Pixel Format to override Scene global setting',
+			'items': [
+				('rgb', 'RGB', 'rgb'),
+				('rgba', 'RGBA', 'rgba'),
+				('luminance', 'Luminance', 'luminance'),
+				('luminanceAlpha', 'Luminance Alpha', 'luminanceAlpha')
+			],
+			'default': 'rgb',
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'banner',
+			'name': 'Mitsuba logo',
+			'description': 'Render will containg small Mitsuba logo',
+			'default': True,
+			'save_in_preset': True
+		},
+		{
+			'attr': 'exposure',
+			'type': 'float',
+			'description' : 'Reinhard tonemapping exposure',
+			'name' : 'Film exposure',
+			'default' : 1.0,
+			'min': -10.0,
+			'max': 10.0,
+			'save_in_preset': True
+		},
+	]
+

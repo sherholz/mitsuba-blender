@@ -72,7 +72,6 @@ def compatible(mod):
 _register_elm(bl_ui.properties_data_lamp.DATA_PT_context_lamp)
 _register_elm(bl_ui.properties_render.RENDER_PT_render)
 _register_elm(bl_ui.properties_render.RENDER_PT_dimensions)
-_register_elm(bl_ui.properties_render.RENDER_PT_output)
 
 # Add Mitsuba dof elements to blender dof panel
 def mits_use_dof(self, context):
