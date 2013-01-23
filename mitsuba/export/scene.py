@@ -288,6 +288,19 @@ class SceneExporter:
 		if mmat.type == 'none':
 			self.element('null', {'id' : '%s-material' % mat.name})
 			return
+
+		if mat.mitsuba_material.surface == 'subsurface':
+			#mat_params.add_spectrum('diffuseReflectance', 0)
+			msss = mat.mitsuba_material.mitsuba_sss_dipole
+			sss_params = msss.get_params()
+			self.openElement('subsurface', {'id' : '%s-subsurface' % mat.name, 'type' : 'dipole'})
+			sss_params.export(self)
+			self.closeElement()
+			self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : 'plastic'})
+			self.element('spectrum', {'name' : 'diffuseReflectance', 'value' : 0})
+			self.closeElement()
+			return
+
 		params = mmat.get_params()
 
 		for p in params:
@@ -300,10 +313,7 @@ class SceneExporter:
 			self.exportBump(mat)
 			return
 			
-		if mmat.type == 'dipole':
-			self.openElement('subsurface', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
-		else:
-			self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
+		self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
 
 		params.export(self)
 		self.closeElement()
@@ -346,6 +356,8 @@ class SceneExporter:
 		self.element('translate', { 'z' : '0.01'})
 		self.closeElement()
 		if mmat.type != 'none':
+			if mmat.surface == 'subsurface':
+				self.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % material.name})
 			self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % material.name})
 		if lamp and mmat.surface == 'emitter':
 			mult = lamp.intensity
