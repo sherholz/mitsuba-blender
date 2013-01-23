@@ -80,7 +80,6 @@ mat_names = {
 	'irawan' : 'Irawan & Marschner Woven cloth BRDF',
 	'hk' : 'Hanrahan-Krueger BSDF',
 	'difftrans' : 'Diffuse transmitter',
-	'dipole': 'Dipole BRDF',
 	'none' : 'Passthrough material'
 }
 
@@ -139,10 +138,11 @@ class mitsuba_material(declarative_property_group):
 		{
 			'type': 'enum',
 			'attr': 'surface',
-			'name': 'Type',
-			'description': 'Surface type',
+			'name': 'Surface Type',
+			'description': 'Surface Type',
 			'items': [
 				('bsdf', 'BSDF', 'bsdf'),
+				('subsurface', 'SSS', 'subsurface'),
 				('emitter', 'Emitter', 'emitter')
 			],
 			'default': 'bsdf',
@@ -694,9 +694,9 @@ class mitsuba_mat_hk(declarative_property_group):
 		params.add_float('g', self.g)
 		params.add_float('thickness', self.thickness)
 		return params
-		
+
 @MitsubaAddon.addon_register_class
-class mitsuba_mat_dipole(declarative_property_group):
+class mitsuba_sss_dipole(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	controls = [
 		'material',
@@ -792,7 +792,7 @@ class mitsuba_mat_dipole(declarative_property_group):
 		params.add_float('scale', self.scale)
 		params.add_integer('irrSamples', self.irrSamples)
 		return params
-		
+
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_ward(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']

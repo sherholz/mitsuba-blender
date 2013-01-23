@@ -111,6 +111,9 @@ class MITSUBA_OT_preset_material_add(bl_operators.presets.AddPresetBase, bpy.typ
 			'bpy.context.material.mitsuba_material.mitsuba_mat_%s.%s'%(mts_type, v['attr']) for v in sub_type.get_exportable_properties()
 		])
 		pv.extend([
+			'bpy.context.material.mitsuba_material.mitsuba_sss_dipole.%s'%v['attr'] for v in bpy.types.mitsuba_sss_dipole.get_exportable_properties()
+		])
+		pv.extend([
 			'bpy.context.material.mitsuba_material.mitsuba_emission.%s'%v['attr'] for v in bpy.types.mitsuba_emission.get_exportable_properties()
 		])
 

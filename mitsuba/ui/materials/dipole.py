@@ -18,14 +18,23 @@
 
 import bpy
 from ... import MitsubaAddon
-from ...ui.materials import mitsuba_material_sub
+from ...ui.materials import mitsuba_material_base
 
 @MitsubaAddon.addon_register_class
-class ui_material_dipole(mitsuba_material_sub, bpy.types.Panel):
+class ui_material_dipole(mitsuba_material_base, bpy.types.Panel):
 	bl_label = 'Mitsuba dipole Material'
 
-	MTS_COMPAT = {'dipole'}
-
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_dipole' )
+		( ('material', 'mitsuba_material'), 'mitsuba_sss_dipole' )
 	]
+
+	@classmethod
+	def poll(cls, context):
+		'''
+		Only show Mitsuba panel if mitsuba_material.surface is Subsurface
+		'''
+		if not hasattr(context, 'material'):
+			return False
+
+		return super().poll(context) and context.material.mitsuba_material.surface == 'subsurface'
+

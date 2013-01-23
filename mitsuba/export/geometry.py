@@ -605,7 +605,7 @@ class GeometryExporter(object):
 		try:
 			ob_mat = obj.material_slots[me_mat_index].material
 			# create material xml
-			if ob_mat != None and ob_mat.mitsuba_material.surface != 'emitter':
+			if ob_mat != None and ob_mat.mitsuba_material.surface == 'bsdf':
 				self.mts_context.exportMaterial(ob_mat)
 			else:
 				return False
@@ -681,6 +681,8 @@ class GeometryExporter(object):
 				if ob_mat.mitsuba_material.surface == 'emitter':
 					self.mts_context.exportEmission(ob_mat)
 				else:
+					if ob_mat.mitsuba_material.surface == 'subsurface':
+						self.mts_context.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name})
 					self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
 			self.mts_context.closeElement()
 			
