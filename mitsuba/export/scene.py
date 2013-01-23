@@ -372,7 +372,23 @@ class SceneExporter:
 				self.element('ref', { 'name' : 'exterior', 'id' : mmat.exterior_medium})
 		self.closeElement()
 
-	def exportCameraSettings(self, scene, camera):
+	def exportFilm(self, scene, camera):
+		mcam = camera.data.mitsuba_camera
+		if not mcam.use_film:
+			mcam = scene.mitsuba_film
+		self.openElement('film', {'id' : '%s-camera_film' % camera.name,'type':str(mcam.film)})
+		if str(mcam.film) == 'ldrfilm':
+			self.parameter('float', 'exposure', {'value' : str(mcam.exposure)})
+		#self.parameter('string', 'toneMappingMethod', {'value' : 'gamma'})
+		[width,height] = resolution(scene)
+		self.parameter('string', 'pixelFormat', {'value' : str(mcam.pixelFormat).lower()})
+		self.parameter('boolean', 'banner', {'value' : str(mcam.banner).lower()})
+		self.parameter('integer', 'width', {'value' : '%d' % width})
+		self.parameter('integer', 'height', {'value' : '%d' % height})
+		#self.parameter('float', 'gamma', {'value' : '-1'})
+		self.closeElement() # closing film element
+
+	def exportCamera(self, scene, camera):
 		if camera.name in self.exported_cameras:
 			return
 		self.exported_cameras += [camera.name]
@@ -403,17 +419,10 @@ class SceneExporter:
 		if mcam.useDOF == True:
 			self.parameter('float', 'apertureRadius', {'value' : str(mcam.apertureRadius)})
 			self.parameter('float', 'focusDistance', {'value' : str(cam.dof_distance)})
+
 		self.exportSampler(scene.mitsuba_sampler, camera)
-		self.openElement('film', {'id' : '%s-camera_film' % camera.name,'type':str(mcam.film)})
-		if str(mcam.film) == 'ldrfilm':
-			self.parameter('float', 'exposure', {'value' : str(mcam.exposure)})
-		#self.parameter('string', 'toneMappingMethod', {'value' : 'gamma'})
-		[width,height] = resolution(scene)
-		self.parameter('boolean', 'banner', {'value' : str(mcam.banner).lower()})
-		self.parameter('integer', 'width', {'value' : '%d' % width})
-		self.parameter('integer', 'height', {'value' : '%d' % height})
-		#self.parameter('float', 'gamma', {'value' : '-1'})
-		self.closeElement() # closing film element
+		self.exportFilm(scene, camera)
+
 		#if scene.mitsuba_integrator.motionblur:
 		#	frameTime = 1.0/scene.render.fps
 		#	shuttertime = scene.mitsuba_integrator.shuttertime
@@ -499,8 +508,8 @@ class SceneExporter:
 		# Always export all Cameras, active camera last
 		allCameras = [cam for cam in scene.objects if cam.type == 'CAMERA' and cam.name != scene.camera.name]
 		for camera in allCameras:
-			self.exportCameraSettings(scene, camera)
-		self.exportCameraSettings(scene, scene.camera)
+			self.exportCamera(scene, camera)
+		self.exportCamera(scene, scene.camera)
 
 		lamp_idx = 0
 		# Get all renderable LAMPS

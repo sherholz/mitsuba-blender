@@ -72,7 +72,26 @@ class layers(render_panel):
 		col.prop(scene, "layers", text="Scene")
 		col = split.column()
 		col.prop(rl, "layers", text="Layer")
-			
+
+@MitsubaAddon.addon_register_class
+class output(render_panel, bpy.types.Panel):
+	bl_label = "Output"
+	COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+	display_property_groups = [
+		( ('scene',), 'mitsuba_film' )
+	]
+
+	def draw(self, context):
+		layout = self.layout
+
+		rd = context.scene.render
+
+		layout.prop(rd, "filepath", text="")
+
+		super().draw(context)
+
+
 @MitsubaAddon.addon_register_class
 class setup_preset(render_panel, bpy.types.Panel):
 	'''
