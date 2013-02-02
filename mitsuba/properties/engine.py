@@ -156,6 +156,7 @@ class mitsuba_film(declarative_property_group):
 		'film',
 		'pixelFormat',
 		'exposure',
+		'statistics',
 		'banner',
 	]
 
@@ -194,6 +195,14 @@ class mitsuba_film(declarative_property_group):
 			'attr': 'banner',
 			'name': 'Mitsuba logo',
 			'description': 'Render will containg small Mitsuba logo',
+			'default': True,
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'statistics',
+			'name': 'Render statistics',
+			'description': 'Render will containg render statistics',
 			'default': True,
 			'save_in_preset': True
 		},

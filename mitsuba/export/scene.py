@@ -296,8 +296,10 @@ class SceneExporter:
 			self.openElement('subsurface', {'id' : '%s-subsurface' % mat.name, 'type' : 'dipole'})
 			sss_params.export(self)
 			self.closeElement()
-			self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : 'plastic'})
+			self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : 'roughplastic'})
 			self.element('spectrum', {'name' : 'diffuseReflectance', 'value' : 0})
+			self.parameter('float', 'intIOR', {'value' : '%f' % mmat.mitsuba_sss_dipole.intIOR})
+			self.parameter('float', 'alpha', {'value' : '%f' % mmat.mitsuba_sss_dipole.alpha})
 			self.closeElement()
 			return
 
@@ -373,9 +375,9 @@ class SceneExporter:
 		self.closeElement()
 
 	def exportFilm(self, scene, camera):
-		mcam = camera.data.mitsuba_camera
-		if not mcam.use_film:
-			mcam = scene.mitsuba_film
+		#mcam = camera.data.mitsuba_camera
+		#if not mcam.use_film:
+		mcam = scene.mitsuba_film
 		self.openElement('film', {'id' : '%s-camera_film' % camera.name,'type':str(mcam.film)})
 		if str(mcam.film) == 'ldrfilm':
 			self.parameter('float', 'exposure', {'value' : str(mcam.exposure)})
@@ -385,6 +387,8 @@ class SceneExporter:
 		self.parameter('boolean', 'banner', {'value' : str(mcam.banner).lower()})
 		self.parameter('integer', 'width', {'value' : '%d' % width})
 		self.parameter('integer', 'height', {'value' : '%d' % height})
+		if mcam.statistics == 1:
+			self.parameter('string', 'label[10,10]', {'value' : 'Integrator:$integrator[\'type\'], $film[\'width\']x$film[\'height\'],$sampler[\'sampleCount\']spp, rendertime:$scene[\'renderTime\'],memory:$scene[\'memUsage\']' })
 		#self.parameter('float', 'gamma', {'value' : '-1'})
 		self.closeElement() # closing film element
 
