@@ -47,10 +47,6 @@ class mitsuba_camera(declarative_property_group):
 	ef_attach_to = ['Camera']
 
 	controls = [
-		'film',
-		'pixelFormat',
-		'exposure',
-		'banner',
 		'exterior'
 	]
 
@@ -97,6 +93,14 @@ class mitsuba_camera(declarative_property_group):
 			'attr': 'banner',
 			'name': 'Mitsuba logo',
 			'description': 'Render will containg small Mitsuba logo',
+			'default': True,
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'statistics',
+			'name': 'Render statistics',
+			'description': 'Render will containg render statistics',
 			'default': True,
 			'save_in_preset': True
 		},

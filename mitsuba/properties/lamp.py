@@ -119,12 +119,14 @@ class mitsuba_lamp_sun(declarative_property_group):
 		'stretch',
 		'resolution',
 		'sunScale',
-		'skyScale'		
+		'skyScale',
+		'sunRadiusScale'		
 	]
 	
 	visibility = {
 		'sunScale':				{ 'sunsky_advanced': True, 'sunsky_type': LO({'sun','sunsky'}) },
 		'skyScale':				{ 'sunsky_advanced': True, 'sunsky_type': LO({'sky','sunsky'}) },
+		'sunRadiusScale':				{ 'sunsky_advanced': True, 'sunsky_type': LO({'sun','sunsky'}) },
 		'resolution':			{ 'sunsky_advanced': True },
 		'albedo':				{ 'sunsky_type': LO({'sky','sunsky'}) },
 		'stretch':				{ 'sunsky_advanced': True, 'sunsky_type': LO(['sky','sunsky']) }
@@ -203,6 +205,17 @@ class mitsuba_lamp_sun(declarative_property_group):
 			'soft_max': 10.0
 		},
 		{
+			'type': 'float',
+			'attr': 'sunRadiusScale',
+			'name': 'Sun radius',
+			'description': 'Scale factor to adjust the radius of the sun, while preserving its power. Set to 0 to turn it into a directional light source',
+			'default': 1.0,
+			'min': 0.0,
+			'soft_min': 0.0,
+			'max': 10.0,
+			'soft_max': 10.0
+		},
+		{
 			'attr': 'resolution',
 			'type': 'int',
 			'name' : 'resolution',
@@ -225,9 +238,11 @@ class mitsuba_lamp_sun(declarative_property_group):
 			params.add_float('scale', self.skyScale)
 		elif self.sunsky_advanced and self.sunsky_type == 'sun':
 			params.add_float('scale', self.sunScale)
+			params.add_float('sunRadiusScale', self.sunScale)
 		elif self.sunsky_advanced and self.sunsky_type == 'sunsky':
 			params.add_float('skyScale', self.skyScale)
 			params.add_float('sunScale', self.sunScale)
+			params.add_float('sunRadiusScale', self.sunRadiusScale)
 		if self.sunsky_advanced:
 			params.add_integer('resolution', self.resolution)
 			
