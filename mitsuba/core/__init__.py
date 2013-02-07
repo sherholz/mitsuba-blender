@@ -150,7 +150,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 					MtsLaunch(scene.mitsuba_engine.binary_path, output_dir,
 						['mtsgui', efutil.export_path])
 				elif scene.mitsuba_engine.render_mode == 'cli':
-					output_file = efutil.export_path[:-4] + ".png"
+					output_file = efutil.export_path[:-4] + "." + scene.camera.data.mitsuba_film.fileExtension
 					mitsuba_process = MtsLaunch(scene.mitsuba_engine.binary_path, output_dir,
 						['mitsuba', '-r', str(scene.mitsuba_engine.refresh_interval),
 							'-o', output_file, efutil.export_path]

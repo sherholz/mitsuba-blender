@@ -375,21 +375,25 @@ class SceneExporter:
 		self.closeElement()
 
 	def exportFilm(self, scene, camera):
-		#mcam = camera.data.mitsuba_camera
-		#if not mcam.use_film:
-		mcam = scene.mitsuba_film
-		self.openElement('film', {'id' : '%s-camera_film' % camera.name,'type':str(mcam.film)})
-		if str(mcam.film) == 'ldrfilm':
-			self.parameter('float', 'exposure', {'value' : str(mcam.exposure)})
-		#self.parameter('string', 'toneMappingMethod', {'value' : 'gamma'})
+		film = camera.data.mitsuba_film
+		filmParams = film.get_params()
+		self.openElement('film', {'id' : '%s-camera_film' % camera.name,'type': film.type})
 		[width,height] = resolution(scene)
-		self.parameter('string', 'pixelFormat', {'value' : str(mcam.pixelFormat).lower()})
-		self.parameter('boolean', 'banner', {'value' : str(mcam.banner).lower()})
 		self.parameter('integer', 'width', {'value' : '%d' % width})
 		self.parameter('integer', 'height', {'value' : '%d' % height})
-		if mcam.statistics == 1:
-			self.parameter('string', 'label[10,10]', {'value' : 'Integrator:$integrator[\'type\'], $film[\'width\']x$film[\'height\'],$sampler[\'sampleCount\']spp, rendertime:$scene[\'renderTime\'],memory:$scene[\'memUsage\']' })
-		#self.parameter('float', 'gamma', {'value' : '-1'})
+		filmParams.export(self)
+		if film.rfilter in ['gaussian', 'mitchell', 'lanczos']:
+			self.openElement('rfilter', {'type': film.rfilter})
+			if film.rfilter == 'gaussian':
+				self.parameter('float', 'stddev', {'value' : '%f' % film.stddev})
+			elif film.rfilter == 'mitchell':
+				self.parameter('float', 'B', {'value' : '%f' % film.B})
+				self.parameter('float', 'C', {'value' : '%f' % film.C})
+			else:
+				self.parameter('integer', 'lobes', {'value' : '%d' % film.lobes})
+			self.closeElement() # closing rfilter element
+		else:
+			self.element('rfilter', {'type' : film.rfilter})
 		self.closeElement() # closing film element
 
 	def exportCamera(self, scene, camera):

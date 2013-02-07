@@ -79,7 +79,7 @@ class output(render_panel, bpy.types.Panel):
 	COMPAT_ENGINES = {'MITSUBA_RENDER'}
 
 	display_property_groups = [
-		( ('scene',), 'mitsuba_film' )
+		( ('scene',) )
 	]
 
 	def draw(self, context):
@@ -89,9 +89,24 @@ class output(render_panel, bpy.types.Panel):
 
 		layout.prop(rd, "filepath", text="")
 
+@MitsubaAddon.addon_register_class
+class active_film(render_panel, bpy.types.Panel):
+	bl_label = "Active Camera Film Settings"
+	COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+	display_property_groups = [
+		( ('scene', 'camera', 'data'), 'mitsuba_film' )
+	]
+
+	def draw(self, context):
+		layout = self.layout
+		film = context.scene.camera.data.mitsuba_film
+		layout.prop(film, "fileFormat")
+		layout.prop(film, "pixelFormat", expand=True)
+		if film.fileFormat == 'openexr':
+			layout.prop(film, "componentFormat", expand=True)
 		super().draw(context)
-
-
+ 
 @MitsubaAddon.addon_register_class
 class setup_preset(render_panel, bpy.types.Panel):
 	'''
