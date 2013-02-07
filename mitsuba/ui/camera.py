@@ -31,15 +31,33 @@ class camera(world_panel):
 	Camera Settings
 	'''
 	
-	bl_label = 'Mitsuba Camera Options'
+	bl_label = 'Mitsuba Sensor Options'
 	
 	display_property_groups = [
 		( ('camera',), 'mitsuba_camera' )
 	]
 
-	def draw_header(self, context):
-		self.layout.prop(context.camera.mitsuba_camera, "use_film", text="")
+	def draw(self, context):
+		super().draw(context)
+
+@MitsubaAddon.addon_register_class
+class film(world_panel):
+	'''
+	Film Settings
+	'''
+	
+	bl_label = 'Mitsuba Film Options'
+	
+	display_property_groups = [
+		( ('camera',), 'mitsuba_film' )
+	]
 
 	def draw(self, context):
-		self.layout.active = (context.camera.mitsuba_camera.use_film)
+		layout = self.layout
+		film = context.object.data.mitsuba_film
+		layout.prop(film, "fileFormat")
+		layout.prop(film, "pixelFormat", expand=True)
+		if film.fileFormat == 'openexr':
+			layout.prop(film, "componentFormat", expand=True)
 		super().draw(context)
+ 
