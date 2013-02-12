@@ -120,11 +120,11 @@ class SceneExporter:
 			self.exportPoint(lamp.location)
 			self.parameter('float', 'radius', {'value' : lamp.data.mitsuba_lamp.radius})
 			self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'area'})
-			if lamp.data.mitsuba_lamp.inside_medium:
-				self.element('ref', {'id' : lamp.data.mitsuba_lamp.lamp_medium})
-			self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.data.mitsuba_lamp.samplingWeight})
 			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
 					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
+			self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.data.mitsuba_lamp.samplingWeight})
+			if lamp.data.mitsuba_lamp.inside_medium:
+				self.element('ref', {'id' : lamp.data.mitsuba_lamp.lamp_medium})
 			self.closeElement()
 			self.closeElement()
 		elif ltype == 'AREA':
@@ -143,10 +143,11 @@ class SceneExporter:
 			self.exportWorldTrafo(lamp.matrix_world)
 
 			self.openElement('emitter', { 'id' : '%s-arealight' % name, 'type' : 'area'})
-			if lamp.data.mitsuba_lamp.inside_medium:
-				self.element('ref', {'id' : lamp.data.mitsuba_lamp.lamp_medium})
 			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
 					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
+			self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.data.mitsuba_lamp.samplingWeight})
+			if lamp.data.mitsuba_lamp.inside_medium:
+				self.element('ref', {'id' : lamp.data.mitsuba_lamp.lamp_medium})
 			self.closeElement()
 			self.openElement('bsdf', { 'type' : 'diffuse'})
 			self.parameter('spectrum', 'reflectance', {'value' : '0'})
@@ -271,12 +272,12 @@ class SceneExporter:
 		self.closeElement()
 		
 	def exportBump(self, mat):
-		mmat = mat.mitsuba_material
+		mmat = mat.mitsuba_mat_bsdf
 		self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
-		self.element('ref', {'name' : 'bump_ref', 'id' : '%s-material' % mmat.mitsuba_mat_bump.ref_name})
+		self.element('ref', {'name' : 'bump_ref', 'id' : '%s-material' % mmat.mitsuba_bsdf_bump.ref_name})
 		self.openElement('texture', {'type' : 'scale'})
-		self.parameter('float', 'scale', {'value' : '%f' % mmat.mitsuba_mat_bump.scale})		
-		self.element('ref', {'name' : 'bump_ref', 'id' : mmat.mitsuba_mat_bump.bump_texturename})
+		self.parameter('float', 'scale', {'value' : '%f' % mmat.mitsuba_bsdf_bump.scale})		
+		self.element('ref', {'name' : 'bump_ref', 'id' : mmat.mitsuba_bsdf_bump.bump_texturename})
 		self.closeElement()
 		self.closeElement()
 
@@ -284,44 +285,53 @@ class SceneExporter:
 		if not hasattr(mat, 'name') or mat.name in self.exported_materials:
 			return
 		self.exported_materials += [mat.name]
-		mmat = mat.mitsuba_material
+		mmat = mat.mitsuba_mat_bsdf
 		if mmat.type == 'none':
 			self.element('null', {'id' : '%s-material' % mat.name})
-			return
-
-		if mat.mitsuba_material.surface == 'subsurface':
-			#mat_params.add_spectrum('diffuseReflectance', 0)
-			msss = mat.mitsuba_material.mitsuba_sss_dipole
-			sss_params = msss.get_params()
-			self.openElement('subsurface', {'id' : '%s-subsurface' % mat.name, 'type' : 'dipole'})
-			sss_params.export(self)
-			self.closeElement()
-			self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : 'roughplastic'})
-			self.element('spectrum', {'name' : 'diffuseReflectance', 'value' : 0})
-			self.parameter('float', 'intIOR', {'value' : '%f' % mmat.mitsuba_sss_dipole.intIOR})
-			self.parameter('float', 'alpha', {'value' : '%f' % mmat.mitsuba_sss_dipole.alpha})
-			self.closeElement()
 			return
 
 		params = mmat.get_params()
 
 		for p in params:
-			if p.type == 'reference_material':
+			if p.type == 'reference_material' and p.value != '':
 				self.exportMaterial(self.findMaterial(p.value))
-			elif p.type == 'reference_texture':
+			elif p.type == 'reference_texture' and p.value != '':
 				self.exportTexture(self.findTexture(p.value))
 			
-		if mmat.type == 'bump':
-			self.exportBump(mat)
-			return
-			
-		self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
+		if mat.mitsuba_mat_subsurface.use_subsurface:
+			msss = mat.mitsuba_mat_subsurface
+			sss_params = msss.get_params()
+			self.openElement('subsurface', {'id' : '%s-subsurface' % mat.name, 'type' : 'dipole'})
+			sss_params.export(self)
+			self.closeElement()
 
-		params.export(self)
-		self.closeElement()
+		if mat.mitsuba_mat_bsdf.use_bsdf:
+			if mmat.type == 'bump':
+				self.exportBump(mat)
+			else:
+				bsdf = getattr(mmat, 'mitsuba_bsdf_%s' % mmat.type)
+				mtype = mmat.type
+				if hasattr(bsdf, 'thin') and bsdf.thin:
+					mtype = 'thin%s' % mmat.type
+				elif hasattr(bsdf, 'use_roughness') and bsdf.use_roughness:
+					mtype = 'rough%s' % mmat.type
+
+				self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mtype})
+
+				params.export(self)
+
+				if mmat.type == 'hg':
+					if mmat.g == 0:
+						self.element('phase', {'type' : 'isotropic'})
+					else:
+						self.openElement('phase', {'type' : 'hg'})
+						self.parameter('float', 'g', {'value' : str(mmat.g)})
+						self.closeElement()
+
+				self.closeElement()
 
 	def exportEmission(self, ob_mat):
-		lamp = ob_mat.mitsuba_emission
+		lamp = ob_mat.mitsuba_mat_emitter
 		mult = lamp.intensity
 		self.openElement('emitter', { 'type' : 'area'})
 		self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.samplingWeight})
@@ -329,27 +339,31 @@ class SceneExporter:
 				% (lamp.color.r*mult, lamp.color.g*mult, lamp.color.b*mult)})
 		self.closeElement()
 	
-	def exportMediumReference(self, scene, obj, role, mediumName):
+	def exportMediumReference(self, role, mediumName):
 		if mediumName == "":
 			return
-		if obj.data.users > 1:
-			MtsLog("Error: medium transitions cannot be instantiated (at least for now)!")
-			return
-		self.exportMedium(scene.mitsuba_media.media[mediumName])
+		#if obj.data.users > 1:
+		#	MtsLog("Error: medium transitions cannot be instantiated (at least for now)!")
+		#	return
+		#self.exportMedium(scene.mitsuba_media.media[mediumName])
 		if role == '':
 			self.element('ref', { 'id' : mediumName})
 		else:
 			self.element('ref', { 'name' : role, 'id' : mediumName})
 
 	def exportPreviewMesh(self, scene, material):
-		mmat = material.mitsuba_material
-		lamp = material.mitsuba_emission
-		if mmat.is_medium_transition:
+		mmat_bsdf = material.mitsuba_mat_bsdf
+		mmat_subsurface = material.mitsuba_mat_subsurface
+		mmat_medium = material.mitsuba_mat_medium
+		mmat_emitter = material.mitsuba_mat_emitter
+
+		if mmat_medium.use_medium:
 			mainScene = bpy.data.scenes[0]
-			if mmat.interior_medium != '':
-				self.exportMedium(mainScene.mitsuba_media.media[mmat.interior_medium])
-			if mmat.exterior_medium != '':
-				self.exportMedium(mainScene.mitsuba_media.media[mmat.exterior_medium])
+			if mmat_medium.interior_medium != '':
+				self.exportMedium(mainScene.mitsuba_media.media[mmat_medium.interior_medium])
+			if mmat_medium.exterior_medium != '':
+				self.exportMedium(mainScene.mitsuba_media.media[mmat_medium.exterior_medium])
+
 		self.openElement('shape', {'id' : 'Exterior-mesh_0', 'type' : 'serialized'})
 		self.parameter('string', 'filename', {'value' : 'matpreview.serialized'})
 		self.parameter('integer', 'shapeIndex', {'value' : '1'})
@@ -357,21 +371,24 @@ class SceneExporter:
 		self.element('matrix', {'value' : '0.614046 0.614047 0 -1.78814e-07 -0.614047 0.614046 0 2.08616e-07 0 0 0.868393 1.02569 0 0 0 1'})
 		self.element('translate', { 'z' : '0.01'})
 		self.closeElement()
-		if mmat.type != 'none':
-			if mmat.surface == 'subsurface':
-				self.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % material.name})
+
+		if mmat_bsdf.use_bsdf and mmat_bsdf.type != 'none':
 			self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % material.name})
-		if lamp and mmat.surface == 'emitter':
-			mult = lamp.intensity
+
+		if mmat_subsurface.use_subsurface:
+			self.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % material.name})
+
+		if mmat_medium.use_medium:
+			self.exportMediumReference('interior', mmat_medium.interior_medium)
+			self.exportMediumReference('exterior', mmat_medium.exterior_medium)
+
+		if mmat_emitter.use_emission:
+			mult = mmat_emitter.intensity
 			self.openElement('emitter', {'type' : 'area'})
 			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
-					% (lamp.color.r*mult, lamp.color.g*mult, lamp.color.b*mult)})
+					% (mmat_emitter.color.r*mult, mmat_emitter.color.g*mult, mmat_emitter.color.b*mult)})
 			self.closeElement()
-		if mmat.is_medium_transition:
-			if mmat.interior_medium != '':
-				self.element('ref', { 'name' : 'interior', 'id' : mmat.interior_medium})
-			if mmat.exterior_medium != '':
-				self.element('ref', { 'name' : 'exterior', 'id' : mmat.exterior_medium})
+
 		self.closeElement()
 
 	def exportFilm(self, scene, camera):
@@ -455,20 +472,30 @@ class SceneExporter:
 			self.parameter('float', 'g', {'value' : str(medium.g)})
 			self.closeElement()
 		if medium.type == 'homogeneous':
-			self.parameter('float', 'densityMultiplier', {'value' : str(medium.densityMultiplier)})
-			if medium.material == '':
-				 self.parameter('rgb', 'sigmaA', {'value' : '%f %f %f' % (
-					 (1-medium.albedo.r) * medium.sigmaT[0],
-					 (1-medium.albedo.g) * medium.sigmaT[1],
-					 (1-medium.albedo.b) * medium.sigmaT[2])})
-				 self.parameter('rgb', 'sigmaS', {'value' : '%f %f %f' % (
-					 medium.albedo.r * medium.sigmaT[0],
-					 medium.albedo.g * medium.sigmaT[1],
-					 medium.albedo.b * medium.sigmaT[2])})
-			else:
-				 self.parameter('string', 'material', {'value' : str(medium.material)})
+			params = medium.get_params()
+			params.export(self)
 
 		self.closeElement()
+
+	def isMaterialSafe(self, mat):
+		if mat.mitsuba_mat_subsurface.use_subsurface:
+			return False
+
+		if mat.mitsuba_mat_medium.use_medium:
+			return False
+
+		if mat.mitsuba_mat_emitter.use_emission:
+			return False
+
+		mmat = mat.mitsuba_mat_bsdf
+		params = mmat.get_params()
+
+		for p in params:
+			if p.type == 'reference_material':
+				if not self.isMaterialSafe(self.findMaterial(p.value)):
+					return False
+
+		return True
 
 	def isRenderable(self, scene, obj):
 		if not obj.hide_render:
@@ -477,30 +504,6 @@ class SceneExporter:
 					return True
 		return False
 
-	def exportShapeGroup(self, scene, object, data):
-		group_id = data['id'] + '-shapeGroup_' + str(self.shape_index)
-		obj = object['obj']
-		object['mtx'] = obj.matrix_world
-
-		self.openElement('shape', { 'id' : group_id, 'type' : 'shapegroup'})
-		self.exportShape(scene, object, data)
-		self.closeElement()
-		return group_id
-		
-	def exportInstance(self, scene, object, data):
-		obj = object['obj']
-		mtx = object['mtx']
-		
-		self.openElement('shape', { 'id' : data['id'] + '-instance_' + str(self.shape_index), 'type' : 'instance'})
-		self.element('ref', {'id' : data['group_id']})
-		if mtx == None:
-			self.exportWorldTrafo(obj.matrix_world)
-		else:
-			self.exportWorldTrafo(mtx)
-		self.closeElement()
-		
-		self.shape_index += 1
-		
 	def export(self, scene):
 		if scene.mitsuba_engine.binary_path == '':
 			MtsLog("Error: the Mitsuba binary path was not specified!")

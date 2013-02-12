@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bl_ui
+import bpy
 from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_base
 
@@ -26,22 +26,20 @@ class emission(mitsuba_material_base, bpy.types.Panel):
 	Material Emission Settings
 	'''
 	
-	bl_label = 'Mitsuba Material Emission'
+	bl_label = 'Mitsuba Emitter Material'
+	bl_options = {'DEFAULT_CLOSED'}
 
 	display_property_groups = [
-		( ('material',), 'mitsuba_emission' )
+		( ('material',), 'mitsuba_mat_emitter' )
 	]
 
-	@classmethod
-	def poll(cls, context):
-		'''
-		Only show Mitsuba panel if mitsuba_material.material in MTS_COMPAT
-		'''
-		if not hasattr(context, 'material'):
-			return False
-
-		return super().poll(context) and context.material.mitsuba_material.surface == 'emitter'
-
 	def get_contents(self, mat):
-		return mat.mitsuba_emission
+		return mat.mitsuba_mat_emitter
+
+	def draw_header(self, context):
+		self.layout.prop(context.material.mitsuba_mat_emitter, "use_emission", text="")
+
+	def draw(self, context):
+		self.layout.active = (context.material.mitsuba_mat_emitter.use_emission)
+		return super().draw(context)
 

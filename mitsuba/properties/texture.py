@@ -61,8 +61,8 @@ class TextureParameterBase(object):
 
 	def texture_slot_set_attr(self):
 		def set_attr(s,c):
-			if type(c).__name__ == 'mitsuba_material':
-				return getattr(c, 'mitsuba_mat_%s'%c.type)
+			if type(c).__name__ == 'mitsuba_mat_bsdf':
+				return getattr(c, 'mitsuba_bsdf_%s'%c.type)
 			else:
 				return getattr(c, 'mitsuba_tex_%s'%c.type)
 		return set_attr

@@ -18,14 +18,28 @@
 
 import bpy
 from ... import MitsubaAddon
-from ...ui.materials import mitsuba_material_sub
+from ...ui.materials import mitsuba_material_base
 
 @MitsubaAddon.addon_register_class
-class ui_material_thindielectric(mitsuba_material_sub, bpy.types.Panel):
-	bl_label = 'Mitsuba Dielectric Material'
-
-	MTS_COMPAT = {'thindielectric'}
+class ui_mitsuba_material_medium(mitsuba_material_base, bpy.types.Panel):
+	'''
+	Material Medium Settings
+	'''
 	
+	bl_label = 'Mitsuba Medium Material'
+	bl_options = {'DEFAULT_CLOSED'}
+
 	display_property_groups = [
-		( ('material', 'mitsuba_material'), 'mitsuba_mat_thindielectric' )
+		( ('material',), 'mitsuba_mat_medium' )
 	]
+
+	def get_contents(self, mat):
+		return mat.mitsuba_mat_medium
+
+	def draw_header(self, context):
+		self.layout.prop(context.material.mitsuba_mat_medium, "use_medium", text="")
+
+	def draw(self, context):
+		self.layout.active = (context.material.mitsuba_mat_medium.use_medium)
+		return super().draw(context)
+
