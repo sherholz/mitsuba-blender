@@ -17,8 +17,33 @@
 # ##### END GPL LICENSE BLOCK #####
 
 from .. import MitsubaAddon
+from copy import deepcopy
 
 from extensions_framework import declarative_property_group
+
+from ..properties.texture import (ColorTextureParameter,BumpTextureParameter,SpectrumTextureParameter, FloatTextureParameter, ColorTextureParameterFix)
+from ..export import ParamSet
+
+param_scattCoeff = SpectrumTextureParameter('sigmaS', 'Scattering Coefficient', 'Scattering value', default=(0.8, 0.8, 0.8))
+param_absorptionCoefficient = SpectrumTextureParameter('sigmaA', 'Absorption Coefficient', 'Absorption value', default=(0.0, 0.0, 0.0))
+param_extinctionCoeff = SpectrumTextureParameter('sigmaT', 'Extinction Coefficient', 'Extinction value', default=(0.8, 0.8, 0.8))
+param_albedo = SpectrumTextureParameter('albedo', 'Albedo', 'Albedo value', default=(0.01, 0.01, 0.01))
+
+def dict_merge(*args):
+	vis = {}
+	for vis_dict in args:
+		vis.update(deepcopy(vis_dict))
+	return vis
+
+def texture_append_visibility(vis_main, textureparam_object, vis_append):
+	for prop in textureparam_object.properties:
+		if 'attr' in prop.keys():
+			if not prop['attr'] in vis_main.keys():
+				vis_main[prop['attr']] = {}
+			for vk, vi in vis_append.items():
+				vis_main[prop['attr']][vk] = vi
+	return vis_main
+
 
 def MediumParameter(attr, name):
 	return [
@@ -34,7 +59,7 @@ def MediumParameter(attr, name):
 			'attr': attr,
 			'src': lambda s,c: s.scene.mitsuba_media,
 			'src_attr': 'media',
-			'trg': lambda s,c: c.mitsuba_material,
+			'trg': lambda s,c: c.mitsuba_mat_medium,
 			'trg_attr': '%s_medium' % attr,
 			'name': name
 		}
@@ -52,7 +77,17 @@ class mitsuba_medium_data(declarative_property_group):
 	ef_attach_to = []	# not attached
 	
 	controls = [
-		'type', 'material', 'g', 'densityMultiplier', 'sigmaT', 'albedo'
+		'type',
+		'material',
+		'g',
+		'useAlbSigmaT'
+	] + \
+	    param_absorptionCoefficient.controls + \
+	    param_scattCoeff.controls + \
+	    param_extinctionCoeff.controls + \
+	    param_albedo.controls + \
+	[
+		'scale'
 	]
 
 	properties = [
@@ -62,7 +97,7 @@ class mitsuba_medium_data(declarative_property_group):
 			'name': 'Type',
 			'items': [
 				('homogeneous', 'Homogeneous', 'homogeneous'),
-				('heterogeneous', 'Heterogeneous', 'heterogeneous'),
+				#('heterogeneous', 'Heterogeneous', 'heterogeneous'),
 			],
 			'save_in_preset': True
 		},
@@ -70,7 +105,7 @@ class mitsuba_medium_data(declarative_property_group):
 			'type': 'string',
 			'attr': 'material',
 			'name': 'Preset name',
-			'description' : 'Name of a material preset (Cu=copper)',
+			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
 			'default': '',
 			'save_in_preset': True
 		},
@@ -87,49 +122,58 @@ class mitsuba_medium_data(declarative_property_group):
 			'precision': 4,
 			'save_in_preset': True
 		},
+		{			
+			'type': 'bool',
+			'attr': 'useAlbSigmaT',
+			'name': 'Use Albedo&SigmaT',
+			'description': 'Use Albedo&SigmaT instead SigmatS&SigmaA',
+			'default': False,
+			'save_in_preset': True
+		},
 		{
 			'type': 'float',
-			'attr': 'densityMultiplier',
-			'name': 'Density',
-			'description': 'In conjunction with the scattering and absorption coefficients, this number determines the optical density of the medium',
-			'default': 1.0,
-			'min': 0,
-			'max': 10000,
-			'precision': 4,
+			'attr': 'scale',
+			'name' : 'Scale',
+			'description' : 'Density scale',
+			'default' : 1.0,
+			'min': 0.1,
+			'max': 50000.0,
 			'save_in_preset': True
 		},
-		{
-			'type': 'float_vector',
-			'attr': 'sigmaT',
-			'name' : 'Extinction',
-			'description' : 'Extinction due to scattering and absorption. Please ' +
-				'keep these value roughly equal across color channels (or expect noise).',
-			'default' : (1.0, 1.0, 1.0),
-			'min': 0.0,
-			'max': 1.0,
-			'expand' : False,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float_vector',
-			'attr': 'albedo',
-			'subtype': 'COLOR',
-			'name' : 'Single-scattering albedo',
-			'description' : 'Specifies the albedo of a single scattering interaction',
-			'default' : (0.8, 0.8, 0.8),
-			'min': 0.0,
-			'max': 1.0,
-			'expand' : False,
-			'save_in_preset': True
-		}
-	]
+	] + \
+	    param_absorptionCoefficient.properties + \
+	    param_scattCoeff.properties + \
+	    param_extinctionCoeff.properties + \
+	    param_albedo.properties
 	
-	visibility = {
+	visibility = dict_merge(
+		{
+			'useAlbSigmaT': { 'material': '' }
+		},
+		param_absorptionCoefficient.visibility,
+		param_scattCoeff.visibility,
+		param_extinctionCoeff.visibility,
+		param_albedo.visibility
+	)
 
-			'sigmaT' : { 'material' : '' },
-			'albedo' : { 'material' : '' }
-		}
+	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
+	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
 
+	def get_params(self):
+		params = ParamSet()
+		if self.material=='':
+			if self.useAlbSigmaT != True:
+				params.update(param_absorptionCoefficient.get_params(self))
+				params.update(param_scattCoeff.get_params(self))
+			else:
+				params.update(param_extinctionCoeff.get_params(self))
+				params.update(param_albedo.get_params(self))
+		else:
+			params.add_string('material', self.material)
+		params.add_float('scale', self.scale)
+		return params
 
 @MitsubaAddon.addon_register_class
 class mitsuba_media(declarative_property_group):

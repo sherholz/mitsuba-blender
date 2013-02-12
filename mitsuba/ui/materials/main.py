@@ -51,22 +51,23 @@ class MATERIAL_PT_material_bsdf(mitsuba_material_base, bpy.types.Panel):
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 
 	display_property_groups = [
-		( ('material',), 'mitsuba_material' )
+		( ('material',), 'mitsuba_mat_bsdf' )
 	]
 
-	@classmethod
-	def poll(cls, context):
-		'''
-		Only show Mitsuba panel if mitsuba_material.material in MTS_COMPAT
-		'''
-		if not hasattr(context, 'material'):
-			return False
-
-		return super().poll(context) and \
-				context.material.mitsuba_material.surface == 'bsdf'
+	def draw_header(self, context):
+		self.layout.prop(context.material.mitsuba_mat_bsdf, "use_bsdf", text="")
 
 	def draw(self, context):
-		row = self.layout.row(align=True)
-		row.menu('MATERIAL_MT_mitsuba_type', text=context.material.mitsuba_material.type_label)
-		super().draw(context)
+		layout = self.layout
+		mat = context.material.mitsuba_mat_bsdf
+		layout.active = (mat.use_bsdf)
+		layout.prop(context.material.mitsuba_mat_bsdf, "type", text="")
+		if mat.type != 'none':
+			bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
+			for p in bsdf.controls:
+				self.draw_column(p, self.layout, mat, context,
+					property_group=bsdf)
+			bsdf.draw_callback(context)
+		
+		#return super().draw(context)
 

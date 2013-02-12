@@ -100,21 +100,21 @@ class MITSUBA_OT_preset_material_add(bl_operators.presets.AddPresetBase, bpy.typ
 	
 	def execute(self, context):
 		pv = [
-			'bpy.context.material.mitsuba_material.%s'%v['attr'] for v in bpy.types.mitsuba_material.get_exportable_properties()
+			'bpy.context.material.mitsuba_mat_bsdf.%s'%v['attr'] for v in bpy.types.mitsuba_mat_bsdf.get_exportable_properties()
 		] 
 
 		# store only the sub-properties of the selected mitsuba material type
-		mts_type = context.material.mitsuba_material.type
-		sub_type = getattr(bpy.types, 'mitsuba_mat_%s' % mts_type)
+		mts_type = context.material.mitsuba_mat_bsdf.type
+		sub_type = getattr(bpy.types, 'mitsuba_bsdf_%s' % mts_type)
 		
 		pv.extend([
-			'bpy.context.material.mitsuba_material.mitsuba_mat_%s.%s'%(mts_type, v['attr']) for v in sub_type.get_exportable_properties()
+			'bpy.context.material.mitsuba_mat_bsdf.mitsuba_bsdf_%s.%s'%(mts_type, v['attr']) for v in sub_type.get_exportable_properties()
 		])
 		pv.extend([
-			'bpy.context.material.mitsuba_material.mitsuba_sss_dipole.%s'%v['attr'] for v in bpy.types.mitsuba_sss_dipole.get_exportable_properties()
+			'bpy.context.material.mitsuba_mat_subsurface.%s'%v['attr'] for v in bpy.types.mitsuba_mat_subsurface.get_exportable_properties()
 		])
 		pv.extend([
-			'bpy.context.material.mitsuba_material.mitsuba_emission.%s'%v['attr'] for v in bpy.types.mitsuba_emission.get_exportable_properties()
+			'bpy.context.material.mitsuba_mat_emitter.%s'%v['attr'] for v in bpy.types.mitsuba_mat_emitter.get_exportable_properties()
 		])
 
 		self.preset_values = pv
@@ -218,24 +218,22 @@ class MITSUBA_OT_material_add(bpy.types.Operator):
 
 def material_converter(report, scene, blender_mat):
 	try:
-		mitsuba_mat = blender_mat.mitsuba_material
+		mitsuba_mat = blender_mat.mitsuba_mat_bsdf
 		if blender_mat.specular_intensity == 0:
-			mitsuba_mat.surface = 'bsdf'
 			mitsuba_mat.type = 'diffuse'
-			mitsuba_mat.mitsuba_mat_diffuse.reflectance_color = blender_mat.diffuse_color
+			mitsuba_mat.mitsuba_bsdf_diffuse.reflectance_color = blender_mat.diffuse_color
 		else:
-			mitsuba_mat.surface = 'bsdf'
 			mitsuba_mat.type = 'roughplastic'
-			mitsuba_mat.mitsuba_mat_roughplastic.diffuseReflectance_color =  [i * blender_mat.diffuse_intensity for i in blender_mat.diffuse_color]
+			mitsuba_mat.mitsuba_bsdf_roughplastic.diffuseReflectance_color =  [i * blender_mat.diffuse_intensity for i in blender_mat.diffuse_color]
 			Roughness = math.exp(-blender_mat.specular_hardness/50)		#by eyeballing rule of Bartosz Styperek :/	
 			#Roughness = (1 - 1/blender_mat.specular_hardness)
-			mitsuba_mat.mitsuba_mat_roughplastic.specularReflectance_color =  [i * blender_mat.specular_intensity for i in blender_mat.specular_color]
-			mitsuba_mat.mitsuba_mat_roughplastic.alphaB = Roughness
+			mitsuba_mat.mitsuba_bsdf_roughplastic.specularReflectance_color =  [i * blender_mat.specular_intensity for i in blender_mat.specular_color]
+			mitsuba_mat.mitsuba_bsdf_roughplastic.alphaB = Roughness
 		if blender_mat.emit > 0:
-			mitsuba_emission = blender_mat.mitsuba_emission
-			mitsuba_mat.surface = 'emitter'
-			mitsuba_emission.intensity = blender_mat.emit
-			mitsuba_emission.color = blender_mat.diffuse_color
+			emitter = blender_mat.mitsuba_mat_emitter
+			emitter.use_emission = True
+			emitter.intensity = blender_mat.emit
+			emitter.color = blender_mat.diffuse_color
 		report({'INFO'}, 'Converted blender material "%s"' % blender_mat.name)
 		return {'FINISHED'}
 	except Exception as err:

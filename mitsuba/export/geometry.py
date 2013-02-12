@@ -605,14 +605,10 @@ class GeometryExporter(object):
 		try:
 			ob_mat = obj.material_slots[me_mat_index].material
 			# create material xml
-			if ob_mat != None and ob_mat.mitsuba_material.surface == 'bsdf':
+			if ob_mat != None and self.mts_context.isMaterialSafe(ob_mat):
 				self.mts_context.exportMaterial(ob_mat)
 			else:
 				return False
-			#mmat = ob_mat.mitsuba_material
-			#if mmat.is_medium_transition:
-			#	self.exportMediumReference(scene, obj, 'interior', mmat.interior_medium)
-			#	self.exportMediumReference(scene, obj, 'exterior', mmat.exterior_medium)
 		except IndexError:
 			ob_mat = None
 			MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(me_mat_index+1, obj.name))
@@ -648,23 +644,26 @@ class GeometryExporter(object):
 			
 		for me_name, me_mat_index, me_shape_type, me_shape_params in mesh_definitions:
 			
-			if parent != None:
-				mat_object = parent
-			else:
-				mat_object = obj
+			if me_shape_type != 'instance':
+				if parent != None:
+					mat_object = parent
+				else:
+					mat_object = obj
 			
-			try:
-				ob_mat = mat_object.material_slots[me_mat_index].material
-				# create material xml
-				if ob_mat != None and ob_mat.mitsuba_material.surface != 'emitter':
-					self.mts_context.exportMaterial(ob_mat)
-				#mmat = ob_mat.mitsuba_material
-				#if mmat.is_medium_transition:
-				#	self.exportMediumReference(scene, obj, 'interior', mmat.interior_medium)
-				#	self.exportMediumReference(scene, obj, 'exterior', mmat.exterior_medium)
-			except IndexError:
-				ob_mat = None
-				MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(me_mat_index+1, mat_object.name))
+				try:
+					ob_mat = mat_object.material_slots[me_mat_index].material
+					# create material xml
+					if ob_mat != None:
+						self.mts_context.exportMaterial(ob_mat)
+					mmat_medium = ob_mat.mitsuba_mat_medium
+					if mmat_medium.use_medium:
+						if mmat_medium.interior_medium != '':
+							self.mts_context.exportMedium(self.geometry_scene.mitsuba_media.media[mmat_medium.interior_medium])
+						if mmat_medium.exterior_medium != '':
+							self.mts_context.exportMedium(self.geometry_scene.mitsuba_media.media[mmat_medium.exterior_medium])
+				except IndexError:
+					ob_mat = None
+					MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(me_mat_index+1, mat_object.name))
 			
 						
 			self.shape_index += 1
@@ -677,13 +676,19 @@ class GeometryExporter(object):
 			else:
 				self.mts_context.exportWorldTrafo(obj.matrix_world)
 			
-			if ob_mat != None and me_shape_type != 'instance':
-				if ob_mat.mitsuba_material.surface == 'emitter':
-					self.mts_context.exportEmission(ob_mat)
-				else:
-					if ob_mat.mitsuba_material.surface == 'subsurface':
+			if me_shape_type != 'instance':
+				if ob_mat != None:
+					if ob_mat.mitsuba_mat_bsdf.use_bsdf:
+						self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
+					if ob_mat.mitsuba_mat_subsurface.use_subsurface:
 						self.mts_context.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name})
-					self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
+					mmat_medium = ob_mat.mitsuba_mat_medium
+					if mmat_medium.use_medium:
+						self.mts_context.exportMediumReference('interior', mmat_medium.interior_medium)
+						self.mts_context.exportMediumReference('exterior', mmat_medium.exterior_medium)
+					if ob_mat.mitsuba_mat_emitter.use_emission:
+						self.mts_context.exportEmission(ob_mat)
+
 			self.mts_context.closeElement()
 			
 	def BSpline(self, points, dimension, degree, u):
