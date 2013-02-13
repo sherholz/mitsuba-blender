@@ -300,8 +300,29 @@ class SceneExporter:
 			
 		if mat.mitsuba_mat_subsurface.use_subsurface:
 			msss = mat.mitsuba_mat_subsurface
+			if msss.type == 'dipole':
+				self.openElement('subsurface', {'id' : '%s-subsurface' % mat.name, 'type' : 'dipole'})
+			elif msss.type in ['homogeneous','heterogeneous']:
+				phase = getattr(msss, 'mitsuba_sss_%s' % msss.type)
+				self.openElement('medium', {'id' : '%s-interior' % mat.name, 'type' : msss.type})
+				if msss.type == 'heterogeneous':
+					self.openElement('volume', {'name' : 'density', 'type' : 'constvolume'})
+					self.parameter('float', 'value', {'value' : str(phase.density)})
+					self.closeElement()
+					self.openElement('volume', {'name' : 'albedo', 'type' : 'constvolume'})
+					self.parameter('rgb', 'value', { 'value' : "%f %f %f"
+					    % (phase.albedo.r, phase.albedo.g, phase.albedo.b)})
+					self.closeElement()
+					self.openElement('volume', {'name' : 'orientation', 'type' : 'constvolume'})
+					self.parameter('vector', 'value', { 'x' : phase.orientation[0], 'y' : phase.orientation[1], 'z' : phase.orientation[2]})
+					self.closeElement()
+				self.openElement('phase', {'id' : '%s-iphase' % mat.name, 'type' : phase.phaseType})
+				if phase.phaseType == 'hg':
+					self.parameter('float', 'g', {'value' : str(phase.g)})
+				elif phase.phaseType == 'microflake':
+					self.parameter('float', 'stddev', {'value' : str(phase.stddev)})
+				self.closeElement()
 			sss_params = msss.get_params()
-			self.openElement('subsurface', {'id' : '%s-subsurface' % mat.name, 'type' : 'dipole'})
 			sss_params.export(self)
 			self.closeElement()
 
@@ -311,9 +332,11 @@ class SceneExporter:
 			else:
 				bsdf = getattr(mmat, 'mitsuba_bsdf_%s' % mmat.type)
 				mtype = mmat.type
-				if hasattr(bsdf, 'thin') and bsdf.thin:
-					mtype = 'thin%s' % mmat.type
-				elif hasattr(bsdf, 'use_roughness') and bsdf.use_roughness:
+				if mmat.type == 'diffuse' and (bsdf.alpha > 0 or (bsdf.alpha_usetexture and bsdf.alpha_texturename != '')):
+					mtype = 'roughdiffuse'
+				elif mmat.type == 'dielectric' and bsdf.thin:
+					mtype = 'thindielectric'
+				elif mmat.type in ['dielectric', 'conductor', 'plastic', 'coating'] and bsdf.distribution != 'none':
 					mtype = 'rough%s' % mmat.type
 
 				self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mtype})
@@ -330,7 +353,7 @@ class SceneExporter:
 
 				self.closeElement()
 
-	def exportEmission(self, ob_mat):
+	def exportMaterialEmitter(self, ob_mat):
 		lamp = ob_mat.mitsuba_mat_emitter
 		mult = lamp.intensity
 		self.openElement('emitter', { 'type' : 'area'})
@@ -376,13 +399,15 @@ class SceneExporter:
 			self.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % material.name})
 
 		if mmat_subsurface.use_subsurface:
-			self.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % material.name})
+			if mmat_subsurface.type == 'dipole':
+				self.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % material.name})
+			elif mmat_subsurface.type == 'homogeneous':
+				self.element('ref', {'name' : 'interior', 'id' : '%s-interior' % material.name})
 
-		if mmat_medium.use_medium:
-			self.exportMediumReference('interior', mmat_medium.interior_medium)
-			self.exportMediumReference('exterior', mmat_medium.exterior_medium)
+		#if mmat_medium.use_medium:
+		#	self.exportMediumReference('exterior', mmat_medium.exterior_medium)
 
-		if mmat_emitter.use_emission:
+		if mmat_emitter.use_emitter:
 			mult = mmat_emitter.intensity
 			self.openElement('emitter', {'type' : 'area'})
 			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
@@ -484,7 +509,7 @@ class SceneExporter:
 		if mat.mitsuba_mat_medium.use_medium:
 			return False
 
-		if mat.mitsuba_mat_emitter.use_emission:
+		if mat.mitsuba_mat_emitter.use_emitter:
 			return False
 
 		mmat = mat.mitsuba_mat_bsdf

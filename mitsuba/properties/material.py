@@ -24,7 +24,7 @@ from .. import MitsubaAddon
 from extensions_framework import declarative_property_group
 from extensions_framework import util as efutil
 from extensions_framework.validate import Logic_OR as O, Logic_Operator as LO
-from ..properties.texture import (ColorTextureParameter,BumpTextureParameter,SpectrumTextureParameter, FloatTextureParameter, ColorTextureParameterFix)
+from ..properties.texture import (ColorTextureParameter,BumpTextureParameter,SpectrumTextureParameter, FloatTextureParameter)
 from ..export import ParamSet
 from ..outputs import MtsLog
 
@@ -35,7 +35,7 @@ param_transmittance = ColorTextureParameter('transmittance', 'Diffuse Transmitta
 param_opacityMask = ColorTextureParameter('opacity', 'Opacity Mask', 'Opacity mask value', default=(0.5, 0.5, 0.5))
 param_diffuseReflectance = ColorTextureParameter('diffuseReflectance', 'Diffuse Reflectance', 'Diffuse reflectance value', default=(0.5, 0.5, 0.5))
 param_specularReflectance = ColorTextureParameter('specularReflectance', 'Specular Reflectance', 'Specular reflectance value', default=(1.0, 1.0, 1.0))
-param_specularTransmittance = ColorTextureParameterFix('specularTransmitt', 'Specular Transmittance', 'Specular transmittance value', default=(1.0, 1.0, 1.0)) # fixes only 'specularTransmittance' to long name error 
+param_specularTransmittance = ColorTextureParameter('specularTransmittance', 'Specular Transmittance', 'Specular transmittance value', default=(1.0, 1.0, 1.0)) # fixes only 'specularTransmittance' to long name error 
 param_bumpHeight = BumpTextureParameter('bump', 'Bump Texture', 'Bump height texture', default=1.0)
 param_scattCoeff = SpectrumTextureParameter('sigmaS', 'Scattering Coefficient', 'Scattering value', default=(0.8, 0.8, 0.8))
 param_absorptionCoefficient = SpectrumTextureParameter('sigmaA', 'Absorption Coefficient', 'Absorption value', default=(0.0, 0.0, 0.0))
@@ -120,21 +120,13 @@ class mitsuba_mat_bsdf(declarative_property_group):
 class mitsuba_bsdf_diffuse(declarative_property_group):	
 	ef_attach_to = ['mitsuba_mat_bsdf']
 
-	controls = param_reflectance.controls
-	
-	rough_controls = param_alphaRoughness.controls + \
+	controls = param_reflectance.controls + \
+	    param_alphaRoughness.controls + \
 	[
 		'useFastApprox'
 	]
 
 	properties = [
-		{
-			'type': 'bool',
-			'attr': 'use_roughness',
-			'name': 'Use Roughness',
-			'default': False,
-			'save_in_preset': True
-		},
 		{
 			'type': 'bool',
 			'attr': 'useFastApprox',
@@ -155,7 +147,7 @@ class mitsuba_bsdf_diffuse(declarative_property_group):
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_reflectance.get_params(self))
-		if self.use_roughness:
+		if self.alpha > 0 or (self.alpha_usetexture and self.alpha_texturename != ''):
 			params.update(param_alphaRoughness.get_params(self))
 			params.add_bool('useFastApprox', self.useFastApprox)
 		return params
@@ -169,10 +161,9 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 		['intIOR', 'extIOR']
 	] + \
 	    param_specularReflectance.controls + \
-	    param_specularTransmittance.controls
-
-	rough_controls = [
-		'distribution',
+	    param_specularTransmittance.controls + \
+	[
+		'distribution'
 	] + \
 	    param_alphaRoughness.controls + \
 	    param_alphaRoughnessU.controls + \
@@ -180,24 +171,18 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 
 	properties = [
 		{
-			'type': 'bool',
-			'attr': 'use_roughness',
-			'name': 'Use Roughness',
-			'default': False,
-			'save_in_preset': True
-		},
-		{
 			'type': 'enum',
 			'attr': 'distribution',
 			'name': 'Roughness Model',
 			'description': 'Specifes the type of microfacet normal distribution used to model the surface roughness',
 			'items': [
+				('none', 'None', 'none'),
 				('beckmann', 'Beckmann', 'beckmann'),
 				('ggx', 'Ggx', 'ggx'),
 				('phong', 'Phong', 'phong'),
 				('as', 'Anisotropic', 'as')
 			],
-			'default': 'beckmann',
+			'default': 'none',
 			'save_in_preset': True
 		},
 		{
@@ -236,15 +221,18 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 	    param_alphaRoughnessV.properties
 	
 	visibility = dict_merge(
+		{
+			'distribution' : {'thin' : False}
+		},
 		param_specularReflectance.visibility,
 		param_specularTransmittance.visibility,
 		param_alphaRoughness.visibility,
 		param_alphaRoughnessU.visibility,
 		param_alphaRoughnessV.visibility
 	)
-	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
-	visibility = texture_append_visibility(visibility, param_alphaRoughnessU, { 'distribution' : 'as'})
-	visibility = texture_append_visibility(visibility, param_alphaRoughnessV, { 'distribution' : 'as'})
+	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'thin' : False, 'distribution' : O(['beckmann','ggx','phong'])})
+	visibility = texture_append_visibility(visibility, param_alphaRoughnessU, { 'thin' : False, 'distribution' : 'as'})
+	visibility = texture_append_visibility(visibility, param_alphaRoughnessV, { 'thin' : False, 'distribution' : 'as'})
 
 	def get_params(self):
 		params = ParamSet()
@@ -252,7 +240,7 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 		params.add_float('extIOR', self.extIOR)
 		params.update(param_specularReflectance.get_params(self))
 		params.update(param_specularTransmittance.get_params(self))
-		if self.use_roughness:
+		if self.distribution != 'none' and not self.thin:
 			params.add_string('distribution', self.distribution)
 			if (self.distribution == 'as'):
 				params.update(param_alphaRoughnessU.get_params(self))
@@ -270,10 +258,9 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 		'eta', 'k',
 		'extEta'
 	] + \
-	    param_specularReflectance.controls
-
-	rough_controls = [
-		'distribution',
+	    param_specularReflectance.controls + \
+	[
+		'distribution'
 	] + \
 	    param_alphaRoughness.controls + \
 	    param_alphaRoughnessU.controls + \
@@ -281,24 +268,18 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 
 	properties = [
 		{
-			'type': 'bool',
-			'attr': 'use_roughness',
-			'name': 'Use Roughness',
-			'default': False,
-			'save_in_preset': True
-		},
-		{
 			'type': 'enum',
 			'attr': 'distribution',
 			'name': 'Roughness Model',
 			'description': 'Specifes the type of microfacet normal distribution used to model the surface roughness',
 			'items': [
+				('none', 'None', 'none'),
 				('beckmann', 'Beckmann', 'beckmann'),
 				('ggx', 'Ggx', 'ggx'),
 				('phong', 'Phong', 'phong'),
 				('as', 'Anisotropic', 'as')
 			],
-			'default': 'beckmann',
+			'default': 'none',
 			'save_in_preset': True
 		},
 		{
@@ -369,7 +350,7 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 			params.add_string('material', self.material)
 		params.add_float('extEta', self.extEta)
 		params.update(param_specularReflectance.get_params(self))
-		if self.use_roughness:
+		if self.distribution != 'none':
 			params.add_string('distribution', self.distribution)
 			if (self.distribution == 'as'):
 				params.update(param_alphaRoughnessU.get_params(self))
@@ -388,33 +369,24 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 	    param_diffuseReflectance.controls + \
 	    param_specularReflectance.controls + \
 	[
-		'nonlinear'
-	]
-
-	rough_controls = [
+		'nonlinear',
 		'distribution'
 	] + \
 	    param_alphaRoughness.controls
 
 	properties = [
 		{
-			'type': 'bool',
-			'attr': 'use_roughness',
-			'name': 'Use Roughness',
-			'default': False,
-			'save_in_preset': True
-		},
-		{
 			'type': 'enum',
 			'attr': 'distribution',
 			'name': 'Roughness Model',
 			'description': 'Specifes the type of microfacet normal distribution used to model the surface roughness',
 			'items': [
+				('none', 'None', 'none'),
 				('beckmann', 'Beckmann', 'beckmann'),
 				('ggx', 'Ggx', 'ggx'),
 				('phong', 'Phong', 'phong')
 			],
-			'default': 'beckmann',
+			'default': 'none',
 			'save_in_preset': True
 		},
 		{
@@ -455,6 +427,7 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 		param_specularReflectance.visibility,
 		param_alphaRoughness.visibility
 	)
+	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
 
 	def get_params(self):
 		params = ParamSet()
@@ -462,7 +435,7 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 		params.add_float('extIOR', self.extIOR)
 		params.update(param_diffuseReflectance.get_params(self))
 		params.update(param_specularReflectance.get_params(self))
-		if self.use_roughness:
+		if self.distribution != 'none':
 			params.add_string('distribution', self.distribution)
 			params.update(param_alphaRoughness.get_params(self))
 		params.add_bool('nonlinear', self.nonlinear)
@@ -497,32 +470,25 @@ class mitsuba_bsdf_coating(declarative_property_group):
 		['intIOR', 'extIOR'],
 		'thickness'
 	] + \
-	    param_absorptionCoefficient.controls
-
-	rough_controls = [
+	    param_absorptionCoefficient.controls + \
+	[
 		'distribution'
 	] + \
 	    param_alphaRoughness.controls
 
 	properties = [
 		{
-			'type': 'bool',
-			'attr': 'use_roughness',
-			'name': 'Use Roughness',
-			'default': False,
-			'save_in_preset': True
-		},
-		{
 			'type': 'enum',
 			'attr': 'distribution',
 			'name': 'Roughness Model',
 			'description': 'Specifes the type of microfacet normal distribution used to model the surface roughness',
 			'items': [
+				('none', 'None', 'none'),
 				('beckmann', 'Beckmann', 'beckmann'),
 				('ggx', 'Ggx', 'ggx'),
 				('phong', 'Phong', 'phong')
 			],
-			'default': 'beckmann',
+			'default': 'none',
 			'save_in_preset': True
 		},
 		{
@@ -564,6 +530,7 @@ class mitsuba_bsdf_coating(declarative_property_group):
 		param_absorptionCoefficient.visibility,
 		param_alphaRoughness.visibility
 	)
+	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
 
 	def get_params(self):
 		params = ParamSet()
@@ -571,7 +538,7 @@ class mitsuba_bsdf_coating(declarative_property_group):
 		params.add_float('extIOR', self.extIOR)
 		params.add_float('thickness', self.thickness)
 		params.update(param_absorptionCoefficient.get_params(self))
-		if self.use_roughness:
+		if self.distribution != 'none':
 			params.add_string('distribution', self.distribution)
 			params.update(param_alphaRoughness.get_params(self))
 		params.add_reference('material', "bsdf", getattr(self, "ref_name"))
@@ -1194,6 +1161,40 @@ class mitsuba_bsdf_twosided(declarative_property_group):
 class mitsuba_mat_subsurface(declarative_property_group):
 	ef_attach_to = ['Material']
 	controls = [
+		'type'
+	] 
+	
+	properties = [
+		{
+			'type': 'bool',
+			'attr': 'use_subsurface',
+			'name': 'Use Subsurface',
+			'default': False,
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'type',
+			'name': 'Type',
+			'description': 'Specifes the type of Subsurface material',
+			'items': [
+				('dipole', 'Dipole Subsurface', 'dipole'),
+				('homogeneous', 'Homogeneous Media', 'homogeneous'),
+				#('heterogeneous', 'Heterogeneous Media', 'heterogeneous')
+			],
+			'default': 'dipole',
+			'save_in_preset': True
+		}
+	]
+
+	def get_params(self):
+		sub_type = getattr(self, 'mitsuba_sss_%s' % self.type)
+		return sub_type.get_params()
+
+@MitsubaAddon.addon_register_class
+class mitsuba_sss_dipole(declarative_property_group):
+	ef_attach_to = ['mitsuba_mat_subsurface']
+	controls = [
 		'material',
 		'useAlbSigmaT'
 	] + \
@@ -1209,13 +1210,6 @@ class mitsuba_mat_subsurface(declarative_property_group):
 	] 
 	
 	properties = [
-		{
-			'type': 'bool',
-			'attr': 'use_subsurface',
-			'name': 'Use Subsurface',
-			'default': False,
-			'save_in_preset': True
-		},
 		{
 			'type': 'string',
 			'attr': 'material',
@@ -1296,8 +1290,8 @@ class mitsuba_mat_subsurface(declarative_property_group):
 	def get_params(self):
 		params = ParamSet()
 		if self.material=='':
-			params.add_float('extIOR', self.extIOR)
 			params.add_float('intIOR', self.intIOR)
+			params.add_float('extIOR', self.extIOR)
 			if self.useAlbSigmaT != True:
 				params.update(param_absorptionCoefficient.get_params(self))
 				params.update(param_scattCoeff.get_params(self))
@@ -1308,6 +1302,243 @@ class mitsuba_mat_subsurface(declarative_property_group):
 			params.add_string('material', self.material)
 		params.add_float('scale', self.scale)
 		params.add_integer('irrSamples', self.irrSamples)
+		return params
+
+@MitsubaAddon.addon_register_class
+class mitsuba_sss_homogeneous(declarative_property_group):
+	ef_attach_to = ['mitsuba_mat_subsurface']
+	controls = [
+		'material',
+		'useAlbSigmaT'
+	] + \
+	    param_absorptionCoefficient.controls + \
+	    param_scattCoeff.controls + \
+	    param_extinctionCoeff.controls + \
+	    param_albedo.controls + \
+	[
+		'scale',
+		'phaseType',
+		'g',
+		'stddev'
+	] 
+	
+	properties = [
+		{
+			'type': 'string',
+			'attr': 'material',
+			'name': 'Preset name',
+			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
+			'default': '',
+			'save_in_preset': True
+		},
+		{			
+			'type': 'bool',
+			'attr': 'useAlbSigmaT',
+			'name': 'Use Albedo&SigmaT',
+			'description': 'Use Albedo&SigmaT instead SigmatS&SigmaA',
+			'default': False,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'scale',
+			'name' : 'Scale',
+			'description' : 'Density scale',
+			'default' : 1.0,
+			'min': 0.0001,
+			'max': 50000.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'phaseType',
+			'name': 'Phase Type',
+			'description': 'Specifes the phase function type',
+			'items': [
+				('isotropic', 'Isotropic', 'isotropic'),
+				('hg', 'Henyey-Greenstein', 'hg'),
+				('rayleigh', 'Rayleigh', 'rayleigh')
+			],
+			'default': 'isotropic',
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'g',
+			'name': 'Asymmetry',
+			'description': 'Scattering asymmetry RGB. -1 means back-scattering, 0 is isotropic, 1 is forwards scattering.',
+			'default': 0.0,
+			'min': -0.999999,
+			'max': 0.999999,
+			'precision': 4,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'stddev',
+			'name': 'Standard Deviation',
+			'description': 'Standard deviation of micro-flake normals.',
+			'default': 0.0,
+			'min': 0.0,
+			'max': 1.0,
+			'precision': 4,
+			'save_in_preset': True
+		}
+	] + \
+	    param_absorptionCoefficient.properties + \
+	    param_scattCoeff.properties + \
+	    param_extinctionCoeff.properties + \
+	    param_albedo.properties
+	
+	visibility = dict_merge(
+		{
+			'useAlbSigmaT': { 'material': '' },
+			'g': { 'phaseType': 'hg' },
+			'stddev': { 'phaseType': 'microflake' }
+		},
+		param_absorptionCoefficient.visibility,
+		param_scattCoeff.visibility,
+		param_extinctionCoeff.visibility,
+		param_albedo.visibility
+	)
+
+	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
+	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
+	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True })
+	
+	def get_params(self):
+		params = ParamSet()
+		if self.material=='':
+			if self.useAlbSigmaT != True:
+				params.update(param_absorptionCoefficient.get_params(self))
+				params.update(param_scattCoeff.get_params(self))
+			else:
+				params.update(param_extinctionCoeff.get_params(self))
+				params.update(param_albedo.get_params(self))
+		else:
+			params.add_string('material', self.material)
+		params.add_float('scale', self.scale)
+		return params
+
+@MitsubaAddon.addon_register_class
+class mitsuba_sss_heterogeneous(declarative_property_group):
+	ef_attach_to = ['mitsuba_mat_subsurface']
+	controls = [
+		'method',
+		'density',
+		'albedo',
+		'orientation',
+		'scale',
+		'phaseType',
+		'g',
+		'stddev'
+	] 
+	
+	properties = [
+		{
+			'type': 'enum',
+			'attr': 'method',
+			'name': 'Sampling Method',
+			'description': 'Specifes the sampling method used to generate scattering events within medium.',
+			'items': [
+				('simpson', 'Simpson', 'simpson'),
+				('woodcock', 'Woodcock', 'woodcock')
+			],
+			'default': 'woodcock',
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'density',
+			'name' : 'Density',
+			'description' : 'Density',
+			'default' : 1.0,
+			'min': 0.0001,
+			'max': 50000.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'attr': 'albedo',
+			'name': 'Albedo',
+			'description': 'Albedo',
+			'default' : (1.0, 1.0, 1.0),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float_vector',
+			'attr': 'orientation',
+			'name': 'Orientation',
+			'description': 'Orientation',
+			'default' : (1.0, 0.0, 0.0),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'scale',
+			'name' : 'Scale',
+			'description' : 'Density scale',
+			'default' : 1.0,
+			'min': 0.0001,
+			'max': 50000.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'phaseType',
+			'name': 'Phase Type',
+			'description': 'Specifes the phase function type',
+			'items': [
+				('isotropic', 'Isotropic', 'isotropic'),
+				('hg', 'Henyey-Greenstein', 'hg'),
+				('rayleigh', 'Rayleigh', 'rayleigh'),
+				('kkay', 'Kajiya-Kay', 'kkay'),
+				('microflake', 'Micro-flake', 'microflake')
+			],
+			'default': 'isotropic',
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'g',
+			'name': 'Asymmetry',
+			'description': 'Scattering asymmetry RGB. -1 means back-scattering, 0 is isotropic, 1 is forwards scattering.',
+			'default': 0.0,
+			'min': -0.999999,
+			'max': 0.999999,
+			'precision': 4,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'stddev',
+			'name': 'Standard Deviation',
+			'description': 'Standard deviation of micro-flake normals.',
+			'default': 0.0,
+			'min': 0.0,
+			'max': 1.0,
+			'precision': 4,
+			'save_in_preset': True
+		}
+	]
+	
+	visibility = dict_merge(
+		{
+			'g': { 'phaseType': 'hg' },
+			'stddev': { 'phaseType': 'microflake' }
+		}
+	)
+
+	def get_params(self):
+		params = ParamSet()
+		params.add_string('method', self.method)
+		params.add_float('scale', self.scale)
 		return params
 
 @MitsubaAddon.addon_register_class
@@ -1344,7 +1575,7 @@ class mitsuba_mat_medium(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_emitter(declarative_property_group):
 	'''
-	Storage class for Mitsuba Material emission settings.
+	Storage class for Mitsuba Material emitter settings.
 	This class will be instantiated within a Blender Material
 	object.
 	'''
@@ -1360,8 +1591,8 @@ class mitsuba_mat_emitter(declarative_property_group):
 	properties = [
 		{
 			'type': 'bool',
-			'attr': 'use_emission',
-			'name': 'Use Emission',
+			'attr': 'use_emitter',
+			'name': 'Use Emitter',
 			'default': False,
 			'save_in_preset': True
 		},

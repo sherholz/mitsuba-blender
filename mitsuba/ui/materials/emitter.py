@@ -21,9 +21,9 @@ from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_base
 
 @MitsubaAddon.addon_register_class
-class emission(mitsuba_material_base, bpy.types.Panel):
+class ui_mitsuba_material_emitter(mitsuba_material_base, bpy.types.Panel):
 	'''
-	Material Emission Settings
+	Material Emitter Settings
 	'''
 	
 	bl_label = 'Mitsuba Emitter Material'
@@ -33,13 +33,10 @@ class emission(mitsuba_material_base, bpy.types.Panel):
 		( ('material',), 'mitsuba_mat_emitter' )
 	]
 
-	def get_contents(self, mat):
-		return mat.mitsuba_mat_emitter
-
 	def draw_header(self, context):
-		self.layout.prop(context.material.mitsuba_mat_emitter, "use_emission", text="")
+		self.layout.prop(context.material.mitsuba_mat_emitter, "use_emitter", text="")
 
 	def draw(self, context):
-		self.layout.active = (context.material.mitsuba_mat_emitter.use_emission)
+		self.layout.active = (context.material.mitsuba_mat_emitter.use_emitter)
 		return super().draw(context)
 

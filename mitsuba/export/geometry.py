@@ -681,13 +681,15 @@ class GeometryExporter(object):
 					if ob_mat.mitsuba_mat_bsdf.use_bsdf:
 						self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
 					if ob_mat.mitsuba_mat_subsurface.use_subsurface:
-						self.mts_context.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name})
-					mmat_medium = ob_mat.mitsuba_mat_medium
-					if mmat_medium.use_medium:
-						self.mts_context.exportMediumReference('interior', mmat_medium.interior_medium)
-						self.mts_context.exportMediumReference('exterior', mmat_medium.exterior_medium)
-					if ob_mat.mitsuba_mat_emitter.use_emission:
-						self.mts_context.exportEmission(ob_mat)
+						if ob_mat.mitsuba_mat_subsurface.type == 'dipole':
+							self.mts_context.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name})
+						elif ob_mat.mitsuba_mat_subsurface.type == 'homogeneous':
+							self.mts_context.element('ref', {'name' : 'interior', 'id' : '%s-interior' % ob_mat.name})
+					#mmat_medium = ob_mat.mitsuba_mat_medium
+					#if mmat_medium.use_medium:
+					#	self.mts_context.exportMediumReference('exterior', mmat_medium.exterior_medium)
+					if ob_mat.mitsuba_mat_emitter.use_emitter:
+						self.mts_context.exportMaterialEmitter(ob_mat)
 
 			self.mts_context.closeElement()
 			
