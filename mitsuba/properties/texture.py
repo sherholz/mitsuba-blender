@@ -125,22 +125,6 @@ class ColorTextureParameter(TextureParameterBase):
 		vis.update(self.get_extra_visibility())
 		return vis
 	
-	# color for each material type. If the property name is
-	# not set, then the color won't be changed.
-	master_color_map = {
-		'diffuse': 'reflectance',
-		'roughdiffuse': 'reflectance',
-		'difftrans': 'transmittance',
-		'ward': 'diffuseReflectance',
-		'phong': 'diffuseReflectance',
-		'roughplastic': 'diffuseReflectance',
-		'plastic': 'diffuseReflectance',
-		'conductor': 'specularReflectance',
-		'dielectric': 'specularReflectance',
-		'roughdielectric': 'specularReflectance',
-		'roughconductor': 'specularReflectance'
-	}
-
 	def get_properties(self):
 		return [
 			{
@@ -205,18 +189,6 @@ class ColorTextureParameter(TextureParameterBase):
 			)
 		return params
 
-class ColorTextureParameterFix(ColorTextureParameter): #do not use! only for specularTransmittance fix !!!!
-	def get_params(self, context):
-		params = ParamSet()
-		if hasattr(context, '%s_usetexture' % self.attr) \
-			and getattr(context, '%s_usetexture' % self.attr) and getattr(context,  '%s_texturename' % self.attr):
-			params.add_reference('texture', 'specularTransmittance', getattr(context, '%s_texturename' % self.attr))
-		else:
-			params.add_color(
-				'specularTransmittance',
-				getattr(context, '%s_color' % self.attr)
-			)
-		return params
 class SpectrumTextureParameter(ColorTextureParameter):
 	max					= 10.0
 

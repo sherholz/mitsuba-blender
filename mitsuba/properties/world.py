@@ -21,7 +21,7 @@ from copy import deepcopy
 
 from extensions_framework import declarative_property_group
 
-from ..properties.texture import (ColorTextureParameter,BumpTextureParameter,SpectrumTextureParameter, FloatTextureParameter, ColorTextureParameterFix)
+from ..properties.texture import (ColorTextureParameter,BumpTextureParameter,SpectrumTextureParameter, FloatTextureParameter)
 from ..export import ParamSet
 
 param_scattCoeff = SpectrumTextureParameter('sigmaS', 'Scattering Coefficient', 'Scattering value', default=(0.8, 0.8, 0.8))

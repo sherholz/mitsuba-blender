@@ -223,15 +223,16 @@ def material_converter(report, scene, blender_mat):
 			mitsuba_mat.type = 'diffuse'
 			mitsuba_mat.mitsuba_bsdf_diffuse.reflectance_color = blender_mat.diffuse_color
 		else:
-			mitsuba_mat.type = 'roughplastic'
+			mitsuba_mat.type = 'plastic'
 			mitsuba_mat.mitsuba_bsdf_roughplastic.diffuseReflectance_color =  [i * blender_mat.diffuse_intensity for i in blender_mat.diffuse_color]
 			Roughness = math.exp(-blender_mat.specular_hardness/50)		#by eyeballing rule of Bartosz Styperek :/	
 			#Roughness = (1 - 1/blender_mat.specular_hardness)
 			mitsuba_mat.mitsuba_bsdf_roughplastic.specularReflectance_color =  [i * blender_mat.specular_intensity for i in blender_mat.specular_color]
-			mitsuba_mat.mitsuba_bsdf_roughplastic.alphaB = Roughness
+			mitsuba_mat.mitsuba_bsdf_roughplastic.alpha = Roughness
+			mitsuba_mat.mitsuba_bsdf_roughplastic.distribution = 'beckmann'
 		if blender_mat.emit > 0:
 			emitter = blender_mat.mitsuba_mat_emitter
-			emitter.use_emission = True
+			emitter.use_emitter = True
 			emitter.intensity = blender_mat.emit
 			emitter.color = blender_mat.diffuse_color
 		report({'INFO'}, 'Converted blender material "%s"' % blender_mat.name)

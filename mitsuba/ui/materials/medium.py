@@ -33,9 +33,6 @@ class ui_mitsuba_material_medium(mitsuba_material_base, bpy.types.Panel):
 		( ('material',), 'mitsuba_mat_medium' )
 	]
 
-	def get_contents(self, mat):
-		return mat.mitsuba_mat_medium
-
 	def draw_header(self, context):
 		self.layout.prop(context.material.mitsuba_mat_medium, "use_medium", text="")
 

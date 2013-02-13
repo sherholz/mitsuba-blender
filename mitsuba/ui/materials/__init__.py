@@ -44,30 +44,6 @@ class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, prop
 			return
 		return super().draw(context)
 
-	def get_contents(self, mat):
-		return mat.mitsuba_mat_bsdf
-
-class mitsuba_material_sub(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-	MTS_COMPAT		= set()
-
-	@classmethod
-	def poll(cls, context):
-		'''
-		Only show Mitsuba panel if mitsuba_mat_bsdf.material in MTS_COMPAT
-		'''
-		if not hasattr(context, 'material'):
-			return False
-
-		return super().poll(context) and \
-			context.material.mitsuba_mat_bsdf.use_bsdf and \
-			context.material.mitsuba_mat_bsdf.type in cls.MTS_COMPAT
-
-	def draw(self, context):
-		if not hasattr(context, 'material'):
-			return
-		return super().draw(context)
-
 @MitsubaAddon.addon_register_class
 class MATERIAL_PT_preview_mts(bl_ui.properties_material.MaterialButtonsPanel, bpy.types.Panel):
 	bl_label = "Preview"
@@ -90,7 +66,6 @@ class MATERIAL_PT_preview_mts(bl_ui.properties_material.MaterialButtonsPanel, bp
 			cached_spp = engine.preview_spp
 			if actualChange:
 				MtsLog("Forcing a repaint")
-				#context.material.preview_render_type = context.material.preview_render_type 
 				efutil.write_config_value('mitsuba', 'defaults', 'preview_spp', str(cached_spp))
 				efutil.write_config_value('mitsuba', 'defaults', 'preview_depth', str(cached_depth))
 
