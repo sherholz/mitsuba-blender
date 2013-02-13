@@ -452,7 +452,10 @@ class SceneExporter:
 		self.openElement('transform', {'name' : 'toWorld'})
 		if cam.type == 'ORTHO':
 			self.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
-		self.exportMatrix(camera.matrix_world * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([1, 0, 0])) * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([0, 0, 1])))
+		loc, rot, sca = camera.matrix_world.decompose()
+		mat_loc = mathutils.Matrix.Translation(loc)
+		mat_rot = rot.to_matrix().to_4x4()
+		self.exportMatrix(mat_loc * mat_rot * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([1, 0, 0])) * mathutils.Matrix.Scale(-1, 4, mathutils.Vector([0, 0, 1])))
 		self.closeElement()
 		if cam.type == 'PERSP':
 			if cam.sensor_fit == 'VERTICAL':
