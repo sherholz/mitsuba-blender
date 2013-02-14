@@ -47,7 +47,7 @@ from ..ui.textures import (
 )
 
 from ..ui.materials import (
-	main, subsurface, emitter
+	main, subsurface, medium, emitter
 )
 
 from .. import operators
