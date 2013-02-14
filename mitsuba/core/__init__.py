@@ -221,7 +221,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		exporter.exportMaterial(pm)
 		exporter.exportPreviewMesh(scene, pm)
 		exporter.writeFooter()
-		refresh_interval = 1
+		refresh_interval = 2
 		preview_spp = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_spp', '16'))
 		preview_depth = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_depth', '2'))
 
