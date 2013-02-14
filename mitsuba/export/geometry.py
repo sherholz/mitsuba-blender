@@ -655,12 +655,6 @@ class GeometryExporter(object):
 					# create material xml
 					if ob_mat != None:
 						self.mts_context.exportMaterial(ob_mat)
-					mmat_medium = ob_mat.mitsuba_mat_medium
-					if mmat_medium.use_medium:
-						if mmat_medium.interior_medium != '':
-							self.mts_context.exportMedium(self.geometry_scene.mitsuba_media.media[mmat_medium.interior_medium])
-						if mmat_medium.exterior_medium != '':
-							self.mts_context.exportMedium(self.geometry_scene.mitsuba_media.media[mmat_medium.exterior_medium])
 				except IndexError:
 					ob_mat = None
 					MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(me_mat_index+1, mat_object.name))
@@ -685,9 +679,8 @@ class GeometryExporter(object):
 							self.mts_context.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name})
 						elif ob_mat.mitsuba_mat_subsurface.type == 'homogeneous':
 							self.mts_context.element('ref', {'name' : 'interior', 'id' : '%s-interior' % ob_mat.name})
-					#mmat_medium = ob_mat.mitsuba_mat_medium
-					#if mmat_medium.use_medium:
-					#	self.mts_context.exportMediumReference('exterior', mmat_medium.exterior_medium)
+					if ob_mat.mitsuba_mat_extmedium.use_extmedium:
+						self.mts_context.element('ref', {'name' : 'exterior', 'id' : '%s-exterior' % ob_mat.name})
 					if ob_mat.mitsuba_mat_emitter.use_emitter:
 						self.mts_context.exportMaterialEmitter(ob_mat)
 

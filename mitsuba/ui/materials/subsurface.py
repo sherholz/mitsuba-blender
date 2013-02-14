@@ -41,10 +41,9 @@ class ui_material_dipole(mitsuba_material_base, bpy.types.Panel):
 		mat = context.material.mitsuba_mat_subsurface
 		layout.active = (mat.use_subsurface)
 		layout.prop(context.material.mitsuba_mat_subsurface, "type", text="")
-		if mat.type != 'none':
-			sss = getattr(mat, 'mitsuba_sss_%s' % mat.type)
-			for p in sss.controls:
-				self.draw_column(p, self.layout, mat, context,
-					property_group=sss)
-			sss.draw_callback(context)
+		sss = getattr(mat, 'mitsuba_sss_%s' % mat.type)
+		for p in sss.controls:
+			self.draw_column(p, self.layout, mat, context,
+				property_group=sss)
+		sss.draw_callback(context)
 

@@ -21,22 +21,29 @@ from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_base
 
 @MitsubaAddon.addon_register_class
-class ui_mitsuba_material_medium(mitsuba_material_base, bpy.types.Panel):
+class ui_mitsuba_material_extmedium(mitsuba_material_base, bpy.types.Panel):
 	'''
 	Material Medium Settings
 	'''
 	
-	bl_label = 'Mitsuba Medium Material'
+	bl_label = 'Mitsuba Exterior Media'
 	bl_options = {'DEFAULT_CLOSED'}
 
 	display_property_groups = [
-		( ('material',), 'mitsuba_mat_medium' )
+		( ('material',), 'mitsuba_mat_extmedium' )
 	]
 
 	def draw_header(self, context):
-		self.layout.prop(context.material.mitsuba_mat_medium, "use_medium", text="")
+		self.layout.prop(context.material.mitsuba_mat_extmedium, "use_extmedium", text="")
 
 	def draw(self, context):
-		self.layout.active = (context.material.mitsuba_mat_medium.use_medium)
-		return super().draw(context)
+		layout = self.layout
+		mat = context.material.mitsuba_mat_extmedium
+		layout.active = (mat.use_extmedium)
+		layout.prop(context.material.mitsuba_mat_extmedium, "type", text="")
+		media = getattr(mat, 'mitsuba_extmed_%s' % mat.type)
+		for p in media.controls:
+			self.draw_column(p, self.layout, mat, context,
+				property_group=media)
+		media.draw_callback(context)
 

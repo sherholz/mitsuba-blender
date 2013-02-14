@@ -1157,6 +1157,239 @@ class mitsuba_bsdf_twosided(declarative_property_group):
 			params.add_reference('material', "bsdf2", self.mat2_name)
 		return params
 
+class mitsuba_medium_homogeneous(declarative_property_group):
+	controls = [
+		'material',
+		'useAlbSigmaT'
+	] + \
+	    param_absorptionCoefficient.controls + \
+	    param_scattCoeff.controls + \
+	    param_extinctionCoeff.controls + \
+	    param_albedo.controls + \
+	[
+		'scale',
+		'phaseType',
+		'g',
+		'stddev'
+	] 
+	
+	properties = [
+		{
+			'type': 'string',
+			'attr': 'material',
+			'name': 'Preset name',
+			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
+			'default': '',
+			'save_in_preset': True
+		},
+		{			
+			'type': 'bool',
+			'attr': 'useAlbSigmaT',
+			'name': 'Use Albedo&SigmaT',
+			'description': 'Use Albedo&SigmaT instead SigmatS&SigmaA',
+			'default': False,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'scale',
+			'name' : 'Scale',
+			'description' : 'Density scale',
+			'default' : 1.0,
+			'min': 0.0001,
+			'max': 50000.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'phaseType',
+			'name': 'Phase Type',
+			'description': 'Specifes the phase function type',
+			'items': [
+				('isotropic', 'Isotropic', 'isotropic'),
+				('hg', 'Henyey-Greenstein', 'hg'),
+				('rayleigh', 'Rayleigh', 'rayleigh')
+			],
+			'default': 'isotropic',
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'g',
+			'name': 'Asymmetry',
+			'description': 'Scattering asymmetry RGB. -1 means back-scattering, 0 is isotropic, 1 is forwards scattering.',
+			'default': 0.0,
+			'min': -0.999999,
+			'max': 0.999999,
+			'precision': 4,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'stddev',
+			'name': 'Standard Deviation',
+			'description': 'Standard deviation of micro-flake normals.',
+			'default': 0.0,
+			'min': 0.0,
+			'max': 1.0,
+			'precision': 4,
+			'save_in_preset': True
+		}
+	] + \
+	    param_absorptionCoefficient.properties + \
+	    param_scattCoeff.properties + \
+	    param_extinctionCoeff.properties + \
+	    param_albedo.properties
+	
+	visibility = dict_merge(
+		{
+			'useAlbSigmaT': { 'material': '' },
+			'g': { 'phaseType': 'hg' },
+			'stddev': { 'phaseType': 'microflake' }
+		},
+		param_absorptionCoefficient.visibility,
+		param_scattCoeff.visibility,
+		param_extinctionCoeff.visibility,
+		param_albedo.visibility
+	)
+
+	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
+	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
+	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True })
+	
+	def get_params(self):
+		params = ParamSet()
+		if self.material=='':
+			if self.useAlbSigmaT != True:
+				params.update(param_absorptionCoefficient.get_params(self))
+				params.update(param_scattCoeff.get_params(self))
+			else:
+				params.update(param_extinctionCoeff.get_params(self))
+				params.update(param_albedo.get_params(self))
+		else:
+			params.add_string('material', self.material)
+		params.add_float('scale', self.scale)
+		return params
+
+class mitsuba_medium_heterogeneous(declarative_property_group):
+	controls = [
+		'method',
+		'density',
+		'albedo',
+		'orientation',
+		'scale',
+		'phaseType',
+		'g',
+		'stddev'
+	] 
+	
+	properties = [
+		{
+			'type': 'enum',
+			'attr': 'method',
+			'name': 'Sampling Method',
+			'description': 'Specifes the sampling method used to generate scattering events within medium.',
+			'items': [
+				('simpson', 'Simpson', 'simpson'),
+				('woodcock', 'Woodcock', 'woodcock')
+			],
+			'default': 'woodcock',
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'density',
+			'name' : 'Density',
+			'description' : 'Density',
+			'default' : 1.0,
+			'min': 0.0001,
+			'max': 50000.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float_vector',
+			'subtype': 'COLOR',
+			'attr': 'albedo',
+			'name': 'Albedo',
+			'description': 'Albedo',
+			'default' : (1.0, 1.0, 1.0),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float_vector',
+			'attr': 'orientation',
+			'name': 'Orientation',
+			'description': 'Orientation',
+			'default' : (1.0, 0.0, 0.0),
+			'min': 0.0,
+			'max': 1.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'scale',
+			'name' : 'Scale',
+			'description' : 'Density scale',
+			'default' : 1.0,
+			'min': 0.0001,
+			'max': 50000.0,
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'phaseType',
+			'name': 'Phase Type',
+			'description': 'Specifes the phase function type',
+			'items': [
+				('isotropic', 'Isotropic', 'isotropic'),
+				('hg', 'Henyey-Greenstein', 'hg'),
+				('rayleigh', 'Rayleigh', 'rayleigh'),
+				('kkay', 'Kajiya-Kay', 'kkay'),
+				('microflake', 'Micro-flake', 'microflake')
+			],
+			'default': 'isotropic',
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'g',
+			'name': 'Asymmetry',
+			'description': 'Scattering asymmetry RGB. -1 means back-scattering, 0 is isotropic, 1 is forwards scattering.',
+			'default': 0.0,
+			'min': -0.999999,
+			'max': 0.999999,
+			'precision': 4,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'stddev',
+			'name': 'Standard Deviation',
+			'description': 'Standard deviation of micro-flake normals.',
+			'default': 0.0,
+			'min': 0.0,
+			'max': 1.0,
+			'precision': 4,
+			'save_in_preset': True
+		}
+	]
+	
+	visibility = dict_merge(
+		{
+			'g': { 'phaseType': 'hg' },
+			'stddev': { 'phaseType': 'microflake' }
+		}
+	)
+
+	def get_params(self):
+		params = ParamSet()
+		params.add_string('method', self.method)
+		params.add_float('scale', self.scale)
+		return params
+
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_subsurface(declarative_property_group):
 	ef_attach_to = ['Material']
@@ -1305,244 +1538,15 @@ class mitsuba_sss_dipole(declarative_property_group):
 		return params
 
 @MitsubaAddon.addon_register_class
-class mitsuba_sss_homogeneous(declarative_property_group):
+class mitsuba_sss_homogeneous(mitsuba_medium_homogeneous):
 	ef_attach_to = ['mitsuba_mat_subsurface']
-	controls = [
-		'material',
-		'useAlbSigmaT'
-	] + \
-	    param_absorptionCoefficient.controls + \
-	    param_scattCoeff.controls + \
-	    param_extinctionCoeff.controls + \
-	    param_albedo.controls + \
-	[
-		'scale',
-		'phaseType',
-		'g',
-		'stddev'
-	] 
-	
-	properties = [
-		{
-			'type': 'string',
-			'attr': 'material',
-			'name': 'Preset name',
-			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
-			'default': '',
-			'save_in_preset': True
-		},
-		{			
-			'type': 'bool',
-			'attr': 'useAlbSigmaT',
-			'name': 'Use Albedo&SigmaT',
-			'description': 'Use Albedo&SigmaT instead SigmatS&SigmaA',
-			'default': False,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'scale',
-			'name' : 'Scale',
-			'description' : 'Density scale',
-			'default' : 1.0,
-			'min': 0.0001,
-			'max': 50000.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'enum',
-			'attr': 'phaseType',
-			'name': 'Phase Type',
-			'description': 'Specifes the phase function type',
-			'items': [
-				('isotropic', 'Isotropic', 'isotropic'),
-				('hg', 'Henyey-Greenstein', 'hg'),
-				('rayleigh', 'Rayleigh', 'rayleigh')
-			],
-			'default': 'isotropic',
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'g',
-			'name': 'Asymmetry',
-			'description': 'Scattering asymmetry RGB. -1 means back-scattering, 0 is isotropic, 1 is forwards scattering.',
-			'default': 0.0,
-			'min': -0.999999,
-			'max': 0.999999,
-			'precision': 4,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'stddev',
-			'name': 'Standard Deviation',
-			'description': 'Standard deviation of micro-flake normals.',
-			'default': 0.0,
-			'min': 0.0,
-			'max': 1.0,
-			'precision': 4,
-			'save_in_preset': True
-		}
-	] + \
-	    param_absorptionCoefficient.properties + \
-	    param_scattCoeff.properties + \
-	    param_extinctionCoeff.properties + \
-	    param_albedo.properties
-	
-	visibility = dict_merge(
-		{
-			'useAlbSigmaT': { 'material': '' },
-			'g': { 'phaseType': 'hg' },
-			'stddev': { 'phaseType': 'microflake' }
-		},
-		param_absorptionCoefficient.visibility,
-		param_scattCoeff.visibility,
-		param_extinctionCoeff.visibility,
-		param_albedo.visibility
-	)
-
-	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
-	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True })
-	
-	def get_params(self):
-		params = ParamSet()
-		if self.material=='':
-			if self.useAlbSigmaT != True:
-				params.update(param_absorptionCoefficient.get_params(self))
-				params.update(param_scattCoeff.get_params(self))
-			else:
-				params.update(param_extinctionCoeff.get_params(self))
-				params.update(param_albedo.get_params(self))
-		else:
-			params.add_string('material', self.material)
-		params.add_float('scale', self.scale)
-		return params
 
 @MitsubaAddon.addon_register_class
-class mitsuba_sss_heterogeneous(declarative_property_group):
+class mitsuba_sss_heterogeneous(mitsuba_medium_heterogeneous):
 	ef_attach_to = ['mitsuba_mat_subsurface']
-	controls = [
-		'method',
-		'density',
-		'albedo',
-		'orientation',
-		'scale',
-		'phaseType',
-		'g',
-		'stddev'
-	] 
-	
-	properties = [
-		{
-			'type': 'enum',
-			'attr': 'method',
-			'name': 'Sampling Method',
-			'description': 'Specifes the sampling method used to generate scattering events within medium.',
-			'items': [
-				('simpson', 'Simpson', 'simpson'),
-				('woodcock', 'Woodcock', 'woodcock')
-			],
-			'default': 'woodcock',
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'density',
-			'name' : 'Density',
-			'description' : 'Density',
-			'default' : 1.0,
-			'min': 0.0001,
-			'max': 50000.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float_vector',
-			'subtype': 'COLOR',
-			'attr': 'albedo',
-			'name': 'Albedo',
-			'description': 'Albedo',
-			'default' : (1.0, 1.0, 1.0),
-			'min': 0.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float_vector',
-			'attr': 'orientation',
-			'name': 'Orientation',
-			'description': 'Orientation',
-			'default' : (1.0, 0.0, 0.0),
-			'min': 0.0,
-			'max': 1.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'scale',
-			'name' : 'Scale',
-			'description' : 'Density scale',
-			'default' : 1.0,
-			'min': 0.0001,
-			'max': 50000.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'enum',
-			'attr': 'phaseType',
-			'name': 'Phase Type',
-			'description': 'Specifes the phase function type',
-			'items': [
-				('isotropic', 'Isotropic', 'isotropic'),
-				('hg', 'Henyey-Greenstein', 'hg'),
-				('rayleigh', 'Rayleigh', 'rayleigh'),
-				('kkay', 'Kajiya-Kay', 'kkay'),
-				('microflake', 'Micro-flake', 'microflake')
-			],
-			'default': 'isotropic',
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'g',
-			'name': 'Asymmetry',
-			'description': 'Scattering asymmetry RGB. -1 means back-scattering, 0 is isotropic, 1 is forwards scattering.',
-			'default': 0.0,
-			'min': -0.999999,
-			'max': 0.999999,
-			'precision': 4,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'stddev',
-			'name': 'Standard Deviation',
-			'description': 'Standard deviation of micro-flake normals.',
-			'default': 0.0,
-			'min': 0.0,
-			'max': 1.0,
-			'precision': 4,
-			'save_in_preset': True
-		}
-	]
-	
-	visibility = dict_merge(
-		{
-			'g': { 'phaseType': 'hg' },
-			'stddev': { 'phaseType': 'microflake' }
-		}
-	)
-
-	def get_params(self):
-		params = ParamSet()
-		params.add_string('method', self.method)
-		params.add_float('scale', self.scale)
-		return params
 
 @MitsubaAddon.addon_register_class
-class mitsuba_mat_medium(declarative_property_group):
+class mitsuba_mat_extmedium(declarative_property_group):
 	'''
 	Storage class for Mitsuba Material settings.
 	This class will be instantiated within a Blender Material
@@ -1552,25 +1556,43 @@ class mitsuba_mat_medium(declarative_property_group):
 	ef_attach_to = ['Material']
 	
 	controls = [
-		'interior',
-		'exterior'
+		'type'
 	]
 
 	properties = [
 		{
 			'type': 'bool',
-			'attr': 'use_medium',
-			'name': 'Use Medium Transition',
+			'attr': 'use_extmedium',
+			'name': 'Use Exterior Medium',
 			'description': 'Activate this property if the material specifies a transition from one participating medium to another.',
 			'default': False,
 			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'type',
+			'name': 'Type',
+			'description': 'Specifes the type of Subsurface material',
+			'items': [
+				('homogeneous', 'Homogeneous Media', 'homogeneous'),
+				#('heterogeneous', 'Heterogeneous Media', 'heterogeneous')
+			],
+			'default': 'homogeneous',
+			'save_in_preset': True
 		}
-	] + MediumParameter('interior', 'Interior') \
-	  + MediumParameter('exterior', 'Exterior')
+	]
 
 	def get_params(self):
-		sub_type = getattr(self, 'mitsuba_bsdf_%s' % self.type)
+		sub_type = getattr(self, 'mitsuba_extmed_%s' % self.type)
 		return sub_type.get_params()
+
+@MitsubaAddon.addon_register_class
+class mitsuba_extmed_homogeneous(mitsuba_medium_homogeneous):
+	ef_attach_to = ['mitsuba_mat_extmedium']
+
+@MitsubaAddon.addon_register_class
+class mitsuba_extmed_heterogeneous(mitsuba_medium_heterogeneous):
+	ef_attach_to = ['mitsuba_mat_extmedium']
 
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_emitter(declarative_property_group):
