@@ -29,16 +29,17 @@ class mitsuba_sampler(declarative_property_group):
 	This class will be instantiated within a Blender scene
 	object.
 	'''
-
+	
 	ef_attach_to = ['Scene']
-
+	
 	controls = [
 		'type',
 		'sampleCount',
 		'scramble'
 	]
+	
 	visibility = {
-		'scramble' : { 'type':  O(['halton','hammersley', 'sobol'])}
+		'scramble' : { 'type': O(['halton','hammersley', 'sobol'])}
 
 	}
 	
@@ -80,7 +81,7 @@ class mitsuba_sampler(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_integer('sampleCount', self.sampleCount)
@@ -88,5 +89,6 @@ class mitsuba_sampler(declarative_property_group):
 			params.add_integer('scramble', self.scramble)
 		elif self.type == 'sobol':
 			params.add_integer('scramble', str(int(self.scramble)+1))
-
+		
 		return params
+

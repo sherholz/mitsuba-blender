@@ -27,7 +27,7 @@ class TEXTURE_PT_context_texture_mts(bl_ui.properties_texture.TextureButtonsPane
 	bl_label = ""
 	bl_options = {'HIDE_HEADER'}
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-
+	
 	@classmethod
 	def poll(cls, context):
 		engine = context.scene.render.engine
@@ -35,7 +35,7 @@ class TEXTURE_PT_context_texture_mts(bl_ui.properties_texture.TextureButtonsPane
 			return False
 		return ((context.material or context.world or context.lamp or context.brush or context.texture)
 			and (engine in cls.COMPAT_ENGINES))
-
+	
 	def draw(self, context):
 		layout = self.layout
 		slot = context.texture_slot
@@ -44,33 +44,33 @@ class TEXTURE_PT_context_texture_mts(bl_ui.properties_texture.TextureButtonsPane
 		tex = context.texture
 		idblock = bl_ui.properties_texture.context_tex_datablock(context)
 		tex_collection = space.pin_id is None and type(idblock) != bpy.types.Brush and not node
-
+		
 		if tex_collection:
 			row = layout.row()
-
+			
 			if bpy.app.version < (2, 65, 3 ):
 				row.template_list(idblock, "texture_slots", idblock, "active_texture_index", rows=2)
 			else:
 				row.template_list("TEXTURE_UL_texslots", "", idblock, "texture_slots", idblock, "active_texture_index", rows=4)
-
+			
 			col = row.column(align=True)
 			col.operator("texture.slot_move", text="", icon='TRIA_UP').type = 'UP'
 			col.operator("texture.slot_move", text="", icon='TRIA_DOWN').type = 'DOWN'
 			col.menu("TEXTURE_MT_specials", icon='DOWNARROW_HLT', text="")
-
+		
 		split = layout.split(percentage=1)
 		col = split.column()
-
+		
 		if tex_collection:
 			col.template_ID(idblock, "active_texture", new="texture.new")
 		elif node:
 			col.template_ID(node, "texture", new="texture.new")
 		elif idblock:
 			col.template_ID(idblock, "texture", new="texture.new")
-
+		
 		if space.pin_id:
 			col.template_ID(space, "pin_id")
-
+		
 		col = split.column()
 
 class mitsuba_texture_base(bl_ui.properties_texture.TextureButtonsPanel, property_group_renderer):
@@ -80,7 +80,7 @@ class mitsuba_texture_base(bl_ui.properties_texture.TextureButtonsPanel, propert
 	
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 	MTS_COMPAT		= set()
-
+	
 	@classmethod
 	def poll(cls, context):
 		'''

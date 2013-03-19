@@ -34,6 +34,7 @@ bl_info = {
 
 def plugin_path():
 	return os.path.dirname(os.path.realpath(__file__))
+
 if 'core' in locals():
 	import imp
 else:
@@ -42,7 +43,8 @@ else:
 	from extensions_framework import Addon
 	MitsubaAddon = Addon(bl_info)
 	register, unregister = MitsubaAddon.init_functions()
-
+	
 	# Importing the core package causes extensions_framework managed
 	# RNA class registration via @MitsubaAddon.addon_register_class
 	from . import core
+

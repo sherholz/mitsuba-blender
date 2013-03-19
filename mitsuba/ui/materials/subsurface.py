@@ -28,14 +28,14 @@ class ui_material_dipole(mitsuba_material_base, bpy.types.Panel):
 	
 	bl_label = 'Mitsuba Subsurface - Int. Media'
 	bl_options = {'DEFAULT_CLOSED'}
-
+	
 	display_property_groups = [
 		( ('material',), 'mitsuba_mat_subsurface' )
 	]
-
+	
 	def draw_header(self, context):
 		self.layout.prop(context.material.mitsuba_mat_subsurface, "use_subsurface", text="")
-
+	
 	def draw(self, context):
 		layout = self.layout
 		mat = context.material.mitsuba_mat_subsurface

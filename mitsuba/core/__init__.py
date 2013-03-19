@@ -73,10 +73,10 @@ _register_elm(bl_ui.properties_render.RENDER_PT_dimensions)
 
 # Add Mitsuba dof elements to blender dof panel
 def mits_use_dof(self, context):
-
+	
 	if context.scene.render.engine == 'MITSUBA_RENDER':
 		row = self.layout.row()
-
+		
 		row.prop(context.camera.mitsuba_camera, "useDOF", text="Use Depth of Field")
 		if context.camera.mitsuba_camera.useDOF == True:
 			row = self.layout.row()
@@ -92,10 +92,10 @@ compatible("properties_particle")
 class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 	bl_idname			= 'MITSUBA_RENDER'
 	bl_label			= 'Mitsuba'
-	bl_use_preview      = True
-
+	bl_use_preview		= True
+	
 	render_lock = threading.Lock()
-
+	
 	def render(self, scene):
 		if self is None or scene is None:
 			MtsLog('ERROR: Scene is missing!')
@@ -103,46 +103,46 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		if scene.mitsuba_engine.binary_path == '':
 			MtsLog('ERROR: The binary path is unspecified!')
 			return
-
+		
 		with self.render_lock:	# just render one thing at a time
 			if scene.name == 'preview':
 				self.render_preview(scene)
 				return
-
+			
 			config_updates = {}
 			binary_path = os.path.abspath(efutil.filesystem_path(scene.mitsuba_engine.binary_path))
 			if os.path.isdir(binary_path) and os.path.exists(binary_path):
 				config_updates['binary_path'] = binary_path
-
+			
 			try:
 				for k, v in config_updates.items():
 					efutil.write_config_value('mitsuba', 'defaults', k, v)
 			except Exception as err:
 				MtsLog('WARNING: Saving Mitsuba configuration failed, please set your user scripts dir: %s' % err)
-		
+			
 			scene_path = efutil.filesystem_path(scene.render.filepath)
 			if os.path.isdir(scene_path):
 				output_dir = scene_path
 			else:
 				output_dir = os.path.dirname(scene_path)		
-
+			
 			#if scene.render.use_color_management == False:
 				#MtsLog('WARNING: Color Management is switched off, render results may look too dark.')
-
+			
 			MtsLog('MtsBlend: Current directory = "%s"' % output_dir)
 			output_basename = efutil.scene_filename() + '.%s.%05i' % (scene.name, scene.frame_current)
-
+			
 			result = SceneExporter(
 				directory = output_dir,
 				filename = output_basename,
 			).export(scene)
-	
+			
 			if not result:
 				MtsLog('Error while exporting -- check the console for details.')
 				return
-
+			
 			if scene.mitsuba_engine.export_mode == 'render':
-
+				
 				MtsLog("MtsBlend: Launching renderer ..")
 				if scene.mitsuba_engine.render_mode == 'gui':
 					MtsLaunch(scene.mitsuba_engine.binary_path, output_dir,
@@ -161,22 +161,22 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 						render_update_timer = threading.Timer(1, self.process_wait_timer)
 						render_update_timer.start()
 						if render_update_timer.isAlive(): render_update_timer.join()
-
+					
 					# If we exit the wait loop (user cancelled) and mitsuba is still running, then send SIGINT
 					if mitsuba_process.poll() == None:
 						# Use SIGTERM because that's the only one supported on Windows
 						mitsuba_process.send_signal(subprocess.signal.SIGTERM)
-
+					
 					# Stop updating the render result and load the final image
 					framebuffer_thread.stop()
 					framebuffer_thread.join()
-
+					
 					if mitsuba_process.poll() != None and mitsuba_process.returncode != 0:
 						MtsLog("MtsBlend: Rendering failed -- check the console")
 					else:
 						framebuffer_thread.kick(render_end=True)
 					framebuffer_thread.shutdown()
-
+	
 	def process_wait_timer(self):
 		# Nothing to do here
 		pass
@@ -185,7 +185,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		# Iterate through the preview scene, finding objects with materials attached
 		objects_materials = {}
 		(width, height) = resolution(scene)
-						
+		
 		if (width, height) == (96, 96):
 			return
 		MtsLog('Preview Render Res: {0}'.format(width, height))
@@ -194,17 +194,17 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 				if mat is not None:
 					if not object.name in objects_materials.keys(): objects_materials[object] = []
 					objects_materials[object].append(mat)
-
+		
 		# find objects that are likely to be the preview objects
 		preview_objects = [o for o in objects_materials.keys() if o.name.startswith('preview')]
 		if len(preview_objects) < 1:
 			return
-
+		
 		# find the materials attached to the likely preview object
 		likely_materials = objects_materials[preview_objects[0]]
 		if len(likely_materials) < 1:
 			return
-
+		
 		tempdir = efutil.temp_directory()
 		matfile = "matpreview_materials.xml"
 		output_file = os.path.join(tempdir, "matpreview.png")
@@ -224,7 +224,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		refresh_interval = 2
 		preview_spp = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_spp', '16'))
 		preview_depth = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_depth', '2'))
-
+		
 		mitsuba_process = MtsLaunch(scene.mitsuba_engine.binary_path, tempdir,
 			['mitsuba', '-q', 
 				'-r%i' % refresh_interval,
@@ -235,7 +235,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 				'-Dspp=%i' % preview_spp,
 				'-Ddepth=%i' % preview_depth,
 				'-o', output_file, scene_file], )
-
+		
 		framebuffer_thread = MtsFilmDisplay()
 		framebuffer_thread.set_kick_period(refresh_interval)
 		framebuffer_thread.begin(self, output_file, resolution(scene), preview=True)
@@ -244,7 +244,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			render_update_timer = threading.Timer(1, self.process_wait_timer)
 			render_update_timer.start()
 			if render_update_timer.isAlive(): render_update_timer.join()
-
+		
 		cancelled = False
 		# If we exit the wait loop (user cancelled) and mitsuba is still running, then send SIGINT
 		if mitsuba_process.poll() == None:
@@ -252,11 +252,11 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			# Use SIGTERM because that's the only one supported on Windows
 			mitsuba_process.send_signal(subprocess.signal.SIGTERM)
 			cancelled = True
-
+		
 		# Stop updating the render result and load the final image
 		framebuffer_thread.stop()
 		framebuffer_thread.join()
-
+		
 		if not cancelled:
 			if mitsuba_process.poll() != None and mitsuba_process.returncode != 0:
 				MtsLog("MtsBlend: Rendering failed -- check the console"); mitsuba_process.send_signal(subprocess.signal.SIGTERM) #fixes mitsuba preview not refresing after bad eg. reference

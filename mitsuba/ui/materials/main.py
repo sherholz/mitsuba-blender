@@ -25,7 +25,7 @@ class MATERIAL_PT_material_utils(mitsuba_material_base):
 	'''
 	Material Utils UI Panel
 	'''
-
+	
 	bl_label	= 'Mitsuba Material Utils'
 	bl_options = {'DEFAULT_CLOSED'}
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
@@ -35,7 +35,7 @@ class MATERIAL_PT_material_utils(mitsuba_material_base):
 		row.menu("MITSUBA_MT_presets_material", text=bpy.types.MITSUBA_MT_presets_material.bl_label)
 		row.operator("mitsuba.preset_material_add", text="", icon="ZOOMIN")
 		row.operator("mitsuba.preset_material_add", text="", icon="ZOOMOUT").remove_active = True
-	
+		
 		row = self.layout.row(align=True)
 		row.operator("mitsuba.convert_all_materials", icon='WORLD_DATA')
 		row = self.layout.row(align=True)
@@ -46,17 +46,17 @@ class MATERIAL_PT_material_bsdf(mitsuba_material_base, bpy.types.Panel):
 	'''
 	Material BSDF UI Panel
 	'''
-
+	
 	bl_label	= 'Mitsuba BSDF Material'
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-
+	
 	display_property_groups = [
 		( ('material',), 'mitsuba_mat_bsdf' )
 	]
-
+	
 	def draw_header(self, context):
 		self.layout.prop(context.material.mitsuba_mat_bsdf, "use_bsdf", text="")
-
+	
 	def draw(self, context):
 		layout = self.layout
 		mat = context.material.mitsuba_mat_bsdf

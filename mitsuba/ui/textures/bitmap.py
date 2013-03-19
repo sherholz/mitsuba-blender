@@ -30,3 +30,4 @@ class ui_texture_bitmap(mitsuba_texture_base, bpy.types.Panel):
 	display_property_groups = [
 		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_bitmap' )
 	]
+

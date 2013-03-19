@@ -51,14 +51,14 @@ class TextureParameterBase(object):
 			self.min = min
 		if max is not None:
 			self.max = max
-
+		
 		self.controls = self.get_controls()
 		self.visibility = self.get_visibility()
 		self.properties = self.get_properties()
 	
 	def texture_collection_finder(self):
 		return lambda s,c: s.object.material_slots[s.object.active_material_index].material
-
+	
 	def texture_slot_set_attr(self):
 		def set_attr(s,c):
 			if type(c).__name__ == 'mitsuba_mat_bsdf':
@@ -176,11 +176,11 @@ class ColorTextureParameter(TextureParameterBase):
 				'name': self.name
 			}
 		] + self.get_extra_properties()
-
+	
 	def get_params(self, context):
 		params = ParamSet()
 		if hasattr(context, '%s_usetexture' % self.attr) \
-			and getattr(context, '%s_usetexture' % self.attr) and getattr(context,  '%s_texturename' % self.attr):
+			and getattr(context, '%s_usetexture' % self.attr) and getattr(context, '%s_texturename' % self.attr):
 			params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
 		else:
 			params.add_color(
@@ -196,6 +196,7 @@ class FloatTextureParameter(TextureParameterBase):
 	default				= 0.2
 	min					= 0.0
 	max					= 1.0
+	
 	def get_controls(self):
 		return [
 			[ 0.9, [0.375,'%s_label' % self.attr, self.attr], '%s_usetexture' % self.attr ],
@@ -259,11 +260,11 @@ class FloatTextureParameter(TextureParameterBase):
 				'name': self.name
 			}
 		] + self.get_extra_properties()
-
+	
 	def get_params(self, context):
 		params = ParamSet()
 		if hasattr(context, '%s_usetexture' % self.attr) \
-			and getattr(context, '%s_usetexture' % self.attr) and getattr(context,  '%s_texturename' % self.attr):
+			and getattr(context, '%s_usetexture' % self.attr) and getattr(context, '%s_texturename' % self.attr):
 			params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
 		else:
 			params.add_float(
@@ -271,9 +272,10 @@ class FloatTextureParameter(TextureParameterBase):
 				getattr(context, self.attr)
 			)
 		return params	
-	
+
 class BumpTextureParameter(TextureParameterBase):
 	default				= 0.0
+	
 	def get_controls(self):
 		return [
 			'%s_texture' % self.attr
@@ -282,7 +284,6 @@ class BumpTextureParameter(TextureParameterBase):
 	def get_visibility(self):
 		return
 	
-
 	def get_properties(self):
 		return [
 			{
@@ -307,12 +308,13 @@ class BumpTextureParameter(TextureParameterBase):
 				'name': self.name
 			}
 		] + self.get_extra_properties()
-
+	
 	def get_params(self, context):
 		params = ParamSet()
 		params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
-
+		
 		return params
+
 @MitsubaAddon.addon_register_class
 class mitsuba_texture(declarative_property_group):
 	'''
@@ -322,11 +324,11 @@ class mitsuba_texture(declarative_property_group):
 	'''
 	
 	ef_attach_to = ['Texture']
-
+	
 	controls = [
 		'type'
 	]
-
+	
 	properties = [
 		{
 			'attr': 'type',
@@ -342,7 +344,7 @@ class mitsuba_texture(declarative_property_group):
 			'save_in_preset': True
 		},
 	]
-
+	
 	def get_params(self):
 		if hasattr(self, 'mitsuba_tex_%s' % self.type):
 			mts_texture = getattr(self, 'mitsuba_tex_%s' % self.type) 
@@ -355,12 +357,12 @@ class mitsuba_texture(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_mapping(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
-
+	
 	controls = [
 		['uscale', 'vscale'],
 		['uoffset', 'voffset']
 	]
-
+	
 	properties = [
 		{
 			'attr': 'uscale',
@@ -407,7 +409,7 @@ class mitsuba_tex_mapping(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		mapping_params = ParamSet()
 		mapping_params.add_float('uscale', self.uscale)
@@ -419,7 +421,7 @@ class mitsuba_tex_mapping(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_bitmap(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
-
+	
 	controls = [
 		'filename',
 		'wrapMode',
@@ -432,7 +434,7 @@ class mitsuba_tex_bitmap(declarative_property_group):
 		'maxAnisotropy': { 'filterType': 'ewa' },
 		'gamma': { 'srgb': False }
 	}
-
+	
 	properties = [
 		{
 			'type': 'string',
@@ -476,7 +478,7 @@ class mitsuba_tex_bitmap(declarative_property_group):
 		},
 		{
 			'type': 'float',
-			'description' :  'Maximum allowed anisotropy when using the EWA filter',
+			'description' : 'Maximum allowed anisotropy when using the EWA filter',
 			'attr': 'maxAnisotropy',
 			'name': 'Max. Anisotropy',
 			'default': 8.0,
@@ -496,27 +498,27 @@ class mitsuba_tex_bitmap(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
-
+		
 		params.add_string('filename', efutil.path_relative_to_export(self.filename)) \
-			  .add_string('filterType', self.filterType) \
-			  .add_float('maxAnisotropy', self.maxAnisotropy) \
-			  .add_string('wrapMode', self.wrapMode) \
-			  .add_float('gamma', -1 if self.srgb else self.gamma)
-
+			.add_string('filterType', self.filterType) \
+			.add_float('maxAnisotropy', self.maxAnisotropy) \
+			.add_string('wrapMode', self.wrapMode) \
+			.add_float('gamma', -1 if self.srgb else self.gamma)
+		
 		return params
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_checkerboard(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
-
+	
 	controls = [
 		'color0',
 		'color1'
 	]
-
+	
 	properties = [
 		{
 			'attr': 'color0',
@@ -541,24 +543,24 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		
 		params.add_color('color0', self.color0) 
 		params.add_color('color1', self.color1) 
-
+		
 		return params
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_scale(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
-
+	
 	controls = [
 		'scale',
 		'bump_bitmap'
 	]
-
+	
 	properties = [
 		{
 			'type': 'string',
@@ -578,23 +580,23 @@ class mitsuba_tex_scale(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_float('scale', self.scale) 
-
-		return params
 		
+		return params
+
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_gridtexture(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
-
+	
 	controls = [
 		'color0',
 		'color1',
 		'lineWidth'
 	]
-
+	
 	properties = [
 		{
 			'attr': 'color0',
@@ -629,27 +631,27 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		
 		params.add_color('color0', self.color0) 
 		params.add_color('color1', self.color1) 
 		params.add_float('lineWidth', self.lineWidth) 
-
-		return params
 		
+		return params
+
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_wireframe(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
-
+	
 	controls = [
 		'interiorColor',
 		'color1',
 		'lineWidth',
 		'stepWidth'
 	]
-
+	
 	properties = [
 		{
 			'attr': 'interiorColor',
@@ -694,7 +696,7 @@ class mitsuba_tex_wireframe(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		
@@ -702,6 +704,6 @@ class mitsuba_tex_wireframe(declarative_property_group):
 		params.add_color('color1', self.color1) 
 		params.add_float('lineWidth', self.lineWidth) 
 		params.add_float('stepWidth', self.stepWidth)
-
+		
 		return params
 

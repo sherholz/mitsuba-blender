@@ -64,7 +64,7 @@ class MITSUBA_OT_preset_texture_add(bl_operators.presets.AddPresetBase, bpy.type
 	bl_idname = 'mitsuba.preset_texture_add'
 	bl_label = 'Add Mitsuba Texture settings preset'
 	preset_menu = 'MITSUBA_MT_presets_texture'
-	preset_values =  []
+	preset_values = []
 	preset_subdir = 'mitsuba/texture'
 	
 	def execute(self, context):
@@ -95,14 +95,14 @@ class MITSUBA_OT_preset_material_add(bl_operators.presets.AddPresetBase, bpy.typ
 	bl_idname = 'mitsuba.preset_material_add'
 	bl_label = 'Add Mitsuba Material settings preset'
 	preset_menu = 'MITSUBA_MT_presets_material'
-	preset_values =  []
+	preset_values = []
 	preset_subdir = 'mitsuba/material'
 	
 	def execute(self, context):
 		pv = [
 			'bpy.context.material.mitsuba_mat_bsdf.%s'%v['attr'] for v in bpy.types.mitsuba_mat_bsdf.get_exportable_properties()
 		] 
-
+		
 		# store only the sub-properties of the selected mitsuba material type
 		mts_type = context.material.mitsuba_mat_bsdf.type
 		sub_type = getattr(bpy.types, 'mitsuba_bsdf_%s' % mts_type)
@@ -116,7 +116,7 @@ class MITSUBA_OT_preset_material_add(bl_operators.presets.AddPresetBase, bpy.typ
 		pv.extend([
 			'bpy.context.material.mitsuba_mat_emitter.%s'%v['attr'] for v in bpy.types.mitsuba_mat_emitter.get_exportable_properties()
 		])
-
+		
 		self.preset_values = pv
 		return super().execute(context)
 
@@ -124,30 +124,30 @@ class MITSUBA_OT_preset_material_add(bl_operators.presets.AddPresetBase, bpy.typ
 class EXPORT_OT_mitsuba(bpy.types.Operator):
 	bl_idname = 'export.mitsuba'
 	bl_label = 'Export Mitsuba Scene (.xml)'
-
+	
 	filename		= bpy.props.StringProperty(name='Target filename', subtype = 'FILE_PATH')
 	directory		= bpy.props.StringProperty(name='Target directory')
 	scene			= bpy.props.StringProperty(options={'HIDDEN'}, default='')
-
+	
 	def invoke(self, context, event):
 		context.window_manager.fileselect_add(self)
 		return {'RUNNING_MODAL'}
-
+	
 	def execute(self, context):
 		try:
 			if self.properties.scene == '':
 				scene = context.scene
 			else:
 				scene = bpy.data.scenes[self.properties.scene]
-
+			
 			result = SceneExporter(
 				directory = self.properties.directory,
 				filename = self.properties.filename).export(scene)
-
+			
 			if not result:
 				self.report({'ERROR'}, "Unsucessful export!");
 				return {'CANCELLED'}
-
+			
 			return {'FINISHED'}
 		except:
 			typ, value, tb = sys.exc_info()
@@ -167,7 +167,7 @@ class MITSUBA_OT_material_slot_move(bpy.types.Operator):
 	bl_idname = 'mitsuba.material_slot_move'
 	bl_label = 'Move a material entry up or down'
 	type = bpy.props.StringProperty(name='type')
-
+	
 	def execute(self, context):
 		obj = bpy.context.active_object
 		index = obj.active_material_index
@@ -193,7 +193,7 @@ class MITSUBA_OT_material_slot_move(bpy.types.Operator):
 			for i in range(0, size):
 				bpy.ops.object.material_slot_remove() #cos slots are not deleted
 				obj.data.materials.append(bpy.data.materials[materials[i]])
-
+			
 			obj.active_material_index = new_index
 		return {'FINISHED'}
 
@@ -203,7 +203,7 @@ class MITSUBA_OT_material_add(bpy.types.Operator):
 	bl_idname = 'mitsuba.material_add'
 	bl_label = 'Append a new material'
 	type = bpy.props.StringProperty(name='type')
-
+	
 	def execute(self, context):
 		obj = bpy.context.active_object
 		index = obj.active_material_index
@@ -224,10 +224,10 @@ def material_converter(report, scene, blender_mat):
 			mitsuba_mat.mitsuba_bsdf_diffuse.reflectance_color = blender_mat.diffuse_color
 		else:
 			mitsuba_mat.type = 'plastic'
-			mitsuba_mat.mitsuba_bsdf_roughplastic.diffuseReflectance_color =  [i * blender_mat.diffuse_intensity for i in blender_mat.diffuse_color]
+			mitsuba_mat.mitsuba_bsdf_roughplastic.diffuseReflectance_color = [i * blender_mat.diffuse_intensity for i in blender_mat.diffuse_color]
 			Roughness = math.exp(-blender_mat.specular_hardness/50)		#by eyeballing rule of Bartosz Styperek :/	
 			#Roughness = (1 - 1/blender_mat.specular_hardness)
-			mitsuba_mat.mitsuba_bsdf_roughplastic.specularReflectance_color =  [i * blender_mat.specular_intensity for i in blender_mat.specular_color]
+			mitsuba_mat.mitsuba_bsdf_roughplastic.specularReflectance_color = [i * blender_mat.specular_intensity for i in blender_mat.specular_color]
 			mitsuba_mat.mitsuba_bsdf_roughplastic.alpha = Roughness
 			mitsuba_mat.mitsuba_bsdf_roughplastic.distribution = 'beckmann'
 		if blender_mat.emit > 0:
@@ -271,7 +271,6 @@ class MITSUBA_OT_convert_material(bpy.types.Operator):
 		
 		material_converter(self.report, context.scene, blender_mat)
 		return {'FINISHED'}	
-
 
 @MitsubaAddon.addon_register_class
 class MITSUBA_MT_presets_medium(MITSUBA_MT_base):
@@ -318,9 +317,10 @@ class MITSUBA_OT_medium_remove(bpy.types.Operator):
 	
 	bl_idname = "mitsuba.medium_remove"
 	bl_label = "Remove Mitsuba Medium"
-
+	
 	def invoke(self, context, event):
 		w = context.scene.mitsuba_media
 		w.media.remove( w.media_index )
 		w.media_index = len(w.media)-1
 		return {'FINISHED'}
+

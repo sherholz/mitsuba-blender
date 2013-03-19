@@ -36,7 +36,7 @@ class media(world_panel):
 	display_property_groups = [
 		( ('scene',), 'mitsuba_media' )
 	]
-
+	
 	def draw(self, context):
 		super().draw(context)
 		
@@ -65,3 +65,4 @@ class media(world_panel):
 					)
 		else:
 			self.layout.label('No active World available!')
+

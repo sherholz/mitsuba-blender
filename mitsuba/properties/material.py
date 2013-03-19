@@ -69,13 +69,13 @@ class mitsuba_mat_bsdf(declarative_property_group):
 	This class will be instantiated within a Blender Material
 	object.
 	'''
-
+	
 	ef_attach_to = ['Material']
 	
 	controls = [
 		'type'
 	]
-
+	
 	properties = [
 		{
 			'type': 'bool',
@@ -111,7 +111,7 @@ class mitsuba_mat_bsdf(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		sub_type = getattr(self, 'mitsuba_bsdf_%s' % self.type)
 		return sub_type.get_params()
@@ -119,13 +119,13 @@ class mitsuba_mat_bsdf(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_diffuse(declarative_property_group):	
 	ef_attach_to = ['mitsuba_mat_bsdf']
-
+	
 	controls = param_reflectance.controls + \
-	    param_alphaRoughness.controls + \
+		param_alphaRoughness.controls + \
 	[
 		'useFastApprox'
 	]
-
+	
 	properties = [
 		{
 			'type': 'bool',
@@ -136,14 +136,14 @@ class mitsuba_bsdf_diffuse(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_reflectance.properties + \
-	    param_alphaRoughness.properties
+		param_reflectance.properties + \
+		param_alphaRoughness.properties
 	
 	visibility = dict_merge(
 		param_reflectance.visibility,
 		param_alphaRoughness.visibility
 	)
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_reflectance.get_params(self))
@@ -155,20 +155,20 @@ class mitsuba_bsdf_diffuse(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_dielectric(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
-
+	
 	controls = [
 		'thin',
 		['intIOR', 'extIOR']
 	] + \
-	    param_specularReflectance.controls + \
-	    param_specularTransmittance.controls + \
+		param_specularReflectance.controls + \
+		param_specularTransmittance.controls + \
 	[
 		'distribution'
 	] + \
-	    param_alphaRoughness.controls + \
-	    param_alphaRoughnessU.controls + \
-	    param_alphaRoughnessV.controls
-
+		param_alphaRoughness.controls + \
+		param_alphaRoughnessU.controls + \
+		param_alphaRoughnessV.controls
+	
 	properties = [
 		{
 			'type': 'enum',
@@ -214,11 +214,11 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_specularReflectance.properties + \
-	    param_specularTransmittance.properties + \
-	    param_alphaRoughness.properties + \
-	    param_alphaRoughnessU.properties + \
-	    param_alphaRoughnessV.properties
+		param_specularReflectance.properties + \
+		param_specularTransmittance.properties + \
+		param_alphaRoughness.properties + \
+		param_alphaRoughnessU.properties + \
+		param_alphaRoughnessV.properties
 	
 	visibility = dict_merge(
 		{
@@ -233,7 +233,7 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'thin' : False, 'distribution' : O(['beckmann','ggx','phong'])})
 	visibility = texture_append_visibility(visibility, param_alphaRoughnessU, { 'thin' : False, 'distribution' : 'as'})
 	visibility = texture_append_visibility(visibility, param_alphaRoughnessV, { 'thin' : False, 'distribution' : 'as'})
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_float('intIOR', self.intIOR)
@@ -252,20 +252,20 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_conductor(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
-
+	
 	controls = [
 		'material',
 		'eta', 'k',
 		'extEta'
 	] + \
-	    param_specularReflectance.controls + \
+		param_specularReflectance.controls + \
 	[
 		'distribution'
 	] + \
-	    param_alphaRoughness.controls + \
-	    param_alphaRoughnessU.controls + \
-	    param_alphaRoughnessV.controls
-
+		param_alphaRoughness.controls + \
+		param_alphaRoughnessU.controls + \
+		param_alphaRoughnessV.controls
+	
 	properties = [
 		{
 			'type': 'enum',
@@ -322,11 +322,11 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_specularReflectance.properties + \
-	    param_alphaRoughness.properties + \
-	    param_alphaRoughnessU.properties + \
-	    param_alphaRoughnessV.properties
-
+		param_specularReflectance.properties + \
+		param_alphaRoughness.properties + \
+		param_alphaRoughnessU.properties + \
+		param_alphaRoughnessV.properties
+	
 	visibility = dict_merge(
 		{
 			'eta' : { 'material' : '' },
@@ -340,7 +340,7 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
 	visibility = texture_append_visibility(visibility, param_alphaRoughnessU, { 'distribution' : 'as'})
 	visibility = texture_append_visibility(visibility, param_alphaRoughnessV, { 'distribution' : 'as'})
-
+	
 	def get_params(self):
 		params = ParamSet()
 		if self.material=='':
@@ -362,18 +362,18 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_plastic(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
-
+	
 	controls = [
 		['intIOR', 'extIOR']
 	] + \
-	    param_diffuseReflectance.controls + \
-	    param_specularReflectance.controls + \
+		param_diffuseReflectance.controls + \
+		param_specularReflectance.controls + \
 	[
 		'nonlinear',
 		'distribution'
 	] + \
-	    param_alphaRoughness.controls
-
+		param_alphaRoughness.controls
+	
 	properties = [
 		{
 			'type': 'enum',
@@ -418,9 +418,9 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_diffuseReflectance.properties + \
-	    param_specularReflectance.properties + \
-	    param_alphaRoughness.properties
+		param_diffuseReflectance.properties + \
+		param_specularReflectance.properties + \
+		param_alphaRoughness.properties
 	
 	visibility = dict_merge(
 		param_diffuseReflectance.visibility,
@@ -428,7 +428,7 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 		param_alphaRoughness.visibility
 	)
 	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_float('intIOR', self.intIOR)
@@ -464,18 +464,18 @@ def CoatingProperty():
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_coating(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
-
+	
 	controls = [
 		'mat_list',
 		['intIOR', 'extIOR'],
 		'thickness'
 	] + \
-	    param_absorptionCoefficient.controls + \
+		param_absorptionCoefficient.controls + \
 	[
 		'distribution'
 	] + \
-	    param_alphaRoughness.controls
-
+		param_alphaRoughness.controls
+	
 	properties = [
 		{
 			'type': 'enum',
@@ -522,16 +522,16 @@ class mitsuba_bsdf_coating(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    CoatingProperty() + \
-	    param_absorptionCoefficient.properties + \
-	    param_alphaRoughness.properties
+		CoatingProperty() + \
+		param_absorptionCoefficient.properties + \
+		param_alphaRoughness.properties
 	
 	visibility = dict_merge(
 		param_absorptionCoefficient.visibility,
 		param_alphaRoughness.visibility
 	)
 	visibility = texture_append_visibility(visibility, param_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_float('intIOR', self.intIOR)
@@ -547,20 +547,21 @@ class mitsuba_bsdf_coating(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_phong(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = param_phongExponent.controls + \
-	    param_diffuseReflectance.controls + \
-	    param_specularReflectance.controls
-
+		param_diffuseReflectance.controls + \
+		param_specularReflectance.controls
+	
 	properties = param_phongExponent.properties + \
-	    param_diffuseReflectance.properties + \
-	    param_specularReflectance.properties
+		param_diffuseReflectance.properties + \
+		param_specularReflectance.properties
 	
 	visibility = dict_merge(
 		param_phongExponent.visibility, 
 		param_diffuseReflectance.visibility, 
 		param_specularReflectance.visibility
 	)
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_phongExponent.get_params(self))
@@ -568,10 +569,10 @@ class mitsuba_bsdf_phong(declarative_property_group):
 		params.update(param_specularReflectance.get_params(self))
 		return params
 
-		
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_irawan(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = [
 		'filename',
 		'kdMultiplier',
@@ -584,7 +585,7 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		'weft_kd',
 		'weft_ks'
 	]
-
+	
 	properties = [
 		{
 			'type': 'string',
@@ -618,7 +619,7 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'ksMultiplier',
-			'description' : 'Multiplicative factor of the  specular component',
+			'description' : 'Multiplicative factor of the specular component',
 			'name' : 'ksMultiplier',
 			'default' : 4.34,
 			'min': 0.0,
@@ -628,7 +629,7 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'kdMultiplier',
-			'description' : 'Multiplicative factor of the  diffuse component',
+			'description' : 'Multiplicative factor of the diffuse component',
 			'name' : 'kdMultiplier',
 			'default' : 0.00553,
 			'min': 0.0,
@@ -703,7 +704,6 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		}
 	]
 	
-
 	def get_params(self):
 		params = ParamSet()
 		#file_relative		= efutil.path_relative_to_export(file_library_path) if obj.library else efutil.path_relative_to_export(file_path)
@@ -719,7 +719,7 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		params.add_color('weft_kd', self.weft_kd)
 		params.add_color('weft_ks', self.weft_ks)
 		return params
-		
+
 def BumpProperty():
 	return [
 		{
@@ -739,18 +739,19 @@ def BumpProperty():
 			'name': 'Bump Material'
 		}
 	]
-	
+
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_bump(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = [
 		'mat_list'
 	] + \
-	    param_bumpHeight.controls + \
+		param_bumpHeight.controls + \
 	[
 		'scale'
 	]
-
+	
 	properties = [
 		{
 			'type': 'float',
@@ -773,11 +774,9 @@ class mitsuba_bsdf_bump(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_bumpHeight.properties + \
-	    BumpProperty()
+		param_bumpHeight.properties + \
+		BumpProperty()
 	
-
-
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_bumpHeight.get_params(self))
@@ -788,11 +787,12 @@ class mitsuba_bsdf_bump(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_mask(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = [
 		'mat_list',
 	] + \
-	    param_opacityMask.controls
-
+		param_opacityMask.controls
+	
 	properties = [
 		{
 			'type': 'string',
@@ -811,27 +811,28 @@ class mitsuba_bsdf_mask(declarative_property_group):
 			'name': 'Opacity Material'
 		}
 	] + \
-	    param_opacityMask.properties 
+		param_opacityMask.properties 
 	
 	visibility = param_opacityMask.visibility 
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_opacityMask.get_params(self))
 		params.add_reference('material', "bsdf", getattr(self, "ref_name"))
 		return params
-		
+
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_hk(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = [
 		'material',
 		'useAlbSigmaT'
 	] + \
-	    param_scattCoeff.controls + \
-	    param_absorptionCoefficient.controls + \
-	    param_extinctionCoeff.controls + \
-	    param_albedo.controls + \
+		param_scattCoeff.controls + \
+		param_absorptionCoefficient.controls + \
+		param_extinctionCoeff.controls + \
+		param_albedo.controls + \
 	[
 		'thickness',
 		'g'
@@ -875,10 +876,10 @@ class mitsuba_bsdf_hk(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_absorptionCoefficient.properties + \
-	    param_scattCoeff.properties + \
-	    param_extinctionCoeff.properties + \
-	    param_albedo.properties
+		param_absorptionCoefficient.properties + \
+		param_scattCoeff.properties + \
+		param_extinctionCoeff.properties + \
+		param_albedo.properties
 	
 	visibility = dict_merge(
 		{
@@ -889,7 +890,7 @@ class mitsuba_bsdf_hk(declarative_property_group):
 		param_extinctionCoeff.visibility,
 		param_albedo.visibility
 	)
-
+	
 	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
 	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
 	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
@@ -913,14 +914,15 @@ class mitsuba_bsdf_hk(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_ward(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = [
 		'variant'
 	] + \
-	    param_alphaRoughnessU.controls + \
-	    param_alphaRoughnessV.controls + \
-	    param_diffuseReflectance.controls + \
-	    param_specularReflectance.controls
-
+		param_alphaRoughnessU.controls + \
+		param_alphaRoughnessV.controls + \
+		param_diffuseReflectance.controls + \
+		param_specularReflectance.controls
+	
 	properties = [
 		{
 			'type': 'enum',
@@ -936,18 +938,18 @@ class mitsuba_bsdf_ward(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_alphaRoughnessU.properties + \
-	    param_alphaRoughnessV.properties + \
-	    param_diffuseReflectance.properties + \
-	    param_specularReflectance.properties
+		param_alphaRoughnessU.properties + \
+		param_alphaRoughnessV.properties + \
+		param_diffuseReflectance.properties + \
+		param_specularReflectance.properties
 	
 	visibility = dict_merge(
-	    param_alphaRoughnessU.visibility,
-	    param_alphaRoughnessV.visibility,
+		param_alphaRoughnessU.visibility,
+		param_alphaRoughnessV.visibility,
 		param_diffuseReflectance.visibility,
 		param_specularReflectance.visibility
 	)
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_diffuseReflectance.get_params(self))
@@ -960,12 +962,13 @@ class mitsuba_bsdf_ward(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_difftrans(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = param_transmittance.controls
-
+	
 	properties = param_transmittance.properties
 	
 	visibility = param_transmittance.visibility
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_transmittance.get_params(self))
@@ -976,10 +979,10 @@ class WeightedMaterialParameter:
 		self.name = name
 		self.readableName = readableName
 		self.propertyGroup = propertyGroup
-
+	
 	def get_controls(self):
 		return [ ['%s_material' % self.name, .7, '%s_weight' % self.name ]]
-
+	
 	def get_properties(self):
 		return [
 			{
@@ -1007,7 +1010,7 @@ class WeightedMaterialParameter:
 				'name': '%s:' % self.readableName
 			}
 		]
-		
+
 param_mat = []
 for i in range(1, 6):
 	param_mat.append(WeightedMaterialParameter("mat%i" % i, "Material %i" % i, "mitsuba_bsdf_mixturebsdf"));
@@ -1015,18 +1018,18 @@ for i in range(1, 6):
 def mitsuba_bsdf_mixturebsdf_visibility():
 	result = {}
 	for i in range(2, 6):
-		result["mat%i_material" % i]   = {'nElements' : LO({'gte' : i})}
+		result["mat%i_material" % i] = {'nElements' : LO({'gte' : i})}
 		result["mat%i_weight" % i] = {'nElements' : LO({'gte' : i})}
 	return result
-
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_mixturebsdf(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = [
 		'nElements'
 	] + sum(map(lambda x: x.get_controls(), param_mat), [])
-
+	
 	properties = [
 		{
 			'type': 'int',
@@ -1039,9 +1042,9 @@ class mitsuba_bsdf_mixturebsdf(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + sum(map(lambda x: x.get_properties(), param_mat), [])
-
+	
 	visibility = mitsuba_bsdf_mixturebsdf_visibility()
-
+	
 	def get_params(self):
 		params = ParamSet()
 		weights = ""
@@ -1054,11 +1057,12 @@ class mitsuba_bsdf_mixturebsdf(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_blendbsdf(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = param_weightBlend.controls + [
 		'mat_list1',
 		'mat_list2'
 	]
-
+	
 	properties = param_weightBlend.properties + [
 		{
 			'type': 'float',
@@ -1100,8 +1104,9 @@ class mitsuba_bsdf_blendbsdf(declarative_property_group):
 			'name': 'Material 2 reference'
 		}
 	]
+	
 	visibility = param_weightBlend.visibility
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_weightBlend.get_params(self))
@@ -1112,11 +1117,12 @@ class mitsuba_bsdf_blendbsdf(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_twosided(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_bsdf']
+	
 	controls = [
 		'mat_list1',
 		'mat_list2'
 	]
-
+	
 	properties = [
 		{
 			'type': 'string',
@@ -1149,7 +1155,7 @@ class mitsuba_bsdf_twosided(declarative_property_group):
 			'name': 'Material 2 reference'
 		}
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_reference('material', "bsdf1", self.mat1_name)
@@ -1162,10 +1168,10 @@ class mitsuba_medium_homogeneous(declarative_property_group):
 		'material',
 		'useAlbSigmaT'
 	] + \
-	    param_absorptionCoefficient.controls + \
-	    param_scattCoeff.controls + \
-	    param_extinctionCoeff.controls + \
-	    param_albedo.controls + \
+		param_absorptionCoefficient.controls + \
+		param_scattCoeff.controls + \
+		param_extinctionCoeff.controls + \
+		param_albedo.controls + \
 	[
 		'scale',
 		'phaseType',
@@ -1236,10 +1242,10 @@ class mitsuba_medium_homogeneous(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_absorptionCoefficient.properties + \
-	    param_scattCoeff.properties + \
-	    param_extinctionCoeff.properties + \
-	    param_albedo.properties
+		param_absorptionCoefficient.properties + \
+		param_scattCoeff.properties + \
+		param_extinctionCoeff.properties + \
+		param_albedo.properties
 	
 	visibility = dict_merge(
 		{
@@ -1252,7 +1258,7 @@ class mitsuba_medium_homogeneous(declarative_property_group):
 		param_extinctionCoeff.visibility,
 		param_albedo.visibility
 	)
-
+	
 	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
 	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
 	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
@@ -1383,7 +1389,7 @@ class mitsuba_medium_heterogeneous(declarative_property_group):
 			'stddev': { 'phaseType': 'microflake' }
 		}
 	)
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_string('method', self.method)
@@ -1393,6 +1399,7 @@ class mitsuba_medium_heterogeneous(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_subsurface(declarative_property_group):
 	ef_attach_to = ['Material']
+	
 	controls = [
 		'type'
 	] 
@@ -1419,7 +1426,7 @@ class mitsuba_mat_subsurface(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		sub_type = getattr(self, 'mitsuba_sss_%s' % self.type)
 		return sub_type.get_params()
@@ -1427,14 +1434,15 @@ class mitsuba_mat_subsurface(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_sss_dipole(declarative_property_group):
 	ef_attach_to = ['mitsuba_mat_subsurface']
+	
 	controls = [
 		'material',
 		'useAlbSigmaT'
 	] + \
-	    param_absorptionCoefficient.controls + \
-	    param_scattCoeff.controls + \
-	    param_extinctionCoeff.controls + \
-	    param_albedo.controls + \
+		param_absorptionCoefficient.controls + \
+		param_scattCoeff.controls + \
+		param_extinctionCoeff.controls + \
+		param_albedo.controls + \
 	[
 		'scale',
 		'intIOR',
@@ -1500,10 +1508,10 @@ class mitsuba_sss_dipole(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
-	    param_absorptionCoefficient.properties + \
-	    param_scattCoeff.properties + \
-	    param_extinctionCoeff.properties + \
-	    param_albedo.properties
+		param_absorptionCoefficient.properties + \
+		param_scattCoeff.properties + \
+		param_extinctionCoeff.properties + \
+		param_albedo.properties
 	
 	visibility = dict_merge(
 		{
@@ -1514,7 +1522,7 @@ class mitsuba_sss_dipole(declarative_property_group):
 		param_extinctionCoeff.visibility,
 		param_albedo.visibility
 	)
-
+	
 	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
 	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
 	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
@@ -1552,13 +1560,13 @@ class mitsuba_mat_extmedium(declarative_property_group):
 	This class will be instantiated within a Blender Material
 	object.
 	'''
-
+	
 	ef_attach_to = ['Material']
 	
 	controls = [
 		'type'
 	]
-
+	
 	properties = [
 		{
 			'type': 'bool',
@@ -1581,7 +1589,7 @@ class mitsuba_mat_extmedium(declarative_property_group):
 			'save_in_preset': True
 		}
 	]
-
+	
 	def get_params(self):
 		sub_type = getattr(self, 'mitsuba_extmed_%s' % self.type)
 		return sub_type.get_params()
@@ -1654,7 +1662,7 @@ class mitsuba_mat_emitter(declarative_property_group):
 			'save_in_preset': True
 		},
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.update(param_diffuseReflectance.get_params(self))
