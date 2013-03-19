@@ -38,7 +38,7 @@ def copy(value):
 
 class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-
+	
 	def draw(self, context):
 		if not hasattr(context, 'material'):
 			return
@@ -48,7 +48,7 @@ class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, prop
 class MATERIAL_PT_preview_mts(bl_ui.properties_material.MaterialButtonsPanel, bpy.types.Panel):
 	bl_label = "Preview"
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-
+	
 	def draw(self, context):
 		if not hasattr(context, 'material'):
 			return
@@ -57,7 +57,7 @@ class MATERIAL_PT_preview_mts(bl_ui.properties_material.MaterialButtonsPanel, bp
 		row = self.layout.row(True)
 		row.prop(engine, "preview_depth")
 		row.prop(engine, "preview_spp")
-
+		
 		global cached_depth
 		global cached_spp
 		if engine.preview_depth != cached_depth or engine.preview_spp != cached_spp:
@@ -74,26 +74,26 @@ class MATERIAL_PT_context_material_mts(bl_ui.properties_material.MaterialButtons
 	bl_label = ""
 	bl_options = {'HIDE_HEADER'}
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-
+	
 	@classmethod
 	def poll(cls, context):
 		# An exception, dont call the parent poll func because
 		# this manages materials for all engine types
-
+		
 		engine = context.scene.render.engine
 		return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
-
+	
 	def draw(self, context):
 		layout = self.layout
-
+		
 		mat = context.material
 		ob = context.object
 		slot = context.material_slot
 		space = context.space_data
-
+		
 		if ob:
 			row = layout.row()
-
+			
 			if bpy.app.version < (2, 65, 3 ):
 				row.template_list(ob, "material_slots", ob, "active_material_index", rows=4)
 			else:
@@ -103,21 +103,21 @@ class MATERIAL_PT_context_material_mts(bl_ui.properties_material.MaterialButtons
 			col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
 			col.operator("mitsuba.material_slot_move", text="", icon='TRIA_UP').type = 'UP'
 			col.operator("mitsuba.material_slot_move", text="", icon='TRIA_DOWN').type = 'DOWN'
-
+			
 			col.menu("MATERIAL_MT_specials", icon='DOWNARROW_HLT', text="")
-
+			
 			if ob.mode == 'EDIT':
 				row = layout.row(align=True)
 				row.operator("object.material_slot_assign", text="Assign")
 				row.operator("object.material_slot_select", text="Select")
 				row.operator("object.material_slot_deselect", text="Deselect")
-
+		
 		split = layout.split(percentage=0.75)
-
+		
 		if ob:
 			split.template_ID(ob, "active_material", new="material.new")
 			row = split.row()
-
+			
 			if slot:
 				row.prop(slot, "link", text="")
 			else:

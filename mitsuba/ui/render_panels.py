@@ -46,10 +46,10 @@ class layers(render_panel):
 	def draw(self, context): 
 		#Add in Blender's layer stuff, this taken from Blender's startup/properties_render.py
 		layout = self.layout
-
+		
 		scene = context.scene
 		rd = scene.render
-
+		
 		row = layout.row()
 		if bpy.app.version < (2, 65, 3 ):
 			row.template_list(rd, "layers", rd.layers, "active_index", rows=2)
@@ -58,16 +58,16 @@ class layers(render_panel):
 		col = row.column(align=True)
 		col.operator("scene.render_layer_add", icon='ZOOMIN', text="")
 		col.operator("scene.render_layer_remove", icon='ZOOMOUT', text="")
-
+		
 		row = layout.row()
 		rl = rd.layers.active
 		if rl:
 			row.prop(rl, "name")
-
+		
 		row.prop(rd, "use_single_layer", text="", icon_only=True)
 		
 		split = layout.split()
-
+		
 		col = split.column()
 		col.prop(scene, "layers", text="Scene")
 		col = split.column()
@@ -77,27 +77,27 @@ class layers(render_panel):
 class output(render_panel, bpy.types.Panel):
 	bl_label = "Output"
 	COMPAT_ENGINES = {'MITSUBA_RENDER'}
-
+	
 	display_property_groups = [
 		( ('scene',) )
 	]
-
+	
 	def draw(self, context):
 		layout = self.layout
-
+		
 		rd = context.scene.render
-
+		
 		layout.prop(rd, "filepath", text="")
 
 @MitsubaAddon.addon_register_class
 class active_film(render_panel, bpy.types.Panel):
 	bl_label = "Active Camera Film Settings"
 	COMPAT_ENGINES = {'MITSUBA_RENDER'}
-
+	
 	display_property_groups = [
 		( ('scene', 'camera', 'data'), 'mitsuba_film' )
 	]
-
+	
 	def draw(self, context):
 		layout = self.layout
 		film = context.scene.camera.data.mitsuba_film
@@ -106,7 +106,7 @@ class active_film(render_panel, bpy.types.Panel):
 		if film.fileFormat == 'openexr':
 			layout.prop(film, "componentFormat", expand=True)
 		super().draw(context)
- 
+
 @MitsubaAddon.addon_register_class
 class setup_preset(render_panel, bpy.types.Panel):
 	'''
@@ -120,7 +120,7 @@ class setup_preset(render_panel, bpy.types.Panel):
 		row.menu("MITSUBA_MT_presets_engine", text=bpy.types.MITSUBA_MT_presets_engine.bl_label)
 		row.operator("mitsuba.preset_engine_add", text="", icon="ZOOMIN")
 		row.operator("mitsuba.preset_engine_add", text="", icon="ZOOMOUT").remove_active = True
-
+		
 		super().draw(context)
 
 @MitsubaAddon.addon_register_class
@@ -164,35 +164,35 @@ class adaptive(render_panel, bpy.types.Panel):
 	'''
 	Adaptive settings UI Panel
 	'''
-
+	
 	bl_label = 'Use Adaptive Integrator'
 	bl_options = {'DEFAULT_CLOSED'}
 	display_property_groups = [
 		( ('scene',), 'mitsuba_adaptive' )
 	]
-
+	
 	def draw_header(self, context):
 		self.layout.prop(context.scene.mitsuba_adaptive, "use_adaptive", text="")
-
+	
 	def draw(self, context):
 		self.layout.active = (context.scene.mitsuba_adaptive.use_adaptive)
 		return super().draw(context)
-	
+
 @MitsubaAddon.addon_register_class
 class irrcache(render_panel, bpy.types.Panel):
 	'''
 	Sampler settings UI Panel
 	'''
-
+	
 	bl_label = 'Use Irradiance Cache'
 	bl_options = {'DEFAULT_CLOSED'}
 	display_property_groups = [
 		( ('scene',), 'mitsuba_irrcache' )
 	]
-
+	
 	def draw_header(self, context):
 		self.layout.prop(context.scene.mitsuba_irrcache, "use_irrcache", text="")
-
+	
 	def draw(self, context):
 		self.layout.active = (context.scene.mitsuba_irrcache.use_irrcache)
 		return super().draw(context)
@@ -202,7 +202,7 @@ class sampler(render_panel, bpy.types.Panel):
 	'''
 	Sampler settings UI Panel
 	'''
-
+	
 	bl_label = 'Mitsuba Sampler Settings'
 	
 	display_property_groups = [

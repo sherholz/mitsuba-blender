@@ -28,14 +28,14 @@ class ui_mitsuba_material_extmedium(mitsuba_material_base, bpy.types.Panel):
 	
 	bl_label = 'Mitsuba Exterior Media'
 	bl_options = {'DEFAULT_CLOSED'}
-
+	
 	display_property_groups = [
 		( ('material',), 'mitsuba_mat_extmedium' )
 	]
-
+	
 	def draw_header(self, context):
 		self.layout.prop(context.material.mitsuba_mat_extmedium, "use_extmedium", text="")
-
+	
 	def draw(self, context):
 		layout = self.layout
 		mat = context.material.mitsuba_mat_extmedium

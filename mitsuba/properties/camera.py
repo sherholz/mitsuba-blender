@@ -43,15 +43,14 @@ def MediumParameter(attr, name):
 		}
 	]
 
-
 @MitsubaAddon.addon_register_class
 class mitsuba_camera(declarative_property_group):
 	ef_attach_to = ['Camera']
-
+	
 	controls = [
 		'exterior'
 	]
-
+	
 	properties = [
 		{
 			'type': 'bool',
@@ -76,7 +75,7 @@ class mitsuba_camera(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_film(declarative_property_group):
 	ef_attach_to = ['Camera']
-
+	
 	def file_formats(self, context):
 		if self.fileFormat == 'openexr':
 			return [
@@ -95,7 +94,7 @@ class mitsuba_film(declarative_property_group):
 				('luminance', 'BW', 'luminance'),
 				('luminanceAlpha', 'BWA', 'luminanceAlpha'),
 			]
-
+	
 	def set_type(self, context):
 		if self.fileFormat == 'openexr':
 			self.type = 'hdrfilm'
@@ -106,7 +105,7 @@ class mitsuba_film(declarative_property_group):
 				self.fileExtension = 'jpg'
 			else:
 				self.fileExtension = 'png'
-
+	
 	controls = [
 		'tonemapMethod',
 		'gamma',
@@ -123,7 +122,7 @@ class mitsuba_film(declarative_property_group):
 		'banner',
 		'attachLog',
 	]
-
+	
 	visibility = {
 		'tonemapMethod': { 'type': 'ldrfilm' },
 		'gamma': { 'type': 'ldrfilm' },
@@ -136,7 +135,7 @@ class mitsuba_film(declarative_property_group):
 		'lobes': { 'rfilter': 'lanczos' },
 		'attachLog': { 'fileFormat': 'openexr' },
 	}
-
+	
 	properties = [
 		{
 			'type': 'string',
@@ -327,7 +326,7 @@ class mitsuba_film(declarative_property_group):
 			'save_in_preset': True
 		},
 	]
-
+	
 	def get_params(self):
 		params = ParamSet()
 		params.add_string('fileFormat', self.fileFormat)

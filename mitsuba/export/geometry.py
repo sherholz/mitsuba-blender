@@ -37,7 +37,7 @@ class MeshExportProgressThread(ExportProgressThread):
 	message = 'Exporting meshes: %i%%'
 
 class DupliExportProgressThread(ExportProgressThread):
-	message = '...  %i%% ...'
+	message = '... %i%% ...'
 
 class GeometryExporter(object):
 	
@@ -250,7 +250,6 @@ class GeometryExporter(object):
 								face_vert_indices.append(( fvi[0], fvi[2], fvi[3] ))
 								ntris += 3
 						
-						
 						del vert_vno_indices
 						del vert_use_vno
 						
@@ -307,7 +306,7 @@ class GeometryExporter(object):
 					)
 					if obj.data.mitsuba_mesh.normals == 'facenormals':
 						shape_params.add_boolean('faceNormals', {'value' : 'true'})
-										
+					
 					mesh_definition = (
 						mesh_name,
 						i,
@@ -407,7 +406,7 @@ class GeometryExporter(object):
 					if not os.path.exists(ser_path) or not (self.visibility_scene.mitsuba_engine.partial_export and skip_exporting):
 						
 						GeometryExporter.NewExportedObjects.add(obj)
-					
+						
 						uv_textures = mesh.tessface_uv_textures if bpy.app.version > (2, 62, 0 ) else mesh.uv_textures # bmesh
 						if len(uv_textures) > 0:
 							if uv_textures.active and uv_textures.active.data:
@@ -420,7 +419,7 @@ class GeometryExporter(object):
 						normals = array.array('d',[])
 						uvs = array.array('d',[])
 						ntris = 0
-						face_vert_indices = array.array('I',[])      # list of face vert indices
+						face_vert_indices = array.array('I',[])		# list of face vert indices
 						
 						# Caches
 						vert_vno_indices = {}		# mapping of vert index to exported vert index for verts with vert normals
@@ -503,7 +502,7 @@ class GeometryExporter(object):
 								ser.write(encoder.compress(uvs.tostring()))
 							ser.write(encoder.compress(face_vert_indices.tostring()))
 							ser.write(encoder.flush())
-						
+							
 							ser.write(struct.pack('<Q', 0))
 							ser.write(struct.pack('<I', 1))
 							ser.close()
@@ -604,13 +603,13 @@ class GeometryExporter(object):
 		
 		if ob_mat != None:
 			self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
-
+		
 		self.mts_context.closeElement()
 		self.mts_context.closeElement()
 		
 		MtsLog('Mesh definition exported: %s' % me_name)
 		return True
-			
+	
 	def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None):
 		
 		# Don't export empty definitions
@@ -626,7 +625,7 @@ class GeometryExporter(object):
 		except ValueError:
 			MtsLog('WARNING: skipping export of singular matrix in object "%s" - "%s"!' %(obj.name,mesh_definitions[0][0]))
 			return
-			
+		
 		for me_name, me_mat_index, me_shape_type, me_shape_params in mesh_definitions:
 			
 			if me_shape_type != 'instance':
@@ -634,7 +633,7 @@ class GeometryExporter(object):
 					mat_object = parent
 				else:
 					mat_object = obj
-			
+				
 				try:
 					ob_mat = mat_object.material_slots[me_mat_index].material
 					# create material xml
@@ -644,7 +643,6 @@ class GeometryExporter(object):
 					ob_mat = None
 					MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(me_mat_index+1, mat_object.name))
 			
-						
 			self.shape_index += 1
 			
 			self.mts_context.openElement('shape', { 'id' : obj.name + '-shape_%i_%i' % (me_mat_index, self.shape_index), 'type' : me_shape_type})
@@ -668,9 +666,9 @@ class GeometryExporter(object):
 						self.mts_context.element('ref', {'name' : 'exterior', 'id' : '%s-exterior' % ob_mat.name})
 					if ob_mat.mitsuba_mat_emitter.use_emitter:
 						self.mts_context.exportMaterialEmitter(ob_mat)
-
-			self.mts_context.closeElement()
 			
+			self.mts_context.closeElement()
+	
 	def BSpline(self, points, dimension, degree, u):
 		controlpoints = []
 		def Basispolynom(controlpoints, i, u, degree):
@@ -702,7 +700,7 @@ class GeometryExporter(object):
 				controlpoints.append(i - degree)
 		
 		if dimension == 2: temp = mathutils.Vector((0.0,0.0))
-		elif dimension == 3:temp = mathutils.Vector((0.0,0.0,0.0))
+		elif dimension == 3: temp = mathutils.Vector((0.0,0.0,0.0))
 		
 		for i in range(len(points)):
 			temp = temp + Basispolynom(controlpoints, i, u, degree)*points[i]
@@ -722,26 +720,26 @@ class GeometryExporter(object):
 		MtsLog('Exporting Hair system "%s"...' % psys.name)
 		
 		hair_cache_key = (self.geometry_scene, obj.data)
-					
+		
 		# Put Hair files in frame-numbered subfolders to avoid
 		# clobbering when rendering animations
 		sc_fr = '%s/%s/%s/%05d' % (self.mts_context.meshes_dir, efutil.scene_filename(), bpy.path.clean_name(self.geometry_scene.name), self.visibility_scene.frame_current)
 		if not os.path.exists( sc_fr ):
 			os.makedirs(sc_fr)
-					
+		
 		def make_hairfilename():
 			hair_serial = self.ExportedHAIRs.serial(hair_cache_key)
 			hair_name = '%s_%04d' % (obj.data.name, hair_serial)
 			hair_filename = '%s.hair' % bpy.path.clean_name(hair_name)
 			hair_path = '/'.join([sc_fr, hair_filename])
 			return hair_name, hair_path
-					
+		
 		hair_name, hair_path = make_hairfilename()
-					
+		
 		# Ensure that all Hair files have unique names
 		while self.ExportedHAIRs.have(hair_path):
 			hair_name, hair_path = hair_serfilename()
-					
+		
 		self.ExportedHAIRs.add(hair_path, None)
 		
 		size = psys.settings.particle_size / 2.0 / 1000.0 # XXX divide by 2 twice ? Also throw in /1000.0 to scale down to millimeters
@@ -795,7 +793,7 @@ class GeometryExporter(object):
 			hair.write('\n')
 		
 		hair.close()
-
+		
 		det.stop()
 		det.join()
 		
@@ -942,7 +940,7 @@ class GeometryExporter(object):
 						if psys.settings.render_type in self.valid_particles_callbacks:
 							self.callbacks['particles'][psys.settings.render_type](obj, particle_system=psys)
 						elif self.visibility_scene.mitsuba_testing.object_analysis: print(' -> Unsupported Particle system type: %s' % psys.settings.render_type)
-			
+				
 			except UnexportableObjectException as err:
 				if self.visibility_scene.mitsuba_testing.object_analysis: print(' -> Unexportable object: %s : %s : %s' % (obj, obj.type, err))
 		
@@ -959,7 +957,7 @@ class GeometryExporter(object):
 					raise UnexportableObjectException('Unsupported object type')
 				
 				self.callbacks['objects'][obj.type](obj)
-			
+				
 			except UnexportableObjectException as err:
 				if self.visibility_scene.mitsuba_testing.object_analysis: print(' -> Unexportable object: %s : %s : %s' % (obj, obj.type, err))
 		
@@ -974,8 +972,6 @@ class GeometryExporter(object):
 		GeometryExporter.NewExportedObjects = set()
 		
 		return self.have_emitting_object
-
-
 
 # Update handlers
 
@@ -1004,3 +1000,4 @@ if hasattr(bpy.app, 'handlers') and hasattr(bpy.app.handlers, 'scene_update_post
 	bpy.app.handlers.scene_update_post.append(mts_scene_update)
 	bpy.app.handlers.load_post.append(mts_scene_load)
 	MtsLog('Installed scene post-update handler')
+

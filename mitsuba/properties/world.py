@@ -44,7 +44,6 @@ def texture_append_visibility(vis_main, textureparam_object, vis_append):
 				vis_main[prop['attr']][vk] = vi
 	return vis_main
 
-
 def MediumParameter(attr, name):
 	return [
 		{
@@ -65,7 +64,6 @@ def MediumParameter(attr, name):
 		}
 	]
 
-
 @MitsubaAddon.addon_register_class
 class mitsuba_medium_data(declarative_property_group):
 	'''
@@ -73,7 +71,7 @@ class mitsuba_medium_data(declarative_property_group):
 	mitsuba_media object will store 1 or more of
 	these in its CollectionProperty 'media'.
 	'''
-
+	
 	ef_attach_to = []	# not attached
 	
 	controls = [
@@ -82,14 +80,14 @@ class mitsuba_medium_data(declarative_property_group):
 		'g',
 		'useAlbSigmaT'
 	] + \
-	    param_absorptionCoefficient.controls + \
-	    param_scattCoeff.controls + \
-	    param_extinctionCoeff.controls + \
-	    param_albedo.controls + \
+		param_absorptionCoefficient.controls + \
+		param_scattCoeff.controls + \
+		param_extinctionCoeff.controls + \
+		param_albedo.controls + \
 	[
 		'scale'
 	]
-
+	
 	properties = [
 		{
 			'type': 'enum',
@@ -141,10 +139,10 @@ class mitsuba_medium_data(declarative_property_group):
 			'save_in_preset': True
 		},
 	] + \
-	    param_absorptionCoefficient.properties + \
-	    param_scattCoeff.properties + \
-	    param_extinctionCoeff.properties + \
-	    param_albedo.properties
+		param_absorptionCoefficient.properties + \
+		param_scattCoeff.properties + \
+		param_extinctionCoeff.properties + \
+		param_albedo.properties
 	
 	visibility = dict_merge(
 		{
@@ -155,12 +153,12 @@ class mitsuba_medium_data(declarative_property_group):
 		param_extinctionCoeff.visibility,
 		param_albedo.visibility
 	)
-
+	
 	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
 	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True })
 	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
 	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
-
+	
 	def get_params(self):
 		params = ParamSet()
 		if self.material=='':
@@ -229,3 +227,4 @@ class mitsuba_media(declarative_property_group):
 			'icon': 'ZOOMOUT',
 		},
 	]
+

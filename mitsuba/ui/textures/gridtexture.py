@@ -24,9 +24,10 @@ from ...ui.textures import mitsuba_texture_base
 @MitsubaAddon.addon_register_class
 class ui_texture_gridtexture(mitsuba_texture_base, bpy.types.Panel):
 	bl_label = 'Mitsuba Grid Texture'
-
+	
 	MTS_COMPAT = {'gridtexture'}
-
+	
 	display_property_groups = [
 		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_gridtexture' )
 	]
+

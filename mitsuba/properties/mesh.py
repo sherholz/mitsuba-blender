@@ -24,15 +24,15 @@ from extensions_framework import util as efutil
 @MitsubaAddon.addon_register_class
 class mitsuba_mesh(declarative_property_group):
 	ef_attach_to = ['Mesh', 'SurfaceCurve', 'TextCurve', 'Curve']
-
+	
 	controls = [
 		'mesh_type',
 		'normals'
 	]
-
+	
 	visibility = {
 	}
-
+	
 	properties = [
 		{
 			'type': 'enum',

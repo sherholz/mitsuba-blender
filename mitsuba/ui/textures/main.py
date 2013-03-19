@@ -28,7 +28,7 @@ class ui_texture_main(mitsuba_texture_base, bpy.types.Panel):
 	'''
 	
 	bl_label = 'Mitsuba Textures'
-
+	
 	display_property_groups = [
 		( ('texture',), 'mitsuba_texture' )
 	]
@@ -46,5 +46,6 @@ class ui_texture_main(mitsuba_texture_base, bpy.types.Panel):
 		row.menu("MITSUBA_MT_presets_texture", text=bpy.types.MITSUBA_MT_presets_texture.bl_label)
 		row.operator("mitsuba.preset_texture_add", text="", icon="ZOOMIN")
 		row.operator("mitsuba.preset_texture_add", text="", icon="ZOOMOUT").remove_active = True
-
+		
 		super().draw(context)
+

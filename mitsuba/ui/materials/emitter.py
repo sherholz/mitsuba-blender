@@ -28,14 +28,14 @@ class ui_mitsuba_material_emitter(mitsuba_material_base, bpy.types.Panel):
 	
 	bl_label = 'Mitsuba Emitter Material'
 	bl_options = {'DEFAULT_CLOSED'}
-
+	
 	display_property_groups = [
 		( ('material',), 'mitsuba_mat_emitter' )
 	]
-
+	
 	def draw_header(self, context):
 		self.layout.prop(context.material.mitsuba_mat_emitter, "use_emitter", text="")
-
+	
 	def draw(self, context):
 		self.layout.active = (context.material.mitsuba_mat_emitter.use_emitter)
 		return super().draw(context)

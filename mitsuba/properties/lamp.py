@@ -26,7 +26,7 @@ from extensions_framework.validate import Logic_Operator, Logic_OR as LO
 @MitsubaAddon.addon_register_class
 class mitsuba_lamp(declarative_property_group):
 	ef_attach_to = ['Lamp']
-
+	
 	controls = [
 		'samplingWeight',
 		'envmap_type',
@@ -35,13 +35,13 @@ class mitsuba_lamp(declarative_property_group):
 		'radius',
 		'medium'
 	]
-
+	
 	visibility = {
 		'envmap_type': { 'type': 'ENV' },
 		'envmap_file': { 'type': 'ENV', 'envmap_type' : 'envmap' },
 		'medium' : { 'inside_medium': True }
 	}
-
+	
 	properties = [
 		{
 			'type': 'float',
@@ -106,7 +106,7 @@ class mitsuba_lamp(declarative_property_group):
 			'max': 30.0,
 		}
 	] + MediumParameter('lamp', 'Lamp')
-	
+
 @MitsubaAddon.addon_register_class	
 class mitsuba_lamp_sun(declarative_property_group):
 	ef_attach_to = ['mitsuba_lamp']
@@ -245,12 +245,10 @@ class mitsuba_lamp_sun(declarative_property_group):
 			params.add_float('sunRadiusScale', self.sunRadiusScale)
 		if self.sunsky_advanced:
 			params.add_integer('resolution', self.resolution)
-			
 		
 		#if self.sunsky_advanced and self.sunsky_type != 'sun':
 			#params.add_float('horizonbrightness', self.horizonbrightness)
 			#params.add_float('horizonsize', self.horizonsize)
-
 		
 		return params
 

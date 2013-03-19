@@ -36,7 +36,7 @@ class camera(world_panel):
 	display_property_groups = [
 		( ('camera',), 'mitsuba_camera' )
 	]
-
+	
 	def draw(self, context):
 		super().draw(context)
 
@@ -51,7 +51,7 @@ class film(world_panel):
 	display_property_groups = [
 		( ('camera',), 'mitsuba_film' )
 	]
-
+	
 	def draw(self, context):
 		layout = self.layout
 		film = context.object.data.mitsuba_film
@@ -60,4 +60,4 @@ class film(world_panel):
 		if film.fileFormat == 'openexr':
 			layout.prop(film, "componentFormat", expand=True)
 		super().draw(context)
- 
+

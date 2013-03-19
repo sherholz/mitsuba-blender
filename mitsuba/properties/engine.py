@@ -48,7 +48,7 @@ class mitsuba_testing(declarative_property_group):
 @MitsubaAddon.addon_register_class
 class mitsuba_engine(declarative_property_group):
 	ef_attach_to = ['Scene']
-
+	
 	controls = [
 		'export_mode',
 		'render_mode',
@@ -57,12 +57,12 @@ class mitsuba_engine(declarative_property_group):
 		'partial_export',
 		'refresh_interval'
 	]
-
+	
 	visibility = {
 		'render_mode':		{ 'export_mode': 'render' },
 		'refresh_interval':	{ 'export_mode': 'render', 'render_mode' : 'cli' }
 	}
-
+	
 	properties = [
 		{
 			'type': 'enum',

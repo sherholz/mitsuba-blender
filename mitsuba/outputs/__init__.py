@@ -33,9 +33,9 @@ class MtsFilmDisplay(TimerThread):
 	'''
 	Periodically update render result with Mituba's framebuffer
 	'''
-
+	
 	STARTUP_DELAY = 1
-
+	
 	def begin(self, renderer, output_file, resolution, preview = False):
 		(self.xres, self.yres) = (int(resolution[0]), int(resolution[1]))
 		self.renderer = renderer
@@ -45,11 +45,11 @@ class MtsFilmDisplay(TimerThread):
 		if not self.preview:
 			self.result = self.renderer.begin_result(0, 0, self.xres, self.yres)
 		self.start()
-
+	
 	def shutdown(self):
 		if not self.preview:
 			self.renderer.end_result(self.result, 0) if bpy.app.version > (2, 63, 17 ) else self.renderer.end_result(self.result)
-
+	
 	def kick(self, render_end=False):
 		if not bpy.app.background or render_end:
 			if os.path.exists(self.output_file):
@@ -70,3 +70,4 @@ class MtsFilmDisplay(TimerThread):
 			else:
 				err_msg = 'ERROR: Could not load render result from %s' % self.output_file
 				MtsLog(err_msg)
+
