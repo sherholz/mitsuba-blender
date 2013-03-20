@@ -54,7 +54,7 @@ class layers(render_panel):
 		if bpy.app.version < (2, 65, 3 ):
 			row.template_list(rd, "layers", rd.layers, "active_index", rows=2)
 		else:
-			row.template_list("RENDER_UL_renderlayers", "", rd, "layers", rd, "active_index", rows=2)
+			row.template_list("RENDER_UL_renderlayers", "", rd, "layers", rd.layers, "active_index", rows=2)
 		col = row.column(align=True)
 		col.operator("scene.render_layer_add", icon='ZOOMIN', text="")
 		col.operator("scene.render_layer_remove", icon='ZOOMOUT', text="")
@@ -144,8 +144,6 @@ class engine(render_panel, bpy.types.Panel):
 			row.prop(rd, "use_color_management")
 			if rd.use_color_management == True:
 				row.prop(rd, "use_color_unpremultiply")
-		else:
-			row.prop(rd, "use_color_unpremultiply")
 
 @MitsubaAddon.addon_register_class
 class integrator(render_panel, bpy.types.Panel):

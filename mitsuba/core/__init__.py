@@ -126,9 +126,6 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			else:
 				output_dir = os.path.dirname(scene_path)		
 			
-			#if scene.render.use_color_management == False:
-				#MtsLog('WARNING: Color Management is switched off, render results may look too dark.')
-			
 			MtsLog('MtsBlend: Current directory = "%s"' % output_dir)
 			output_basename = efutil.scene_filename() + '.%s.%05i' % (scene.name, scene.frame_current)
 			

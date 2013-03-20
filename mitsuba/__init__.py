@@ -22,13 +22,13 @@ bl_info = {
 	"name": "Mitsuba",
 	"author": "Wenzel Jakob",
 	"version": (0, 2, 1),
-	"blender": (2, 5, 6),
-	"api": 35669,
+	"blender": (2, 65, 0),
+	"api": 52859,
 	"category": "Render",
 	"location": "Render > Engine > Mitsuba",
-	"description": "Basic Mitsuba integration for Blender",
+	"description": "Mitsuba Renderer integration for Blender",
 	"warning": "",
-	"wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+	"wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"
 		"Scripts/Render/Mitsuba",
 	"tracker_url": "https://www.mitsuba-renderer.org/bugtracker/projects/mitsuba"}
 
