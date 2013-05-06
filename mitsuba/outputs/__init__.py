@@ -70,4 +70,3 @@ class MtsFilmDisplay(TimerThread):
 			else:
 				err_msg = 'ERROR: Could not load render result from %s' % self.output_file
 				MtsLog(err_msg)
-

@@ -126,4 +126,3 @@ class ui_mitsuba_lamp_sun(lamps_panel):
 	@classmethod
 	def poll(cls, context):
 		return super().poll(context) and context.lamp.type == 'SUN'
-

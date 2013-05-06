@@ -1000,4 +1000,3 @@ if hasattr(bpy.app, 'handlers') and hasattr(bpy.app.handlers, 'scene_update_post
 	bpy.app.handlers.scene_update_post.append(mts_scene_update)
 	bpy.app.handlers.load_post.append(mts_scene_load)
 	MtsLog('Installed scene post-update handler')
-

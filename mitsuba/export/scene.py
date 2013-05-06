@@ -580,4 +580,3 @@ class SceneExporter:
 		self.writeFooter()
 		
 		return True
-

@@ -347,4 +347,3 @@ class mitsuba_film(declarative_property_group):
 		if self.statistics:
 			params.add_string('label[10,10]', 'Integrator:$integrator[\'type\'], $film[\'width\']x$film[\'height\'],$sampler[\'sampleCount\']spp, rendertime:$scene[\'renderTime\'],memory:$scene[\'memUsage\']' )
 		return params
-

@@ -30,4 +30,3 @@ class ui_texture_wireframe(mitsuba_texture_base, bpy.types.Panel):
 	display_property_groups = [
 		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_wireframe' )
 	]
-

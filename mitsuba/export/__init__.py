@@ -186,4 +186,3 @@ def MtsLaunch(mts_path, path, commandline):
 	env['LD_LIBRARY_PATH'] = mts_path
 	commandline[0] = os.path.join(mts_path, commandline[0])
 	return subprocess.Popen(commandline, env = env, cwd = path)		#, stdout=subprocess.PIPE)
-

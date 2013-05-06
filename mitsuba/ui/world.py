@@ -65,4 +65,3 @@ class media(world_panel):
 					)
 		else:
 			self.layout.label('No active World available!')
-

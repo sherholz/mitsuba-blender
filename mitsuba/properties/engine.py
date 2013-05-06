@@ -147,4 +147,3 @@ class mitsuba_engine(declarative_property_group):
 			'save_in_preset': True
 		},
 	]
-

@@ -769,4 +769,3 @@ class mitsuba_irrcache(declarative_property_group):
 		params.add_integer('resolution', self.resolution)
 		
 		return params
-

@@ -60,4 +60,3 @@ class film(world_panel):
 		if film.fileFormat == 'openexr':
 			layout.prop(film, "componentFormat", expand=True)
 		super().draw(context)
-

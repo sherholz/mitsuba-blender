@@ -46,4 +46,3 @@ class ui_material_dipole(mitsuba_material_base, bpy.types.Panel):
 			self.draw_column(p, self.layout, mat, context,
 				property_group=sss)
 		sss.draw_callback(context)
-

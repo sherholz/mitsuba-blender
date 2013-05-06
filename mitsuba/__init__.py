@@ -47,4 +47,3 @@ else:
 	# Importing the core package causes extensions_framework managed
 	# RNA class registration via @MitsubaAddon.addon_register_class
 	from . import core
-

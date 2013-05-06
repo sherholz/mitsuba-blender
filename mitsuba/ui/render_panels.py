@@ -215,4 +215,3 @@ class testing(render_panel):
 	display_property_groups = [
 		( ('scene',), 'mitsuba_testing' )
 	]
-
