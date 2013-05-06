@@ -323,4 +323,3 @@ class MITSUBA_OT_medium_remove(bpy.types.Operator):
 		w.media.remove( w.media_index )
 		w.media_index = len(w.media)-1
 		return {'FINISHED'}
-

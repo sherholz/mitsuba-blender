@@ -39,4 +39,3 @@ class ui_mitsuba_material_emitter(mitsuba_material_base, bpy.types.Panel):
 	def draw(self, context):
 		self.layout.active = (context.material.mitsuba_mat_emitter.use_emitter)
 		return super().draw(context)
-

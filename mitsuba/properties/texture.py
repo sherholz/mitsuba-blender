@@ -706,4 +706,3 @@ class mitsuba_tex_wireframe(declarative_property_group):
 		params.add_float('stepWidth', self.stepWidth)
 		
 		return params
-

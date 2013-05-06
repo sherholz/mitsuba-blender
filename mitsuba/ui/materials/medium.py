@@ -46,4 +46,3 @@ class ui_mitsuba_material_extmedium(mitsuba_material_base, bpy.types.Panel):
 			self.draw_column(p, self.layout, mat, context,
 				property_group=media)
 		media.draw_callback(context)
-

@@ -70,4 +70,3 @@ class MATERIAL_PT_material_bsdf(mitsuba_material_base, bpy.types.Panel):
 			bsdf.draw_callback(context)
 		
 		#return super().draw(context)
-

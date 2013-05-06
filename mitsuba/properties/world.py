@@ -227,4 +227,3 @@ class mitsuba_media(declarative_property_group):
 			'icon': 'ZOOMOUT',
 		},
 	]
-

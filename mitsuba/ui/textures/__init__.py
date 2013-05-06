@@ -90,4 +90,3 @@ class mitsuba_texture_base(bl_ui.properties_texture.TextureButtonsPanel, propert
 		return	tex and \
 				(context.scene.render.engine in cls.COMPAT_ENGINES) and \
 				context.texture.mitsuba_texture.type in cls.MTS_COMPAT
-

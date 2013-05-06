@@ -91,4 +91,3 @@ class mitsuba_sampler(declarative_property_group):
 			params.add_integer('scramble', str(int(self.scramble)+1))
 		
 		return params
-

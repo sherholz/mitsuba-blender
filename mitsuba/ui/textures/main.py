@@ -48,4 +48,3 @@ class ui_texture_main(mitsuba_texture_base, bpy.types.Panel):
 		row.operator("mitsuba.preset_texture_add", text="", icon="ZOOMOUT").remove_active = True
 		
 		super().draw(context)
-

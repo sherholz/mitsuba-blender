@@ -59,4 +59,3 @@ class mitsuba_mesh(declarative_property_group):
 			'default': 'default'
 		}
 	]
-

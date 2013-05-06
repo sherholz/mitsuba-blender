@@ -251,4 +251,3 @@ class mitsuba_lamp_sun(declarative_property_group):
 			#params.add_float('horizonsize', self.horizonsize)
 		
 		return params
-

@@ -30,4 +30,3 @@ class ui_texture_mapping(mitsuba_texture_base, bpy.types.Panel):
 	display_property_groups = [
 		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_mapping' )
 	]
-

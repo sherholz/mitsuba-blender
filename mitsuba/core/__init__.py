@@ -260,4 +260,3 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			else:
 				framebuffer_thread.kick(render_end=True)
 		framebuffer_thread.shutdown()
-

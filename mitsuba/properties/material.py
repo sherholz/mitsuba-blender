@@ -1671,4 +1671,3 @@ class mitsuba_mat_emitter(declarative_property_group):
 			[self.color[0] * self.intensity, self.color[1] * self.intensity, self.color[2] * self.intensity])
 		params.add_float('samplingWeight', self.samplingWeight)
 		return params
-
