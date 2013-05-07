@@ -127,20 +127,23 @@ class SceneExporter:
 			self.closeElement()
 			self.closeElement()
 		elif ltype == 'AREA':
-			self.openElement('shape', { 'type' : 'obj'} )
-			(size_x, size_y) = (lamp.data.size, lamp.data.size)
+			self.openElement('shape', { 'type' : 'rectangle'} )
+			self.parameter('boolean', 'flipNormals', {'value' : 'true'})
+			(size_x, size_y) = (lamp.data.size/2.0, lamp.data.size/2.0)
 			if lamp.data.shape == 'RECTANGLE':
-				size_y = lamp.data.size_y
-			#mult = mult / (2 * size_x * size_y) #I like more absolute intensity that int/area
-			#mult = mult / (size_x * size_y)
-			filename = "area_emitter_%d.obj" % idx
-			try:
-				os.mkdir(self.meshes_dir)
-			except OSError:
-				pass
-			self.parameter('string', 'filename', { 'value' : 'meshes/%s' % filename})
-			self.exportWorldTrafo(lamp.matrix_world)
-
+				size_y = lamp.data.size_y/2.0
+			self.openElement('transform', {'name' : 'toWorld'})
+			loc, rot, sca = lamp.matrix_world.decompose()
+			mat_loc = mathutils.Matrix.Translation(loc)
+			mat_rot = rot.to_matrix().to_4x4()
+			mat_sca = mathutils.Matrix((
+				(sca[0]*size_x,0,0,0),
+				(0,sca[1]*size_y,0,0),
+				(0,0,sca[2],0),
+				(0,0,0,1),
+			))
+			self.exportMatrix(mat_loc * mat_rot * mat_sca)
+			self.closeElement()
 			self.openElement('emitter', { 'id' : '%s-arealight' % name, 'type' : 'area'})
 			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
 					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
@@ -152,14 +155,6 @@ class SceneExporter:
 			self.parameter('spectrum', 'reflectance', {'value' : '0'})
 			self.closeElement()
 			self.closeElement()
-			path = os.path.join(self.meshes_dir, filename)
-			objFile = open(path, 'w')
-			objFile.write('v %f %f 0\n' % (-size_x/2, -size_y/2))
-			objFile.write('v %f %f 0\n' % ( size_x/2, -size_y/2))
-			objFile.write('v %f %f 0\n' % ( size_x/2,  size_y/2))
-			objFile.write('v %f %f 0\n' % (-size_x/2,  size_y/2))
-			objFile.write('f 4 3 2 1\n')
-			objFile.close()
 		elif ltype == 'SUN':
 			# sun is considered hemi light by Mitsuba
 			if self.hemi_lights >= 1:
