@@ -717,9 +717,21 @@ class GeometryExporter(object):
 			MtsLog('ERROR: handler_Duplis_PATH can only handle Hair particle systems ("%s")' % psys.name)
 			return
 		
+		for mod in obj.modifiers:
+			if mod.type == 'PARTICLE_SYSTEM' and mod.show_render == False:
+				return
+				
 		MtsLog('Exporting Hair system "%s"...' % psys.name)
 		
-		hair_cache_key = (self.geometry_scene, obj.data)
+		size = psys.settings.particle_size / 2.0 / 1000.0
+		psys.set_resolution(self.geometry_scene, obj, 'RENDER')
+		steps = 2**psys.settings.render_step
+		num_parents = len(psys.particles)
+		num_children = len(psys.child_particles)
+		
+		partsys_name = '%s_%s'%(obj.name, psys.name)
+		det = DupliExportProgressThread()
+		det.start(num_parents + num_children)
 		
 		# Put Hair files in frame-numbered subfolders to avoid
 		# clobbering when rendering animations
@@ -727,26 +739,12 @@ class GeometryExporter(object):
 		if not os.path.exists( sc_fr ):
 			os.makedirs(sc_fr)
 		
-		def make_hairfilename():
-			hair_serial = self.ExportedHAIRs.serial(hair_cache_key)
-			hair_name = '%s_%04d' % (obj.data.name, hair_serial)
-			hair_filename = '%s.hair' % bpy.path.clean_name(hair_name)
-			hair_path = '/'.join([sc_fr, hair_filename])
-			return hair_name, hair_path
-		
-		hair_name, hair_path = make_hairfilename()
-		
-		# Ensure that all Hair files have unique names
-		while self.ExportedHAIRs.have(hair_path):
-			hair_name, hair_path = hair_serfilename()
-		
-		self.ExportedHAIRs.add(hair_path, None)
-		
-		size = psys.settings.particle_size / 2.0 / 1000.0 # XXX divide by 2 twice ? Also throw in /1000.0 to scale down to millimeters
+		hair_filename = '%s.hair' % bpy.path.clean_name(partsys_name)
+		hair_file_path = '/'.join([sc_fr, hair_filename])
 		
 		shape_params = ParamSet().add_string(
 			'filename',
-			efutil.path_relative_to_export(hair_path)
+			efutil.path_relative_to_export(hair_file_path)
 		).add_float(
 			'radius',
 			size
@@ -761,19 +759,18 @@ class GeometryExporter(object):
 		mesh_definitions.append( mesh_definition )
 		self.exportShapeInstances(obj, mesh_definitions)
 		
-		hair = open(hair_path, 'w')
+		hair_file = open(hair_file_path, 'w')
 		
-		det = DupliExportProgressThread()
-		det.start(len(psys.particles))
-		
-		for particle in psys.particles:
-			if not (particle.is_exist and particle.is_visible): continue
-			
+		transform = obj.matrix_world.inverted()
+		for pindex in range(num_parents + num_children):
 			det.exported_objects += 1
-			
 			points = []
-			for j in range(len(particle.hair_keys)):
-				points.append(particle.hair_keys[j].co)
+			
+			for step in range(0,steps+1):
+				co = psys.co_hair(obj, mod, pindex, step)
+				if not co.length_squared == 0:
+					points.append(transform*co)
+			
 			if psys.settings.use_hair_bspline:
 				temp = []
 				degree = 2
@@ -786,14 +783,14 @@ class GeometryExporter(object):
 					temp.append(self.BSpline(points, dimension, degree, u))
 				points = temp
 			
-			for j in range(len(points)-1):
-				p = points[j]
-				hair.write('%f %f %f\n' % (p[0], p[1], p[2]))
+			for p in points:
+				hair_file.write('%f %f %f\n' % (p[0], p[1], p[2]))
 			
-			hair.write('\n')
+			hair_file.write('\n')
 		
-		hair.close()
+		hair_file.close()
 		
+		psys.set_resolution(self.geometry_scene, obj, 'PREVIEW')
 		det.stop()
 		det.join()
 		
