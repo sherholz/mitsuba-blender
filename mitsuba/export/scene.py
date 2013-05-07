@@ -18,9 +18,10 @@
 
 import bpy, os, copy, subprocess, math, mathutils
 import string
-import struct, zlib
+
 from math import radians
 from extensions_framework import util as efutil
+
 from ..export			import resolution
 from ..export			import geometry		as export_geometry
 from ..outputs import MtsLog
@@ -42,7 +43,6 @@ class SceneExporter:
 		self.materials = materials if materials != None else bpy.data.materials
 		self.textures = textures if textures != None else bpy.data.textures
 		self.hemi_lights = 0
-		self.shape_index = 0
 		self.indent = 0
 		self.stack = []
 		if directory[-1] != '/':
@@ -108,7 +108,7 @@ class SceneExporter:
 	def exportPoint(self, location):
 		self.parameter('point', 'center', {'x' : location[0],'y' : location[1],'z' : location[2]})
 	
-	def exportLamp(self, scene, lamp, idx):
+	def exportLamp(self, scene, lamp):
 		ltype = lamp.data.type
 		name = lamp.name
 		mult = lamp.data.mitsuba_lamp.intensity
@@ -554,19 +554,16 @@ class SceneExporter:
 		
 		self.exportIntegrator(scene)
 		
-		cam_idx = 0
 		# Always export all Cameras, active camera last
 		allCameras = [cam for cam in scene.objects if cam.type == 'CAMERA' and cam.name != scene.camera.name]
 		for camera in allCameras:
 			self.exportCamera(scene, camera)
 		self.exportCamera(scene, scene.camera)
 		
-		lamp_idx = 0
 		# Get all renderable LAMPS
 		renderableLamps = [lmp for lmp in scene.objects if self.isRenderable(scene, lmp) and lmp.type == 'LAMP']
 		for lamp in renderableLamps:
-			self.exportLamp(scene, lamp, lamp_idx)
-			lamp_idx += 1
+			self.exportLamp(scene, lamp)
 		
 		# Export geometry
 		GE = export_geometry.GeometryExporter(self, scene)
