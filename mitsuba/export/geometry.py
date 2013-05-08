@@ -58,7 +58,6 @@ class GeometryExporter(object):
 		self.ExportedPLYs = ExportCache('ExportedPLYs')
 		self.AnimationDataCache = ExportCache('AnimationData')
 		self.ExportedObjectsDuplis = ExportCache('ExportedObjectsDuplis')
-		self.shape_index = 0
 		# start fresh
 		GeometryExporter.NewExportedObjects = set()
 		
@@ -611,7 +610,7 @@ class GeometryExporter(object):
 		MtsLog('Mesh definition exported: %s' % me_name)
 		return True
 	
-	def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None):
+	def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None, index=None):
 		
 		# Don't export empty definitions
 		if len(mesh_definitions) < 1: return
@@ -626,6 +625,11 @@ class GeometryExporter(object):
 		except ValueError:
 			MtsLog('WARNING: skipping export of singular matrix in object "%s" - "%s"!' %(obj.name,mesh_definitions[0][0]))
 			return
+		
+		if index != None:
+			shape_index = '_%08d' % (index)
+		else:
+			shape_index = ''
 		
 		for me_name, me_mat_index, me_shape_type, me_shape_params in mesh_definitions:
 			
@@ -644,9 +648,7 @@ class GeometryExporter(object):
 					ob_mat = None
 					MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(me_mat_index+1, mat_object.name))
 			
-			self.shape_index += 1
-			
-			self.mts_context.openElement('shape', { 'id' : obj.name + '-shape_%i_%i' % (me_mat_index, self.shape_index), 'type' : me_shape_type})
+			self.mts_context.openElement('shape', { 'id' : '%s_%s-shape%s_%i' % (obj.name, me_name, shape_index, me_mat_index), 'type' : me_shape_type})
 			me_shape_params.export(self.mts_context)
 			
 			if matrix is not None:
@@ -752,7 +754,7 @@ class GeometryExporter(object):
 		)
 		mesh_definitions = []
 		mesh_definition = (
-			obj.name,
+			psys.name,
 			psys.settings.material - 1,
 			'hair',
 			shape_params
@@ -834,6 +836,7 @@ class GeometryExporter(object):
 			det.start(len(duplis))
 			
 			self.exporting_duplis = True
+			dupli_index = 0
 			
 			# dupli object, dupli matrix
 			for do, dm in duplis:
@@ -851,8 +854,10 @@ class GeometryExporter(object):
 					obj,
 					self.buildMesh(do),
 					matrix=[dm,None],
-					parent=do
+					parent=do,
+					index=dupli_index
 				)
+				dupli_index += 1
 			
 			del duplis
 			
