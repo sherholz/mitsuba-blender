@@ -26,6 +26,7 @@ from extensions_framework import util as efutil
 
 from ..outputs import MtsLog
 from ..export import ParamSet, ExportProgressThread, ExportCache
+from ..export import is_obj_visible
 
 class InvalidGeometryException(Exception):
 	pass
@@ -816,8 +817,7 @@ class GeometryExporter(object):
 			for dupli_ob in obj.dupli_list:
 				if dupli_ob.object.type not in ['MESH', 'SURFACE', 'FONT', 'CURVE']:
 					continue
-				#if not dupli_ob.object.is_visible(self.visibility_scene) or dupli_ob.object.hide_render:
-				if not self.is_visible(dupli_ob.object, is_dupli=True):
+				if not is_obj_visible(self.visibility_scene, dupli_ob.object, is_dupli=True):
 					continue
 				
 				self.objects_used_as_duplis.add(dupli_ob.object)
@@ -881,12 +881,6 @@ class GeometryExporter(object):
 				self.buildMesh(obj)
 			)
 	
-	def is_visible(self, obj, is_dupli=False):
-		ov = False
-		for lv in [ol and sl for ol,sl in zip(obj.layers, self.visibility_scene.layers)]:
-			ov |= lv
-		return (ov or is_dupli) and not obj.hide_render
-	
 	def iterateScene(self, geometry_scene):
 		self.geometry_scene = geometry_scene
 		self.have_emitting_object = False
@@ -904,7 +898,7 @@ class GeometryExporter(object):
 			
 			try:
 				# Export only objects which are enabled for render (in the outliner) and visible on a render layer
-				if not self.is_visible(obj):
+				if not is_obj_visible(self.visibility_scene, obj):
 					raise UnexportableObjectException(' -> not visible')
 				
 				if obj.parent and obj.parent.is_duplicator:

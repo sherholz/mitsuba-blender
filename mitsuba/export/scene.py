@@ -24,6 +24,7 @@ from extensions_framework import util as efutil
 
 from ..export			import resolution
 from ..export			import geometry		as export_geometry
+from ..export			import is_obj_visible
 from ..outputs import MtsLog
 
 class SceneExporter:
@@ -536,13 +537,6 @@ class SceneExporter:
 		
 		return True
 	
-	def isRenderable(self, scene, obj):
-		if not obj.hide_render:
-			for i in range(len(scene.layers)):
-				if scene.layers[i] == True and obj.layers[i] == True:
-					return True
-		return False
-	
 	def export(self, scene):
 		if scene.mitsuba_engine.binary_path == '':
 			MtsLog("Error: the Mitsuba binary path was not specified!")
@@ -561,7 +555,7 @@ class SceneExporter:
 		self.exportCamera(scene, scene.camera)
 		
 		# Get all renderable LAMPS
-		renderableLamps = [lmp for lmp in scene.objects if self.isRenderable(scene, lmp) and lmp.type == 'LAMP']
+		renderableLamps = [lmp for lmp in scene.objects if is_obj_visible(scene, lmp) and lmp.type == 'LAMP']
 		for lamp in renderableLamps:
 			self.exportLamp(scene, lamp)
 		

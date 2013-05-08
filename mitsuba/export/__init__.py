@@ -158,6 +158,12 @@ class ParamSet(list):
 		for item in self:
 			item.export_ref(exporter)
 
+def is_obj_visible(scene, obj, is_dupli=False):
+	ov = False
+	for lv in [ol and sl and rl for ol,sl,rl in zip(obj.layers, scene.layers, scene.render.layers.active.layers)]:
+		ov |= lv
+	return (ov or is_dupli) and not obj.hide_render
+
 def get_instance_materials(ob):
 	obmats = []
 	# Grab materials attached to object instances ...
