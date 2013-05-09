@@ -48,7 +48,7 @@ class MtsFilmDisplay(TimerThread):
 	
 	def shutdown(self):
 		if not self.preview:
-			self.renderer.end_result(self.result, 0) if bpy.app.version > (2, 63, 17 ) else self.renderer.end_result(self.result)
+			self.renderer.end_result(self.result, 0)
 	
 	def kick(self, render_end=False):
 		if not bpy.app.background or render_end:
@@ -61,7 +61,7 @@ class MtsFilmDisplay(TimerThread):
 					if self.preview:
 						self.result = self.renderer.begin_result(0, 0, self.xres, self.yres)
 						self.result.layers[0].load_from_file(self.output_file)
-						self.renderer.end_result(self.result, 0) if bpy.app.version > (2, 63, 17 ) else self.renderer.end_result(self.result)
+						self.renderer.end_result(self.result, 0)
 					else:
 						self.result.layers[0].load_from_file(self.output_file)
 						self.renderer.update_result(self.result)

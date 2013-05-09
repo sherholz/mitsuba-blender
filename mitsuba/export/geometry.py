@@ -127,7 +127,7 @@ class GeometryExporter(object):
 			
 			# collate faces by mat index
 			ffaces_mats = {}
-			mesh_faces = mesh.tessfaces if bpy.app.version > (2, 62, 1 ) else mesh.faces # bmesh
+			mesh_faces = mesh.tessfaces
 			for f in mesh_faces:
 				mi = f.material_index
 				if mi not in ffaces_mats.keys(): ffaces_mats[mi] = []
@@ -177,7 +177,7 @@ class GeometryExporter(object):
 						
 						GeometryExporter.NewExportedObjects.add(obj)
 						
-						uv_textures = mesh.tessface_uv_textures if bpy.app.version > (2, 62, 0 ) else mesh.uv_textures # bmesh
+						uv_textures = mesh.tessface_uv_textures
 						if len(uv_textures) > 0:
 							if uv_textures.active and uv_textures.active.data:
 								uv_layer = uv_textures.active.data
@@ -357,7 +357,7 @@ class GeometryExporter(object):
 			
 			# collate faces by mat index
 			ffaces_mats = {}
-			mesh_faces = mesh.tessfaces if bpy.app.version > (2, 62, 1 ) else mesh.faces # bmesh
+			mesh_faces = mesh.tessfaces
 			for f in mesh_faces:
 				mi = f.material_index
 				if mi not in ffaces_mats.keys(): ffaces_mats[mi] = []
@@ -407,7 +407,7 @@ class GeometryExporter(object):
 						
 						GeometryExporter.NewExportedObjects.add(obj)
 						
-						uv_textures = mesh.tessface_uv_textures if bpy.app.version > (2, 62, 0 ) else mesh.uv_textures # bmesh
+						uv_textures = mesh.tessface_uv_textures
 						if len(uv_textures) > 0:
 							if uv_textures.active and uv_textures.active.data:
 								uv_layer = uv_textures.active.data

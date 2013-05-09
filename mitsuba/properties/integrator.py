@@ -71,8 +71,6 @@ class mitsuba_integrator(declarative_property_group):
 		'granularityPT',
 		'shadowMapResolution',
 		'clamping',
-		#['motionblur',
-		#'shuttertime'],
 	]
 	
 	visibility = {
@@ -115,7 +113,6 @@ class mitsuba_integrator(declarative_property_group):
 		'granularityPT':			{'type': 'ptracer'},
 		'shadowMapResolution':		{'type': 'vpl'},
 		'clamping':					{'type': 'vpl'},
-		#'shuttertime':		{ 'motionblur': True },
 	}
 	
 	properties = [
@@ -143,24 +140,6 @@ class mitsuba_integrator(declarative_property_group):
 			],
 			'save_in_preset': True
 		},
-		#{
-		#	'type': 'bool',
-		#	'attr': 'motionblur',
-		#	'name': 'Motion Blur',
-		#	'description': 'Should motion blur be enabled?',
-		#	'default' : False,
-		#	'save_in_preset': True
-		#},
-		#{
-		#	'type': 'float',
-		#	'attr': 'shuttertime',
-		#	'name': 'Shutter time',
-		#	'description': 'Amount of time, for which the shutter remains open (measured in frames)',
-		#	'save_in_preset': True,
-		#	'min': 0,
-		#	'max': 100,
-		#	'default': 1
-		#},
 		{
 			'type': 'int',
 			'attr': 'shadingSamples',

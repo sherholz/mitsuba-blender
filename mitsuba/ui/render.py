@@ -16,14 +16,14 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import os, bpy, bl_ui
+import bpy
+
+from bl_ui.properties_render import RenderButtonsPanel
+from extensions_framework.ui import property_group_renderer
 
 from .. import MitsubaAddon
 
-from extensions_framework.ui import property_group_renderer
-from extensions_framework import util as efutil
-
-class render_panel(bl_ui.properties_render.RenderButtonsPanel, property_group_renderer):
+class MitsubaRenderPanel(RenderButtonsPanel, property_group_renderer):
 	'''
 	Base class for render engine settings panels
 	'''
@@ -31,50 +31,7 @@ class render_panel(bl_ui.properties_render.RenderButtonsPanel, property_group_re
 	COMPAT_ENGINES = { 'MITSUBA_RENDER' }
 
 @MitsubaAddon.addon_register_class
-class layers(render_panel):
-	'''
-	Render Layers UI panel
-	'''
-	
-	bl_label = 'Layers'
-	bl_options = {'DEFAULT_CLOSED'}
-	
-	display_property_groups = [
-		( ('scene',) )
-	]
-	
-	def draw(self, context): 
-		#Add in Blender's layer stuff, this taken from Blender's startup/properties_render.py
-		layout = self.layout
-		
-		scene = context.scene
-		rd = scene.render
-		
-		row = layout.row()
-		if bpy.app.version < (2, 65, 3 ):
-			row.template_list(rd, "layers", rd.layers, "active_index", rows=2)
-		else:
-			row.template_list("RENDER_UL_renderlayers", "", rd, "layers", rd.layers, "active_index", rows=2)
-		col = row.column(align=True)
-		col.operator("scene.render_layer_add", icon='ZOOMIN', text="")
-		col.operator("scene.render_layer_remove", icon='ZOOMOUT', text="")
-		
-		row = layout.row()
-		rl = rd.layers.active
-		if rl:
-			row.prop(rl, "name")
-		
-		row.prop(rd, "use_single_layer", text="", icon_only=True)
-		
-		split = layout.split()
-		
-		col = split.column()
-		col.prop(scene, "layers", text="Scene")
-		col = split.column()
-		col.prop(rl, "layers", text="Layer")
-
-@MitsubaAddon.addon_register_class
-class output(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_output(MitsubaRenderPanel):
 	bl_label = "Output"
 	COMPAT_ENGINES = {'MITSUBA_RENDER'}
 	
@@ -90,7 +47,7 @@ class output(render_panel, bpy.types.Panel):
 		layout.prop(rd, "filepath", text="")
 
 @MitsubaAddon.addon_register_class
-class active_film(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_active_film(MitsubaRenderPanel):
 	bl_label = "Active Camera Film Settings"
 	COMPAT_ENGINES = {'MITSUBA_RENDER'}
 	
@@ -108,7 +65,7 @@ class active_film(render_panel, bpy.types.Panel):
 		super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class setup_preset(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_setup_preset(MitsubaRenderPanel):
 	'''
 	Engine settings presets UI Panel
 	'''
@@ -124,7 +81,7 @@ class setup_preset(render_panel, bpy.types.Panel):
 		super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class engine(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_engine(MitsubaRenderPanel):
 	'''
 	Engine settings UI Panel
 	'''
@@ -140,13 +97,9 @@ class engine(render_panel, bpy.types.Panel):
 		
 		row = self.layout.row(align=True)
 		rd = context.scene.render
-		if bpy.app.version < (2, 63, 19 ):
-			row.prop(rd, "use_color_management")
-			if rd.use_color_management == True:
-				row.prop(rd, "use_color_unpremultiply")
 
 @MitsubaAddon.addon_register_class
-class integrator(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_integrator(MitsubaRenderPanel):
 	'''
 	Integrator settings UI Panel
 	'''
@@ -158,7 +111,7 @@ class integrator(render_panel, bpy.types.Panel):
 	]
 
 @MitsubaAddon.addon_register_class
-class adaptive(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_adaptive(MitsubaRenderPanel):
 	'''
 	Adaptive settings UI Panel
 	'''
@@ -177,7 +130,7 @@ class adaptive(render_panel, bpy.types.Panel):
 		return super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class irrcache(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_irrcache(MitsubaRenderPanel):
 	'''
 	Sampler settings UI Panel
 	'''
@@ -196,7 +149,7 @@ class irrcache(render_panel, bpy.types.Panel):
 		return super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class sampler(render_panel, bpy.types.Panel):
+class MitsubaRender_PT_sampler(MitsubaRenderPanel):
 	'''
 	Sampler settings UI Panel
 	'''
@@ -208,7 +161,7 @@ class sampler(render_panel, bpy.types.Panel):
 	]
 
 @MitsubaAddon.addon_register_class
-class testing(render_panel):
+class MitsubaRender_PT_testing(MitsubaRenderPanel):
 	bl_label = 'Mitsuba Test/Debugging Options'
 	bl_options = {'DEFAULT_CLOSED'}
 	
