@@ -94,10 +94,7 @@ class MATERIAL_PT_context_material_mts(bl_ui.properties_material.MaterialButtons
 		if ob:
 			row = layout.row()
 			
-			if bpy.app.version < (2, 65, 3 ):
-				row.template_list(ob, "material_slots", ob, "active_material_index", rows=4)
-			else:
-				row.template_list("MATERIAL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=4)
+			row.template_list("MATERIAL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=4)
 			col = row.column(align=True)
 			col.operator("mitsuba.material_add", icon='ZOOMIN', text="")
 			col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")

@@ -38,7 +38,7 @@ from ..properties import (
 );
 
 from ..ui import (
-	render_panels, lamps, materials, mesh, 
+	render, render_layer, lamps, materials, mesh, 
 	camera, world
 )
 
