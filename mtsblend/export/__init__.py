@@ -1,27 +1,36 @@
-﻿# ##### BEGIN GPL LICENSE BLOCK #####
+# -*- coding: utf8 -*-
 #
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
+# ***** BEGIN GPL LICENSE BLOCK *****
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# --------------------------------------------------------------------------
+# Blender Mitsuba Add-On
+# --------------------------------------------------------------------------
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# ##### END GPL LICENSE BLOCK #####
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+# ***** END GPL LICENSE BLOCK *****
+#
+import collections, math, os
 
-import bpy, os, copy, subprocess, math, mathutils
+import bpy
+import copy, subprocess
 import string
-import collections
-from math import radians
+from mathutils import Matrix
+
 from extensions_framework import util as efutil
-from ..outputs import MtsLog
+
+from ..outputs import MtsManager, MtsLog
 
 class ExportProgressThread(efutil.TimerThread):
 	message = '%i%%'
@@ -164,30 +173,66 @@ def is_obj_visible(scene, obj, is_dupli=False):
 		ov |= lv
 	return (ov or is_dupli) and not obj.hide_render
 
-def get_instance_materials(ob):
-	obmats = []
-	# Grab materials attached to object instances ...
-	if hasattr(ob, 'material_slots'):
-		for ms in ob.material_slots:
-			obmats.append(ms.material)
-	# ... and to the object's mesh data
-	if hasattr(ob.data, 'materials'):
-		for m in ob.data.materials:
-			obmats.append(m)
-	return obmats
+def get_worldscale(as_scalematrix=True):
+	# For usability, previev_scale is not an own property but calculated from the object dimensions
+	# A user can directly judge mappings on an adjustable object_size, we simply scale the whole preview
+	preview_scale = bpy.context.scene.mitsuba_world.preview_object_size / 2
+	ws = 1 / preview_scale if MtsManager.CurrentScene.name == "preview" else 1 # this is a safety net to prevent previewscale affecting render
 
-def resolution(scene):
-	'''
-	scene		bpy.types.scene
-	Calculate the output render resolution
-	Returns		tuple(2) (floats)
-	'''
-	xr = scene.render.resolution_x * scene.render.resolution_percentage / 100.0
-	yr = scene.render.resolution_y * scene.render.resolution_percentage / 100.0
+	scn_us = MtsManager.CurrentScene.unit_settings
 	
-	return xr, yr
+	if scn_us.system in ['METRIC', 'IMPERIAL']:
+		# The units used in modelling are for display only. behind
+		# the scenes everything is in meters
+		ws = scn_us.scale_length
+	
+	if as_scalematrix:
+		return mathutils.Matrix.Scale(ws, 4)
+	else:
+		return ws
+
+def get_yup_matrix(matrix):
+	return Matrix(((1,0,0,0),(0,0,1,0),(0,-1,0,0),(0,0,0,1))) * matrix
+	#	[	matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],\
+	#	matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3],\
+	#	-matrix[1][0], -matrix[1][1], -matrix[1][2], -matrix[1][3],\
+	#	matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3] ]
+
+def matrix_to_list(matrix):
+	'''
+	matrix		  Matrix
+	
+	Flatten a 4x4 matrix into a list
+	
+	Returns list[16]
+	'''
+	
+	l = [	matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],\
+		matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],\
+		matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3],\
+		matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3] ]
+	
+	return [float(i) for i in l]
+
+def process_filepath_data(scene, obj, file_path, paramset, parameter_name):
+	file_basename		= os.path.basename(file_path)
+	library_filepath	= obj.library.filepath if (hasattr(obj, 'library') and obj.library) else ''
+	file_library_path	= efutil.filesystem_path(bpy.path.abspath(file_path, library_filepath))
+	file_relative		= efutil.filesystem_path(file_library_path) if (hasattr(obj, 'library') and obj.library) else efutil.filesystem_path(file_path)
+	
+	if scene.mitsuba_engine.allow_file_embed():
+		paramset.add_string(parameter_name, file_basename)
+		encoded_data, encoded_size = bencode_file2string_with_size(file_relative)
+		paramset.increase_size('%s_data' % parameter_name, encoded_size)
+		paramset.add_string('%s_data' % parameter_name, encoded_data.splitlines() )
+	else:
+		paramset.add_string(parameter_name, file_relative)
+
+def get_output_filename(scene):
+	return '%s.%s.%05d' % (efutil.scene_filename(), bpy.path.clean_name(scene.name), scene.frame_current)
 
 def MtsLaunch(mts_path, path, commandline):
+	mts_path = efutil.filesystem_path(mts_path)
 	env = copy.copy(os.environ)
 	env['LD_LIBRARY_PATH'] = mts_path
 	commandline[0] = os.path.join(mts_path, commandline[0])

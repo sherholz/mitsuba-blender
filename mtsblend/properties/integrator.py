@@ -492,7 +492,7 @@ class mitsuba_integrator(declarative_property_group):
 		},
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		if self.type == 'ao':
 			params.add_integer('shadingSamples', self.shadingSamples)
@@ -623,7 +623,7 @@ class mitsuba_adaptive(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		params.add_float('maxError', self.maxError)
 		params.add_float('pValue', self.pValue)
@@ -735,7 +735,7 @@ class mitsuba_irrcache(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		params.add_bool('clampNeighbor', self.clampNeighbor)
 		params.add_bool('clampScreen', self.clampScreen)

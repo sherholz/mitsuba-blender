@@ -1,34 +1,43 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
+# -*- coding: utf8 -*-
 #
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
+# ***** BEGIN GPL LICENSE BLOCK *****
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# --------------------------------------------------------------------------
+# Blender Mitsuba Add-On
+# --------------------------------------------------------------------------
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# ##### END GPL LICENSE BLOCK #####
-
-from .. import MitsubaAddon
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+# ***** END GPL LICENSE BLOCK *****
+#
 
 from extensions_framework import declarative_property_group
 from extensions_framework import util as efutil
 from extensions_framework.validate import Logic_OR as O
 
-from mitsuba.export import ParamSet
+from .. import MitsubaAddon
+from ..export import ParamSet
 
 #------------------------------------------------------------------------------ 
 # Texture property group construction helpers
 #------------------------------------------------------------------------------ 
 
+def shorten_name(n):
+	return hashlib.md5(n.encode()).hexdigest()[:21] if len(n) > 21 else n
+
 class TextureParameterBase(object):
+	real_attr			= None
 	attr				= None
 	name				= None
 	default				= (0.8, 0.8, 0.8)
@@ -41,16 +50,17 @@ class TextureParameterBase(object):
 	visibility			= None
 	properties			= None
 	
-	def __init__(self, attr, name, description, default=None, min=None, max=None):
+	def __init__(self, attr, name, default=None, min=None, max=None, real_attr=None):
 		self.attr = attr
 		self.name = name
-		self.description = description
 		if default is not None:
 			self.default = default
 		if min is not None:
 			self.min = min
 		if max is not None:
 			self.max = max
+		if real_attr is not None:
+			self.real_attr = real_attr
 		
 		self.controls = self.get_controls()
 		self.visibility = self.get_visibility()
@@ -61,7 +71,7 @@ class TextureParameterBase(object):
 	
 	def texture_slot_set_attr(self):
 		def set_attr(s,c):
-			if type(c).__name__ == 'mitsuba_mat_bsdf':
+			if type(c).__name__ == 'mitsuba_material':
 				return getattr(c, 'mitsuba_bsdf_%s'%c.type)
 			else:
 				return getattr(c, 'mitsuba_tex_%s'%c.type)
@@ -103,24 +113,39 @@ class TextureParameterBase(object):
 		'''	
 		return []
 	
-	def get_params(self, context):
+	def get_paramset(self, context):
 		'''
 		Return a Mitsuba ParamSet of the properties
 		defined in this Texture, getting parameters
 		from property group 'context'
 		'''
+		
 		return ParamSet()
+	
+	def get_real_param_name(self):
+		if self.real_attr is not None:
+			return self.real_attr
+		else:
+			return self.attr
+
+def refresh_preview(self, context):
+
+	if context.material != None:
+		context.material.preview_render_type = context.material.preview_render_type
+	if context.texture != None:
+		context.texture.type = context.texture.type
 
 class ColorTextureParameter(TextureParameterBase):
 	def get_controls(self):
 		return [
-			[ 0.9, [0.375,'%s_colorlabel' % self.attr, '%s_color' % self.attr], '%s_usetexture' % self.attr ],
-			'%s_texture' % self.attr
+			[ 0.9, [0.375,'%s_colorlabel' % self.attr, '%s_color' % self.attr], '%s_usecolortexture' % self.attr ],
+			[ 0.9, '%s_colortexture' % self.attr, '%s_multiplycolor' % self.attr ],
 		] + self.get_extra_controls()
 	
 	def get_visibility(self):
 		vis = {
-			'%s_texture' % self.attr: { '%s_usetexture' % self.attr: True },
+			'%s_colortexture' % self.attr: { '%s_usecolortexture' % self.attr: True },
+			'%s_multiplycolor' % self.attr: { '%s_usecolortexture' % self.attr: True },
 		}
 		vis.update(self.get_extra_visibility())
 		return vis
@@ -130,15 +155,26 @@ class ColorTextureParameter(TextureParameterBase):
 			{
 				'attr': self.attr,
 				'type': 'string',
-				'default': 'mts_color_texture'
+				'default': self.get_real_param_name()
 			},
 			{
-				'attr': '%s_usetexture' % self.attr,
+				'attr': '%s_multiplycolor' % self.attr,
+				'type': 'bool',
+				'name': 'M',
+				'description': 'Multiply texture by color',
+				'default': False,
+				'toggle': True,
+				'update': refresh_preview,
+				'save_in_preset': True
+			},
+			{
+				'attr': '%s_usecolortexture' % self.attr,
 				'type': 'bool',
 				'name': 'T',
 				'description': 'Textured %s' % self.name,
 				'default': False,
 				'toggle': True,
+				'update': refresh_preview,
 				'save_in_preset': True
 			},
 			{
@@ -149,8 +185,8 @@ class ColorTextureParameter(TextureParameterBase):
 			{
 				'type': 'float_vector',
 				'attr': '%s_color' % self.attr,
-				'name': '', #self.name,
-				'description': self.description,
+				'name': '',
+				'description': self.name,
 				'default': self.default,
 				'min': self.min,
 				'soft_min': self.min,
@@ -160,28 +196,28 @@ class ColorTextureParameter(TextureParameterBase):
 				'save_in_preset': True
 			},
 			{
-				'attr': '%s_texturename' % self.attr,
+				'attr': '%s_colortexturename' % self.attr,
 				'type': 'string',
-				'name': '%s_texturename' % self.attr,
-				'description': '%s Texture' % self.name,
+				'name': '%s_colortexturename' % self.attr,
+				'description': '%s texture' % self.name,
 				'save_in_preset': True
 			},
 			{
 				'type': 'prop_search',
-				'attr': '%s_texture' % self.attr,
+				'attr': '%s_colortexture' % self.attr,
 				'src': self.texture_collection_finder(),
 				'src_attr': self.texture_collection,
 				'trg': self.texture_slot_set_attr(),
-				'trg_attr': '%s_texturename' % self.attr,
+				'trg_attr': '%s_colortexturename' % self.attr,
 				'name': self.name
-			}
+			},
 		] + self.get_extra_properties()
 	
-	def get_params(self, context):
+	def get_paramset(self, context):
 		params = ParamSet()
-		if hasattr(context, '%s_usetexture' % self.attr) \
-			and getattr(context, '%s_usetexture' % self.attr) and getattr(context, '%s_texturename' % self.attr):
-			params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
+		if hasattr(context, '%s_usecolortexture' % self.attr) \
+			and getattr(context, '%s_usecolortexture' % self.attr) and getattr(context, '%s_colortexturename' % self.attr):
+			params.add_reference('texture', self.attr, getattr(context, '%s_colortexturename' % self.attr))
 		else:
 			params.add_color(
 				self.attr,
@@ -189,131 +225,155 @@ class ColorTextureParameter(TextureParameterBase):
 			)
 		return params
 
-class SpectrumTextureParameter(ColorTextureParameter):
-	max					= 10.0
-
 class FloatTextureParameter(TextureParameterBase):
 	default				= 0.2
 	min					= 0.0
 	max					= 1.0
+	precision			= 6
+	texture_only		= False
+	multiply_float		= False
+	ignore_unassigned	= False
+	subtype			= 'NONE'
+	unit				= 'NONE'
+	
+	def __init__(self,
+			attr, name,
+			add_float_value = True,		# True: Show float value input, and [T] button; False: Just show texture slot
+			multiply_float = False,		# Specify that when texture is in use, it should be scaled by the float value
+			ignore_unassigned = False,	# Don't export this parameter if the texture slot is unassigned
+			real_attr = None,			# translate self.attr into something else at export time (overcome 31 char RNA limit)
+			subtype = 'NONE',
+			unit = 'NONE',
+			default = 0.0, min = 0.0, max = 1.0, precision=6
+		):
+		self.attr = attr
+		self.name = name
+		self.texture_only = (not add_float_value)
+		self.multiply_float = multiply_float
+		self.ignore_unassigned = ignore_unassigned
+		self.subtype = subtype
+		self.unit = unit
+		self.real_attr = real_attr
+		self.default = default
+		self.min = min
+		self.max = max
+		self.precision = precision
+		
+		self.controls = self.get_controls()
+		self.visibility = self.get_visibility()
+		self.properties = self.get_properties()
+	
+	def load_paramset(self, property_group, ps):
+		for psi in ps:
+			if psi['name'] == self.attr:
+				setattr( property_group, '%s_multiplyfloat' % self.attr, False )
+				if psi['type'].lower() =='texture':
+					setattr( property_group, '%s_usefloattexture' % self.attr, True )
+					setattr( property_group, '%s_floattexturename' % self.attr, shorten_name(psi['value']) )
+				else:
+					setattr( property_group, '%s_usefloattexture' % self.attr, False )
+					setattr( property_group, '%s_floatvalue' % self.attr, psi['value'] )
 	
 	def get_controls(self):
-		return [
-			[ 0.9, [0.375,'%s_label' % self.attr, self.attr], '%s_usetexture' % self.attr ],
-			'%s_texture' % self.attr
-		] + self.get_extra_controls()
+		if self.texture_only:
+			return [
+				'%s_floattexture' % self.attr,
+			] + self.get_extra_controls()
+		else:
+			return [
+				[0.9, '%s_floatvalue' % self.attr, '%s_usefloattexture' % self.attr],
+				[0.9, '%s_floattexture' % self.attr,'%s_multiplyfloat' % self.attr],
+			] + self.get_extra_controls()
 	
 	def get_visibility(self):
-		vis = {
-			'%s_texture' % self.attr: { '%s_usetexture' % self.attr: True },
-		}
+		vis = {}
+		if not self.texture_only:
+			vis = {
+				'%s_floattexture' % self.attr: { '%s_usefloattexture' % self.attr: True },
+				'%s_multiplyfloat' % self.attr: { '%s_usefloattexture' % self.attr: True },
+			}
 		vis.update(self.get_extra_visibility())
 		return vis
 	
 	def get_properties(self):
 		return [
 			{
-				'attr': '%s_texType' % self.attr,
+				'attr': self.attr,
 				'type': 'string',
-				'default': 'mts_color_texture'
+				'default': self.get_real_param_name()
 			},
 			{
-				'attr': '%s_usetexture' % self.attr,
+				'attr': '%s_multiplyfloat' % self.attr,
 				'type': 'bool',
-				'name': 'T',
-				'description': 'Textured %s' % self.name,
-				'default': False,
+				'name': 'M',
+				'description': 'Multiply texture by value',
+				'default': self.multiply_float,
 				'toggle': True,
+				'update': refresh_preview,
 				'save_in_preset': True
 			},
 			{
-				'type': 'text',
-				'attr': '%s_label' % self.attr,
-				'name': self.name
+				'attr': '%s_ignore_unassigned' % self.attr,
+				'type': 'bool',
+				'default': self.ignore_unassigned,
+				'save_in_preset': True
 			},
 			{
+				'attr': '%s_usefloattexture' % self.attr,
+				'type': 'bool',
+				'name': 'T',
+				'description': 'Textured %s' % self.name,
+				'default': False if not self.texture_only else True,
+				'toggle': True,
+				'update': refresh_preview,
+				'save_in_preset': True
+			},
+			{
+				'attr': '%s_floatvalue' % self.attr,
 				'type': 'float',
-				'attr': self.attr,
+				'subtype': self.subtype,
+				'unit': self.unit,
 				'name': self.name,
-				'description': self.description,
+				'description': '%s value' % self.name,
 				'default': self.default,
 				'min': self.min,
 				'soft_min': self.min,
 				'max': self.max,
 				'soft_max': self.max,
+				'precision': self.precision,
+				'update': refresh_preview,
 				'save_in_preset': True
 			},
 			{
-				'attr': '%s_texturename' % self.attr,
+				'attr': '%s_floattexturename' % self.attr,
 				'type': 'string',
-				'name': '%s_texturename' % self.attr,
+				'name': '%s_floattexturename' % self.attr,
 				'description': '%s Texture' % self.name,
+				'update': lambda s,c: refresh_preview(s,c) or check_texture_variant(s,c, self.attr,'float'),
 				'save_in_preset': True
 			},
 			{
 				'type': 'prop_search',
-				'attr': '%s_texture' % self.attr,
+				'attr': '%s_floattexture' % self.attr,
 				'src': self.texture_collection_finder(),
 				'src_attr': self.texture_collection,
 				'trg': self.texture_slot_set_attr(),
-				'trg_attr': '%s_texturename' % self.attr,
+				'trg_attr': '%s_floattexturename' % self.attr,
 				'name': self.name
-			}
+			},
 		] + self.get_extra_properties()
 	
-	def get_params(self, context):
+	def get_paramset(self, context):
 		params = ParamSet()
-		if hasattr(context, '%s_usetexture' % self.attr) \
-			and getattr(context, '%s_usetexture' % self.attr) and getattr(context, '%s_texturename' % self.attr):
-			params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
+		if hasattr(context, '%s_usefloattexture' % self.attr) \
+			and getattr(context, '%s_usefloattexture' % self.attr) and getattr(context, '%s_floattexturename' % self.attr):
+			params.add_reference('texture', self.attr, getattr(context, '%s_floattexturename' % self.attr))
 		else:
 			params.add_float(
 				self.attr,
-				getattr(context, self.attr)
+				getattr(context, '%s_floatvalue' % self.attr)
 			)
 		return params	
-
-class BumpTextureParameter(TextureParameterBase):
-	default				= 0.0
-	
-	def get_controls(self):
-		return [
-			'%s_texture' % self.attr
-		] + self.get_extra_controls()
-	
-	def get_visibility(self):
-		return
-	
-	def get_properties(self):
-		return [
-			{
-				'attr': self.attr,
-				'type': 'string',
-				'default': 'mts_bump_texture'
-			},
-			{
-				'attr': '%s_texturename' % self.attr,
-				'type': 'string',
-				'name': '%s_texturename' % self.attr,
-				'description': '%s Texture' % self.name,
-				'save_in_preset': True
-			},
-			{
-				'type': 'prop_search',
-				'attr': '%s_texture' % self.attr,
-				'src': self.texture_collection_finder(),
-				'src_attr': self.texture_collection,
-				'trg': self.texture_slot_set_attr(),
-				'trg_attr': '%s_texturename' % self.attr,
-				'name': self.name
-			}
-		] + self.get_extra_properties()
-	
-	def get_params(self, context):
-		params = ParamSet()
-		params.add_reference('texture', self.attr, getattr(context, '%s_texturename' % self.attr))
-		
-		return params
 
 @MitsubaAddon.addon_register_class
 class mitsuba_texture(declarative_property_group):
@@ -345,11 +405,11 @@ class mitsuba_texture(declarative_property_group):
 		},
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		if hasattr(self, 'mitsuba_tex_%s' % self.type):
 			mts_texture = getattr(self, 'mitsuba_tex_%s' % self.type) 
-			params = mts_texture.get_params()
-			params.update(self.mitsuba_tex_mapping.get_params())
+			params = mts_texture.get_paramset()
+			params.update(self.mitsuba_tex_mapping.get_paramset())
 			return params
 		else:
 			return ParamSet()
@@ -410,7 +470,7 @@ class mitsuba_tex_mapping(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		mapping_params = ParamSet()
 		mapping_params.add_float('uscale', self.uscale)
 		mapping_params.add_float('vscale', self.vscale)
@@ -499,7 +559,7 @@ class mitsuba_tex_bitmap(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		
 		params.add_string('filename', efutil.path_relative_to_export(self.filename)) \
@@ -544,7 +604,7 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		
 		params.add_color('color0', self.color0) 
@@ -581,7 +641,7 @@ class mitsuba_tex_scale(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		params.add_float('scale', self.scale) 
 		
@@ -632,7 +692,7 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		
 		params.add_color('color0', self.color0) 
@@ -697,7 +757,7 @@ class mitsuba_tex_wireframe(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		
 		params.add_color('interiorColor', self.interiorColor) 

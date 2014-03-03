@@ -50,7 +50,11 @@ class lamps(lamps_panel):
 			split = layout.split()
 			
 			col = split.column()
-
+			
+			rowBut = layout.row(align=True)
+			rowBut.operator("mitsuba.convert_all_lamps")
+			rowBut.operator("mitsuba.convert_active_lamps")#, icon='WORLD_DATA'
+			
 			if lamp.type == 'HEMI':
 				layout.prop(lamp.mitsuba_lamp, "envmap_type", text="Type")
 
@@ -105,13 +109,12 @@ class lamps(lamps_panel):
 			elif wide_ui:
 				col = split.column()
 			
-			layout.prop(lamp.mitsuba_lamp, "inside_medium")
-			if lamp.mitsuba_lamp.inside_medium:
-				layout.prop_search(
-					lamp.mitsuba_lamp, 'lamp_medium',
-					context.scene.mitsuba_media, 'media',
-					text = 'Medium'
-				)
+			layout.prop_search(
+				lamp.mitsuba_lamp, 'exterior_medium',
+				context.scene.mitsuba_media, 'media',
+				text = 'Medium'
+			)
+			
 			if lamp.type == 'HEMI':
 				layout.label('Note: covers the whole sphere')
 

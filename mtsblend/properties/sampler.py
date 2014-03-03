@@ -82,7 +82,7 @@ class mitsuba_sampler(declarative_property_group):
 		}
 	]
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		params.add_integer('sampleCount', self.sampleCount)
 		if self.type == 'halton' or self.type == 'hammersley':

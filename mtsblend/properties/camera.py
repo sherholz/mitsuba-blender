@@ -16,14 +16,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from .. import MitsubaAddon
-
 from extensions_framework import declarative_property_group
-from extensions_framework import util as efutil
 
+from .. import MitsubaAddon
 from ..export import ParamSet
 
-def MediumParameter(attr, name):
+def CameraMediumParameter(attr, name):
 	return [
 		{
 			'attr': '%s_medium' % attr,
@@ -54,7 +52,7 @@ class mitsuba_camera(declarative_property_group):
 	properties = [
 		{
 			'type': 'bool',
-			'attr': 'useDOF',
+			'attr': 'use_dof',
 			'name': 'Use camera DOF',
 			'description': 'Camera DOF',
 			'default': False,
@@ -69,14 +67,42 @@ class mitsuba_camera(declarative_property_group):
 			'min': 0.01,
 			'max': 1.0,
 			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'motionBlur',
+			'name': 'Motion Blur',
+			'description': 'Should motion blur be enabled?',
+			'default' : False,
+			'save_in_preset': True
+		},
+		{
+			'type': 'float',
+			'attr': 'shutterTime',
+			'name': 'Shutter time',
+			'description': 'Amount of time, for which the shutter remains open (measured in frames)',
+			'save_in_preset': True,
+			'min': 0,
+			'max': 3600,
+			'default': 1
+		},
+		{
+			'type': 'int',
+			'attr': 'motionSamples',
+			'name': 'Motion Samples',
+			'description': 'Number of samples taken from animation used in motion blur while shutter is open',
+			'save_in_preset': True,
+			'min': 2,
+			'max': 3600,
+			'default': 3
 		}
-	] + MediumParameter('exterior', 'Exterior medium')
+	] + CameraMediumParameter('exterior', 'Exterior medium')
 
 @MitsubaAddon.addon_register_class
 class mitsuba_film(declarative_property_group):
-	ef_attach_to = ['Camera']
+	ef_attach_to = ['mitsuba_camera']
 	
-	def file_formats(self, context):
+	def pixel_formats(self, context):
 		if self.fileFormat == 'openexr':
 			return [
 				('rgb', 'RGB', 'rgb'),
@@ -107,6 +133,9 @@ class mitsuba_film(declarative_property_group):
 				self.fileExtension = 'png'
 	
 	controls = [
+		'fileFormat',
+		'pixelFormat',
+		'componentFormat',
 		'tonemapMethod',
 		'gamma',
 		'exposure',
@@ -124,6 +153,7 @@ class mitsuba_film(declarative_property_group):
 	]
 	
 	visibility = {
+		'componentFormat': { 'fileFormat': 'openexr' },
 		'tonemapMethod': { 'type': 'ldrfilm' },
 		'gamma': { 'type': 'ldrfilm' },
 		'exposure': { 'type': 'ldrfilm', 'tonemapMethod': 'gamma' },
@@ -170,7 +200,8 @@ class mitsuba_film(declarative_property_group):
 			'attr': 'pixelFormat',
 			'name': 'Pixel Format',
 			'description': 'Specifies the desired pixel format',
-			'items': file_formats,
+			'items': pixel_formats,
+			'expand': True,
 			'save_in_preset': True
 		},
 		{
@@ -183,6 +214,7 @@ class mitsuba_film(declarative_property_group):
 				('float32', 'Float32', 'float32'),
 			],
 			'default': 'float16',
+			'expand': True,
 			'save_in_preset': True
 		},
 		{
@@ -327,7 +359,22 @@ class mitsuba_film(declarative_property_group):
 		},
 	]
 	
-	def get_params(self):
+	def resolution(self, scene):
+		'''
+		Calculate the output render resolution
+		
+		Returns		tuple(2) (floats)
+		'''
+		
+		xr = scene.render.resolution_x * scene.render.resolution_percentage / 100.0
+		yr = scene.render.resolution_y * scene.render.resolution_percentage / 100.0
+		
+		xr = round(xr)
+		yr = round(yr)
+		
+		return xr, yr
+	
+	def get_paramset(self):
 		params = ParamSet()
 		params.add_string('fileFormat', self.fileFormat)
 		params.add_string('pixelFormat', self.pixelFormat)
