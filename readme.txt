@@ -6,5 +6,5 @@ developed by:
   Francesc Juhé
   Bartosz Styperek
 
-Installation instructions: Copy the 'mitsuba' folder into 
+Installation instructions: Copy the 'mtsblend' folder into 
 the Blender scripts/addons directory.
