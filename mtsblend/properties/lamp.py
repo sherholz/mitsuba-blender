@@ -16,12 +16,31 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from .. import MitsubaAddon
-
 from extensions_framework import declarative_property_group
-from ..properties.world import MediumParameter
-from ..export import ParamSet
 from extensions_framework.validate import Logic_Operator, Logic_OR as LO
+
+from .. import MitsubaAddon
+from ..export import ParamSet
+
+def LampMediumParameter(attr, name):
+	return [
+		{
+			'attr': '%s_medium' % attr,
+			'type': 'string',
+			'name': '%s_medium' % attr,
+			'description': '%s; blank means vacuum' % name,
+			'save_in_preset': True
+		},
+		{
+			'type': 'prop_search',
+			'attr': attr,
+			'src': lambda s,c: s.scene.mitsuba_media,
+			'src_attr': 'media',
+			'trg': lambda s,c: c.mitsuba_lamp,
+			'trg_attr': '%s_medium' % attr,
+			'name': name
+		}
+	]
 
 @MitsubaAddon.addon_register_class
 class mitsuba_lamp(declarative_property_group):
@@ -31,15 +50,13 @@ class mitsuba_lamp(declarative_property_group):
 		'samplingWeight',
 		'envmap_type',
 		'envmap_file',
-		'inside_medium',
 		'radius',
-		'medium'
+		'exterior'
 	]
 	
 	visibility = {
 		'envmap_type': { 'type': 'ENV' },
 		'envmap_file': { 'type': 'ENV', 'envmap_type' : 'envmap' },
-		'medium' : { 'inside_medium': True }
 	}
 	
 	properties = [
@@ -89,23 +106,15 @@ class mitsuba_lamp(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-			'type': 'bool',
-			'attr': 'inside_medium',
-			'name': 'Located inside a medium',
-			'description': 'Check if the lamp lies within a participating medium',
-			'default': False,
-			'save_in_preset': True
-		},
-		{
 			'type': 'float',
 			'attr': 'radius',
 			'name': 'Point Size',
 			'description': 'For realism mitsuba uses small sphere as point Light aproximation',
-			'default': 0.1,
+			'default': 0.2,
 			'min': 0.001,
 			'max': 30.0,
 		}
-	] + MediumParameter('lamp', 'Lamp')
+	] + LampMediumParameter('exterior', 'Exterior Medium')
 
 @MitsubaAddon.addon_register_class	
 class mitsuba_lamp_sun(declarative_property_group):

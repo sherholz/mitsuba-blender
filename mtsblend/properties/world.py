@@ -21,13 +21,13 @@ from copy import deepcopy
 
 from extensions_framework import declarative_property_group
 
-from ..properties.texture import (ColorTextureParameter,BumpTextureParameter,SpectrumTextureParameter, FloatTextureParameter)
+from ..properties.texture import (ColorTextureParameter, FloatTextureParameter)
 from ..export import ParamSet
 
-param_scattCoeff = SpectrumTextureParameter('sigmaS', 'Scattering Coefficient', 'Scattering value', default=(0.8, 0.8, 0.8))
-param_absorptionCoefficient = SpectrumTextureParameter('sigmaA', 'Absorption Coefficient', 'Absorption value', default=(0.0, 0.0, 0.0))
-param_extinctionCoeff = SpectrumTextureParameter('sigmaT', 'Extinction Coefficient', 'Extinction value', default=(0.8, 0.8, 0.8))
-param_albedo = SpectrumTextureParameter('albedo', 'Albedo', 'Albedo value', default=(0.01, 0.01, 0.01))
+param_scattCoeff = ColorTextureParameter('sigmaS', 'Scattering Coefficient', default=(0.8, 0.8, 0.8))
+param_absorptionCoefficient = ColorTextureParameter('sigmaA', 'Absorption Coefficient', default=(0.0, 0.0, 0.0))
+param_extinctionCoeff = ColorTextureParameter('sigmaT', 'Extinction Coefficient', default=(0.8, 0.8, 0.8))
+param_albedo = ColorTextureParameter('albedo', 'Albedo', default=(0.01, 0.01, 0.01))
 
 def dict_merge(*args):
 	vis = {}
@@ -76,6 +76,7 @@ class mitsuba_medium_data(declarative_property_group):
 	
 	controls = [
 		'type',
+		'method',
 		'material',
 		'g',
 		'useAlbSigmaT'
@@ -85,7 +86,13 @@ class mitsuba_medium_data(declarative_property_group):
 		param_extinctionCoeff.controls + \
 		param_albedo.controls + \
 	[
-		'scale'
+		'scale',
+		'externalDensity',
+		'density',
+		'object_pop',
+		[ 0.9, [0.375,'albado_colorlabel', 'albado_color'], 'albedo_usegridvolume'],
+		'albedo_gridVolumeType',
+		'convert',
 	]
 	
 	properties = [
@@ -95,7 +102,7 @@ class mitsuba_medium_data(declarative_property_group):
 			'name': 'Type',
 			'items': [
 				('homogeneous', 'Homogeneous', 'homogeneous'),
-				#('heterogeneous', 'Heterogeneous', 'heterogeneous'),
+				('heterogeneous', 'Heterogeneous', 'heterogeneous'),
 			],
 			'save_in_preset': True
 		},
@@ -106,6 +113,39 @@ class mitsuba_medium_data(declarative_property_group):
 			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
 			'default': '',
 			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'method',
+			'name': 'Method',
+			'items': [
+				('woodcock', 'Woodcock', 'woodcock'),
+				('simpson', 'Simpson', 'simpson'),
+			],
+			'save_in_preset': True
+		},
+		{
+			'type': 'string',
+			'subtype': 'FILE_PATH',
+			'attr': 'density',
+			'name': 'Density file',
+			'description': 'Path to a grid volume density file (.vol)'
+		},
+		{
+			'attr': 'object' ,
+			'type': 'string',
+			'name': 'object',
+			'description': 'Object of Domain type ' ,
+			'save_in_preset': True
+		},
+		{
+			'type': 'prop_search',
+			'attr': 'object_pop',
+			'src': lambda s,c: s.scene,
+			'src_attr': 'objects',
+			'trg': lambda s,c: c,
+			'trg_attr': 'object' ,
+			'name': 'Objects'
 		},
 		{
 			'type': 'float',
@@ -120,7 +160,25 @@ class mitsuba_medium_data(declarative_property_group):
 			'precision': 4,
 			'save_in_preset': True
 		},
-		{			
+		{
+			'type': 'text',
+			'attr': 'albado_colorlabel' ,
+			'name': 'Albado'
+		},
+		{
+			'type': 'float_vector',
+			'attr': 'albado_color' ,
+			'name': '', #self.name,
+			'description': 'The color for the albado ',
+			'default': (0.01, 0.01, 0.01),
+			'min': 0.0,
+			'soft_min': 0.0,
+			'max': 1.0,
+			'soft_max': 1.0,
+			'subtype': 'COLOR',
+			'save_in_preset': True
+		},
+		{
 			'type': 'bool',
 			'attr': 'useAlbSigmaT',
 			'name': 'Use Albedo&SigmaT',
@@ -138,6 +196,31 @@ class mitsuba_medium_data(declarative_property_group):
 			'max': 50000.0,
 			'save_in_preset': True
 		},
+		{
+			'attr': 'albedo_usegridvolume',
+			'type': 'bool',
+			'name': 'H',
+			'description': 'Coloring the texture by heat',
+			'default': False,
+			'toggle': True,
+			'save_in_preset': True
+		},
+		{
+			'type': 'enum',
+			'attr': 'albedo_gridVolumeType',
+			'name': 'Type',
+			'items': [
+				('heat', 'Heat', 'heat'),
+			],
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'externalDensity',
+			'name' : 'External Density',
+			'default' : False,
+			'save_in_preset': True
+		},
 	] + \
 		param_absorptionCoefficient.properties + \
 		param_scattCoeff.properties + \
@@ -146,7 +229,16 @@ class mitsuba_medium_data(declarative_property_group):
 	
 	visibility = dict_merge(
 		{
-			'useAlbSigmaT': { 'material': '' }
+			'useAlbSigmaT': { 'material': '' , 'type' : 'homogeneous'},
+			'material' : {'type' : 'homogeneous'},
+			'method' : {'type' : 'heterogeneous'},
+			'density' : {'type' : 'heterogeneous' , 'externalDensity' : True},
+			'albado_color' : {'type' : 'heterogeneous'},
+			'externalDensity' : {'type' : 'heterogeneous'},
+			'albado_colorlabel' : {'type' : 'heterogeneous'},
+			'albedo_usegridvolume' : {'type' : 'heterogeneous'},
+			'object_pop' : {'type' : 'heterogeneous' , 'externalDensity' : False },
+			'albedo_gridVolumeType' : {'type' : 'heterogeneous', 'albedo_usegridvolume' : True}
 		},
 		param_absorptionCoefficient.visibility,
 		param_scattCoeff.visibility,
@@ -154,20 +246,20 @@ class mitsuba_medium_data(declarative_property_group):
 		param_albedo.visibility
 	)
 	
-	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True })
-	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True })
-	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False })
+	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
 	
-	def get_params(self):
+	def get_paramset(self):
 		params = ParamSet()
 		if self.material=='':
 			if self.useAlbSigmaT != True:
-				params.update(param_absorptionCoefficient.get_params(self))
-				params.update(param_scattCoeff.get_params(self))
+				params.update(param_absorptionCoefficient.get_paramset(self))
+				params.update(param_scattCoeff.get_paramset(self))
 			else:
-				params.update(param_extinctionCoeff.get_params(self))
-				params.update(param_albedo.get_params(self))
+				params.update(param_extinctionCoeff.get_paramset(self))
+				params.update(param_albedo.get_paramset(self))
 		else:
 			params.add_string('material', self.material)
 		params.add_float('scale', self.scale)

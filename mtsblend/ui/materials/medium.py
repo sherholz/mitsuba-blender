@@ -16,33 +16,27 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy
+from bpy.types import Panel
+
 from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_base
 
 @MitsubaAddon.addon_register_class
-class ui_mitsuba_material_extmedium(mitsuba_material_base, bpy.types.Panel):
+class MitsubaMaterial_PT_exterior_medium(mitsuba_material_base, Panel):
 	'''
-	Material Medium Settings
+	Material Exterior Medium Settings
 	'''
 	
-	bl_label = 'Mitsuba Exterior Media'
+	bl_label = 'Mitsuba Exterior Medium'
 	bl_options = {'DEFAULT_CLOSED'}
 	
 	display_property_groups = [
-		( ('material',), 'mitsuba_mat_extmedium' )
+		( ('material',), 'mitsuba_mat_medium' )
 	]
 	
 	def draw_header(self, context):
-		self.layout.prop(context.material.mitsuba_mat_extmedium, "use_extmedium", text="")
+		self.layout.prop(context.material.mitsuba_mat_medium, "use_medium", text="")
 	
 	def draw(self, context):
-		layout = self.layout
-		mat = context.material.mitsuba_mat_extmedium
-		layout.active = (mat.use_extmedium)
-		layout.prop(context.material.mitsuba_mat_extmedium, "type", text="")
-		media = getattr(mat, 'mitsuba_extmed_%s' % mat.type)
-		for p in media.controls:
-			self.draw_column(p, self.layout, mat, context,
-				property_group=media)
-		media.draw_callback(context)
+		self.layout.active = (context.material.mitsuba_mat_medium.use_medium)
+		return super().draw(context)

@@ -1,62 +1,56 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
+# -*- coding: utf8 -*-
 #
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
+# ***** BEGIN GPL LICENSE BLOCK *****
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# --------------------------------------------------------------------------
+# Blender Mitsuba Add-On
+# --------------------------------------------------------------------------
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# ##### END GPL LICENSE BLOCK #####
-
-import bpy, bl_ui
-
-from .. import MitsubaAddon
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+# ***** END GPL LICENSE BLOCK *****
+#
+import bl_ui
+import bpy
 
 from extensions_framework.ui import property_group_renderer
 
-class world_panel(bl_ui.properties_data_camera.CameraButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES = { 'MITSUBA_RENDER' }
+from .. import MitsubaAddon
+
+class camera_panel(bl_ui.properties_data_camera.CameraButtonsPanel, property_group_renderer):
+	COMPAT_ENGINES = 'MITSUBA_RENDER'
 
 @MitsubaAddon.addon_register_class
-class camera(world_panel):
+class MitsubaCamera_PT_camera(camera_panel):
 	'''
 	Camera Settings
 	'''
 	
-	bl_label = 'Mitsuba Sensor Options'
+	bl_label = 'Mitsuba Camera'
 	
 	display_property_groups = [
 		( ('camera',), 'mitsuba_camera' )
 	]
-	
-	def draw(self, context):
-		super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class film(world_panel):
+class MitsubaCamera_PT_film(camera_panel):
 	'''
-	Film Settings
+	Camera Film Settings
 	'''
 	
-	bl_label = 'Mitsuba Film Options'
+	bl_label = 'Mitsuba Film'
 	
 	display_property_groups = [
-		( ('camera',), 'mitsuba_film' )
+		( ('camera','mitsuba_camera'), 'mitsuba_film' ),
 	]
-	
-	def draw(self, context):
-		layout = self.layout
-		film = context.object.data.mitsuba_film
-		layout.prop(film, "fileFormat")
-		layout.prop(film, "pixelFormat", expand=True)
-		if film.fileFormat == 'openexr':
-			layout.prop(film, "componentFormat", expand=True)
-		super().draw(context)

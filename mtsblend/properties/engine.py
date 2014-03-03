@@ -50,7 +50,6 @@ class mitsuba_engine(declarative_property_group):
 	ef_attach_to = ['Scene']
 	
 	controls = [
-		'binary_path',
 		'export_mode',
 		'render_mode',
 		'mesh_type',
@@ -64,14 +63,6 @@ class mitsuba_engine(declarative_property_group):
 	}
 	
 	properties = [
-		{
-			'type': 'string',
-			'subtype': 'DIR_PATH',
-			'attr': 'binary_path',
-			'name': 'Executable path',
-			'description': 'Path to the Mitsuba install',
-			'default': efutil.find_config_value('mitsuba', 'defaults', 'binary_path', '')
-		},
 		{
 			'type': 'enum',
 			'attr': 'export_mode',
