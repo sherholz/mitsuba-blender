@@ -191,14 +191,40 @@ def get_worldscale(as_scalematrix=True):
 	else:
 		return ws
 
-def get_yup_matrix(matrix):
-	return Matrix(((1,0,0,0),(0,0,1,0),(0,-1,0,0),(0,0,0,1))) * matrix
-	#	[	matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],\
-	#	matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3],\
-	#	-matrix[1][0], -matrix[1][1], -matrix[1][2], -matrix[1][3],\
-	#	matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3] ]
+def object_anim_matrices(scene, obj, steps=1):
+	'''
+	steps		Number of interpolation steps per frame
+	
+	Returns a list of animated matrices for the object, with the given number of 
+	per-frame interpolation steps. 
+	The number of matrices returned is at most steps+1.
+	'''
+	old_sf = scene.frame_subframe
+	cur_frame = scene.frame_current
+	
+	ref_matrix = None
+	animated = False
+	
+	next_matrices = []
+	for i in range(0, steps+1):
+		scene.frame_set(cur_frame, subframe=i/float(steps))
+		
+		sub_matrix = obj.matrix_world.copy()
+		
+		if ref_matrix == None:
+			ref_matrix = sub_matrix
+		animated |= sub_matrix != ref_matrix
+		
+		next_matrices.append(sub_matrix)
+	
+	if not animated:
+		next_matrices = []
+		
+	# restore subframe value
+	scene.frame_set(cur_frame, old_sf)
+	return next_matrices
 
-def matrix_to_list(matrix):
+def matrix_to_list(matrix, apply_worldscale=False):
 	'''
 	matrix		  Matrix
 	
@@ -206,6 +232,15 @@ def matrix_to_list(matrix):
 	
 	Returns list[16]
 	'''
+	
+	if apply_worldscale:
+		matrix = matrix.copy()
+		sm = get_worldscale()
+		matrix *= sm
+		sm = get_worldscale(as_scalematrix = False)
+		matrix[0][3] *= sm
+		matrix[1][3] *= sm
+		matrix[2][3] *= sm
 	
 	l = [	matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],\
 		matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],\
@@ -230,10 +265,3 @@ def process_filepath_data(scene, obj, file_path, paramset, parameter_name):
 
 def get_output_filename(scene):
 	return '%s.%s.%05d' % (efutil.scene_filename(), bpy.path.clean_name(scene.name), scene.frame_current)
-
-def MtsLaunch(mts_path, path, commandline):
-	mts_path = efutil.filesystem_path(mts_path)
-	env = copy.copy(os.environ)
-	env['LD_LIBRARY_PATH'] = mts_path
-	commandline[0] = os.path.join(mts_path, commandline[0])
-	return subprocess.Popen(commandline, env = env, cwd = path)		#, stdout=subprocess.PIPE)

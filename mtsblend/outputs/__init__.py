@@ -58,6 +58,8 @@ class MtsFilmDisplay(TimerThread):
 	
 	def kick(self, render_end=False):
 		if 'RE' in self.LocalStorage.keys():
+			direct_transfer = False
+			
 			if not bpy.app.background or render_end:
 				
 				xres = yres = -1
@@ -86,7 +88,9 @@ class MtsFilmDisplay(TimerThread):
 				
 				lay = result.layers[0]
 				
-				if os.path.exists(self.LocalStorage['RE'].output_file):
+				if direct_transfer:
+					pass
+				elif os.path.exists(self.LocalStorage['RE'].output_file):
 					lay.load_from_file(self.LocalStorage['RE'].output_file)
 					#try:
 						#if self.preview:
