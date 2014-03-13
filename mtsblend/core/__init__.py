@@ -27,7 +27,6 @@
 import os
 import time
 import threading
-import copy
 import subprocess
 import sys
 import math
@@ -41,7 +40,6 @@ from extensions_framework import util as efutil
 # Exporter libs
 from .. import MitsubaAddon
 from ..matpreview import matpreview_path
-from ..export import MtsLaunch
 from ..export import get_output_filename
 from ..export.scene import SceneExporter
 from ..outputs import MtsManager, MtsFilmDisplay
@@ -104,7 +102,7 @@ cached_spp = None
 cached_depth = None
 
 # Add view buttons for viewcontrol to preview panels
-def mitsuba_use_alternate_matview(self, context):
+def mts_use_alternate_matview(self, context):
 
 	if context.scene.render.engine == 'MITSUBA_RENDER':
 		engine = context.scene.mitsuba_engine
@@ -125,10 +123,10 @@ def mitsuba_use_alternate_matview(self, context):
 				efutil.write_config_value('mitsuba', 'defaults', 'preview_spp', str(cached_spp))
 				efutil.write_config_value('mitsuba', 'defaults', 'preview_depth', str(cached_depth))
 
-_register_elm(bl_ui.properties_material.MATERIAL_PT_preview.append(mitsuba_use_alternate_matview))
+_register_elm(bl_ui.properties_material.MATERIAL_PT_preview.append(mts_use_alternate_matview))
 
 # Add Mitsuba dof elements to blender dof panel
-def mitsuba_use_dof(self, context):
+def mts_use_dof(self, context):
 	
 	if context.scene.render.engine == 'MITSUBA_RENDER':
 		row = self.layout.row()
@@ -138,7 +136,7 @@ def mitsuba_use_dof(self, context):
 			row = self.layout.row()
 			row.prop(context.camera.mitsuba_camera, "apertureRadius", text="DOF Aperture Radius")
 
-_register_elm(bl_ui.properties_data_camera.DATA_PT_camera_dof.append(mitsuba_use_dof))
+_register_elm(bl_ui.properties_data_camera.DATA_PT_camera_dof.append(mts_use_dof))
 
 # compatible() copied from blender repository (netrender)
 def compatible(mod):
@@ -175,10 +173,6 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		Returns None
 		'''
 		
-		if self is None or scene is None:
-			MtsLog('ERROR: Scene is missing!')
-			return
-		
 		with RENDERENGINE_mitsuba.render_lock:	# just render one thing at a time
 			prev_cwd = os.getcwd()
 			try:
@@ -195,35 +189,39 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 					self.render_preview(scene)
 					return
 				
-				config_updates = {}
+				api_type, write_files = self.set_export_path(scene)
 				
-				try:
-					for k, v in config_updates.items():
-						efutil.write_config_value('mitsuba', 'defaults', k, v)
-				except Exception as err:
-					MtsLog('WARNING: Saving Mitsuba configuration failed, please set your user scripts dir: %s' % err)
+				is_animation = hasattr(self, 'is_animation') and self.is_animation
+				make_queue = scene.mitsuba_engine.export_type == 'EXT' and write_files
 				
-				scene_path = efutil.filesystem_path(scene.render.filepath)
-				if os.path.isdir(scene_path):
-					output_dir = scene_path
-				else:
-					output_dir = os.path.dirname(scene_path)		
+				if is_animation and make_queue:
+					queue_file = efutil.export_path + '%s.%s.lxq' % (efutil.scene_filename(), bpy.path.clean_name(scene.name))
+					
+					# Open/reset a queue file
+					if scene.frame_current == scene.frame_start:
+						open(queue_file, 'w').close()
+					
+					if hasattr(self, 'update_progress'):
+						fr = scene.frame_end - scene.frame_start
+						fo = scene.frame_current - scene.frame_start
+						self.update_progress(fo/fr)
 				
-				MtsLog('MtsBlend: Current directory = "%s"' % output_dir)
-				self.output_basename = efutil.scene_filename() + '.%s.%05i' % (scene.name, scene.frame_current)
-				
-				#result = SceneExporter(
-				#	directory = output_dir,
-				#	filename = output_basename,
-				#).export(scene)
 				exported_file = self.export_scene(scene)
+				if exported_file == False:
+					return	# Export frame failed, abort rendering
 				
-				self.render_start(scene)
-				
-				#if not result:
-				#	MtsLog('Error while exporting -- check the console for details.')
-				#	return
-				
+				if is_animation and make_queue:
+					self.MtsManager = MtsManager.GetActive()
+					#self.MtsManager.mts_context.worldEnd()
+					with open(queue_file, 'a') as qf:
+						qf.write("%s\n" % exported_file)
+					
+					if scene.frame_current == scene.frame_end:
+						# run the queue
+						self.render_queue(scene, queue_file)
+				else:
+					self.render_start(scene)
+			
 			except Exception as err:
 				MtsLog('%s'%err)
 				self.report({'ERROR'}, '%s'%err)
@@ -279,28 +277,36 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		MtsManager.SetCurrentScene(scene)
 		MtsManager.SetActive(MM)
 		
+		file_based_preview = True
+		
+		if file_based_preview:
+			# Dump to file in temp dir for debugging
+			from ..outputs.file_api import Custom_Context as mts_writer
+			mts_filename = '/'.join([
+				self.output_dir,
+				'matpreview_materials'
+			])
+			preview_context = mts_writer(scene.name)
+			#preview_context.set_filename(scene, 'mtsblend-preview')
+			preview_context.set_filename(scene, mts_filename)
+			MM.mts_context = preview_context
+		else:
+			preview_context = LM.mts_context
+			preview_context.logVerbosity('quiet')
+		
 		try:
 			export_materials.ExportedMaterials.clear()
+			export_materials.ExportedTextures.clear()
 			
 			from ..export import preview_scene
-			from ..outputs.file_api import Custom_Context as mts_writer
 			xres, yres = scene.camera.data.mitsuba_camera.mitsuba_film.resolution(scene)
 			
 			# Don't render the tiny images
 			if xres <= 96:
 				raise Exception('Skipping material thumbnail update, image too small (%ix%i)' % (xres,yres))
 			
-			mts_filename = '/'.join([
-				self.output_dir,
-				'matpreview_materials'
-			])
-			preview_context = mts_writer(scene.name)
-			preview_context.set_filename(scene, mts_filename)
-			MM.mts_context = preview_context
 			preview_scene.preview_scene(scene, preview_context, obj=preview_objects[0], mat=pm, tex=pt)
 			
-			#exporter.exportMaterial(pm)
-			#exporter.exportPreviewMesh(scene, pm)
 			refresh_interval = 2
 			preview_spp = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_spp', '16'))
 			preview_depth = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_depth', '2'))
@@ -308,25 +314,28 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			
 			fov = math.degrees(2.0 * math.atan((scene.camera.data.sensor_width / 2.0) / scene.camera.data.lens)) / pm.mitsuba_material.preview_zoom
 			
-			
-			
-			addon_prefs = MitsubaAddon.get_prefs()
-			mitsuba_path = addon_prefs.install_path
-			MtsLog('mitsuba_path: %s' % mitsuba_path)
 			MtsLog('tempdir: %s' % tempdir)
 			MtsLog('output_file: %s' % output_file)
 			MtsLog('scene_file: %s' % scene_file)
-			mitsuba_process = MtsLaunch(mitsuba_path, tempdir,
-				['mitsuba', '-q', 
-					'-r%i' % refresh_interval,
-					'-b16',
-					'-Dmatfile=%s' % os.path.join(tempdir, matfile),
-					'-Dwidth=%i' % xres, 
-					'-Dheight=%i' % yres, 
-					'-Dfov=%f' % fov, 
-					'-Dspp=%i' % preview_spp,
-					'-Ddepth=%i' % preview_depth,
-					'-o', output_file, scene_file], )
+			
+			cmd_args = self.get_process_args(scene, False)
+			
+			cmd_args.extend(['-q', 
+				'-r%i' % refresh_interval,
+				'-b16',
+				'-Dmatfile=%s' % os.path.join(tempdir, matfile),
+				'-Dwidth=%i' % xres, 
+				'-Dheight=%i' % yres, 
+				'-Dfov=%f' % fov, 
+				'-Dspp=%i' % preview_spp,
+				'-Ddepth=%i' % preview_depth,
+				'-o', output_file])
+			
+			cmd_args.append(scene_file)
+			
+			MtsLog('Launching: %s' % cmd_args)
+			# MtsLog(' in %s' % self.outout_dir)
+			mitsuba_process = subprocess.Popen(cmd_args, cwd=self.output_dir)
 			
 			framebuffer_thread = MtsFilmDisplay({
 				'resolution': scene.camera.data.mitsuba_camera.mitsuba_film.resolution(scene),
@@ -390,8 +399,20 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		if self.output_dir[-1] not in ('/', '\\'):
 			self.output_dir += '/'
 		
-		api_type = 'FILE'
-		write_files = True
+		if scene.mitsuba_engine.export_type == 'INT':
+			write_files = scene.mitsuba_engine.write_files
+			if write_files:
+				api_type = 'FILE'
+			else:
+				api_type = 'API'
+				if sys.platform == 'darwin':
+					self.output_dir = efutil.filesystem_path( bpy.app.tempdir )
+				else:
+					self.output_dir = efutil.temp_directory()
+		
+		else:
+			api_type = 'FILE'
+			write_files = True
 		
 		efutil.export_path = self.output_dir
 		
@@ -436,12 +457,9 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		return "%s.xml" % output_filename
 	
 	def rendering_behaviour(self, scene):
-		#internal	= (scene.mitsuba_engine.export_type in ['INT'])
-		#write_files	= scene.mitsuba_engine.write_files and (scene.mitsuba_engine.export_type in ['INT', 'EXT'])
-		#render		= scene.mitsuba_engine.render
-		internal	= False
-		write_files	= True
-		render		= True
+		internal	= (scene.mitsuba_engine.export_type in ['INT'])
+		write_files	= scene.mitsuba_engine.write_files and (scene.mitsuba_engine.export_type in ['INT', 'EXT'])
+		render		= scene.mitsuba_engine.render
 		
 		# Handle various option combinations using simplified variable names !
 		if internal:
@@ -472,6 +490,48 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		
 		return internal, start_rendering, parse, worldEnd
 	
+	def get_process_args(self, scene, start_rendering):
+		#config_updates = {
+		#	'auto_start': start_rendering
+		#}
+		
+		addon_prefs = MitsubaAddon.get_prefs()
+		mitsuba_path = efutil.filesystem_path( addon_prefs.install_path )
+		
+		print('mitsuba_path: ', mitsuba_path)
+		
+		if mitsuba_path == '':
+			return ['']
+		
+		if mitsuba_path[-1] != '/':
+			mitsuba_path += '/'
+		
+		if sys.platform == 'darwin':
+			mitsuba_path += 'Mitsuba.app/Contents/MacOS/%s' % scene.mitsuba_engine.binary_name # Get binary from OSX bundle
+			if not os.path.exists(mitsuba_path):
+				MtsLog('Mitsuba not found at path: %s' % mitsuba_path, ', trying default Mitsuba location')
+				mitsuba_path = '/Applications/Mitsuba/Mitsuba.app/Contents/MacOS/%s' % scene.mitsuba_engine.binary_name # try fallback to default installation path
+
+		elif sys.platform == 'win32':
+			mitsuba_path += '%s.exe' % scene.mitsuba_engine.binary_name
+		else:
+			mitsuba_path += scene.mitsuba_engine.binary_name
+		
+		if not os.path.exists(mitsuba_path):
+			raise Exception('Mitsuba not found at path: %s' % mitsuba_path)
+		
+		cmd_args = [mitsuba_path]
+		
+		# Save changed config items and then launch Mitsuba
+		
+		#try:
+		#	for k, v in config_updates.items():
+		#		efutil.write_config_value('mitsuba', 'defaults', k, v)
+		#except Exception as err:
+		#	MtsLog('WARNING: Saving Mitsuba config failed, please set your user scripts dir: %s' % err)
+		
+		return cmd_args
+	
 	def render_start(self, scene):
 		self.MtsManager = MtsManager.GetActive()
 		
@@ -484,17 +544,12 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		
 		if self.MtsManager.mts_context.API_TYPE == 'FILE':
 			fn = self.MtsManager.mts_context.file_names[0]
-			self.MtsManager.mts_context.worldEnd()
-			if parse:
-				# file_api.parse() creates a real pylux context. we must replace
-				# MtsManager's context with that one so that the running renderer
-				# can be controlled.
-				ctx = self.MtsManager.mts_context.parse(fn, True)
-				self.MtsManager.mts_context = ctx
-				self.MtsManager.stats_thread.LocalStorage['mts_context'] = ctx
-				self.MtsManager.fb_thread.LocalStorage['mts_context'] = ctx
+			#self.MtsManager.mts_context.worldEnd()
+			#if parse:
+			#	pass
 		elif worldEnd:
-			self.MtsManager.mts_context.worldEnd()
+			pass
+			#self.MtsManager.mts_context.worldEnd()
 		
 		# Begin rendering
 		if start_rendering:
@@ -502,66 +557,40 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			if internal:
 				pass
 			else:
-				addon_prefs = MitsubaAddon.get_prefs()
-				mitsuba_path = addon_prefs.install_path
-				MtsLog('outputfile %s' % self.output_file)
-				if mitsuba_path == '':
-					MtsLog('ERROR: The binary path is unspecified!')
-					return
-				MtsLog("MtsBlend: Launching renderer ..")
-				if scene.mitsuba_engine.render_mode == 'gui':
-					MtsLaunch(mitsuba_path, self.output_dir,
-						['mtsgui', efutil.export_path])
-				elif scene.mitsuba_engine.render_mode == 'cli':
-					#output_file = efutil.export_path[:-4] + "." + scene.camera.data.mitsuba_camera.mitsuba_film.fileExtension
-					mitsuba_process = MtsLaunch(mitsuba_path, self.output_dir,
-						['mitsuba', '-r', str(scene.mitsuba_engine.refresh_interval),
-							'-o', self.output_file, '/tmp/%s.xml' % self.output_basename]
-					)
+				cmd_args = self.get_process_args(scene, start_rendering)
+				
+				if scene.mitsuba_engine.binary_name == 'mitsuba':
+					cmd_args.extend(['-r%i' % scene.mitsuba_engine.refresh_interval])
+					cmd_args.extend(['-o', self.output_file.replace('//','/')])
+				
+				cmd_args.append(fn.replace('//','/'))
+				
+				MtsLog('Launching: %s' % cmd_args)
+				# MtsLog(' in %s' % self.outout_dir)
+				mitsuba_process = subprocess.Popen(cmd_args, cwd=self.output_dir)
+				
+				if not (scene.mitsuba_engine.binary_name == 'mtsgui'):
 					framebuffer_thread = MtsFilmDisplay({
 						'resolution': scene.camera.data.mitsuba_camera.mitsuba_film.resolution(scene),
 						'RE': self,
 					})
 					framebuffer_thread.set_kick_period(scene.mitsuba_engine.refresh_interval) 
-					#framebuffer_thread.begin(self, output_file, scene.camera.data.mitsuba_camera.mitsuba_film.resolution(scene))
 					framebuffer_thread.start()
-					#render_update_timer = None
 					while mitsuba_process.poll() == None and not self.test_break():
 						self.render_update_timer = threading.Timer(1, self.process_wait_timer)
 						self.render_update_timer.start()
 						if self.render_update_timer.isAlive(): self.render_update_timer.join()
 					
 					# If we exit the wait loop (user cancelled) and mitsuba is still running, then send SIGINT
-					if mitsuba_process.poll() == None:
+					if mitsuba_process.poll() == None and scene.mitsuba_engine.binary_name != 'mtsgui':
 						# Use SIGTERM because that's the only one supported on Windows
 						mitsuba_process.send_signal(subprocess.signal.SIGTERM)
 					
 					# Stop updating the render result and load the final image
 					framebuffer_thread.stop()
 					framebuffer_thread.join()
-					
-					if mitsuba_process.poll() != None and mitsuba_process.returncode != 0:
-						MtsLog("MtsBlend: Rendering failed -- check the console")
-					else:
-						framebuffer_thread.kick(render_end=True)
-					#framebuffer_thread.shutdown()
-				#******************************************
-				#cmd_args = self.get_process_args(scene, start_rendering)
-				
-				#cmd_args.append(fn.replace('//','/'))
-				
-				#MtsLog('Launching: %s' % cmd_args)
-				# MtsLog(' in %s' % self.outout_dir)
-				#mitsuba_process = subprocess.Popen(cmd_args, cwd=self.output_dir)
-				
-				#if not (scene.mitsuba_engine.binary_name == 'mitsuba' and not scene.mitsuba_engine.monitor_external):
-				#	framebuffer_thread.set_kick_period( scene.camera.data.mitsuba_camera.mitsuba_film.writeinterval ) 
-				#	
-				#	# If we exit the wait loop (user cancelled) and mitsuba is still running, then send SIGINT
-				#	if mitsuba_process.poll() == None and scene.mitsuba_engine.binary_name != 'mitsuba':
-						
+					framebuffer_thread.kick(render_end=True)
 	
 	def process_wait_timer(self):
 		# Nothing to do here
 		pass
-	

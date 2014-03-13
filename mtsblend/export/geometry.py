@@ -165,7 +165,6 @@ class GeometryExporter(object):
 					# Put PLY files in frame-numbered subfolders to avoid
 					# clobbering when rendering animations
 					sc_fr = '%s%s/%s/%05d' % (efutil.export_path, efutil.scene_filename(), bpy.path.clean_name(self.geometry_scene.name), self.visibility_scene.frame_current)
-					#sc_fr = '%s/%s/%s/%05d' % (self.mts_context.meshes_dir, efutil.scene_filename(), bpy.path.clean_name(self.geometry_scene.name), self.visibility_scene.frame_current)
 					if not os.path.exists( sc_fr ):
 						os.makedirs(sc_fr)
 					
@@ -396,7 +395,6 @@ class GeometryExporter(object):
 					# Put Serialized files in frame-numbered subfolders to avoid
 					# clobbering when rendering animations
 					sc_fr = '%s%s/%s/%05d' % (efutil.export_path, efutil.scene_filename(), bpy.path.clean_name(self.geometry_scene.name), self.visibility_scene.frame_current)
-					#sc_fr = '%s/%s/%s/%05d' % (self.mts_context.meshes_dir, efutil.scene_filename(), bpy.path.clean_name(self.geometry_scene.name), self.visibility_scene.frame_current)
 					if not os.path.exists( sc_fr ):
 						os.makedirs(sc_fr)
 					
@@ -624,8 +622,6 @@ class GeometryExporter(object):
 			if ob_mat != None:
 				self.mts_context.exportMaterial(ob_mat)
 				mmat_medium = ob_mat.mitsuba_mat_medium
-				if mmat_medium.use_medium:
-					self.mts_context.exportMedium(self.geometry_scene, mmat_medium.exterior_medium)
 		except IndexError:
 			ob_mat = None
 			MtsLog('WARNING: material slot %d on object "%s" is unassigned!' %(mat_index+1, obj.name))
@@ -784,7 +780,6 @@ class GeometryExporter(object):
 		# Put Hair files in frame-numbered subfolders to avoid
 		# clobbering when rendering animations
 		sc_fr = '%s/%s/%s/%05d' % (efutil.export_path, efutil.scene_filename(), bpy.path.clean_name(self.geometry_scene.name), self.visibility_scene.frame_current)
-		#sc_fr = '%s/%s/%s/%05d' % (self.mts_context.meshes_dir, efutil.scene_filename(), bpy.path.clean_name(self.geometry_scene.name), self.visibility_scene.frame_current)
 		if not os.path.exists( sc_fr ):
 			os.makedirs(sc_fr)
 		
@@ -816,7 +811,7 @@ class GeometryExporter(object):
 			points = []
 			
 			for step in range(0,steps+1):
-				co = psys.co_hair(obj, mod, pindex, step)
+				co = psys.co_hair(obj, pindex, step)
 				if not co.length_squared == 0:
 					points.append(transform*co)
 			
@@ -865,8 +860,8 @@ class GeometryExporter(object):
 			for dupli_ob in obj.dupli_list:
 				if dupli_ob.object.type not in ['MESH', 'SURFACE', 'FONT', 'CURVE']:
 					continue
-				#if not is_obj_visible(self.visibility_scene, dupli_ob.object, is_dupli=True):
-				#	continue
+				if not is_obj_visible(self.visibility_scene, dupli_ob.object, is_dupli=True):
+					continue
 				
 				self.objects_used_as_duplis.add(dupli_ob.object)
 				duplis.append(
@@ -949,8 +944,8 @@ class GeometryExporter(object):
 			
 			try:
 				# Export only objects which are enabled for render (in the outliner) and visible on a render layer
-				#if not is_obj_visible(self.visibility_scene, obj):
-				#	raise UnexportableObjectException(' -> not visible')
+				if not is_obj_visible(self.visibility_scene, obj):
+					raise UnexportableObjectException(' -> not visible')
 				
 				if obj.parent and obj.parent.is_duplicator:
 					raise UnexportableObjectException(' -> parent is duplicator')
@@ -982,7 +977,7 @@ class GeometryExporter(object):
 						if psys.settings.render_type in self.valid_particles_callbacks:
 							self.callbacks['particles'][psys.settings.render_type](obj, particle_system=psys)
 						elif self.visibility_scene.mitsuba_testing.object_analysis: print(' -> Unsupported Particle system type: %s' % psys.settings.render_type)
-				
+			
 			except UnexportableObjectException as err:
 				if self.visibility_scene.mitsuba_testing.object_analysis: print(' -> Unexportable object: %s : %s : %s' % (obj, obj.type, err))
 		
@@ -999,7 +994,7 @@ class GeometryExporter(object):
 					raise UnexportableObjectException('Unsupported object type')
 				
 				self.callbacks['objects'][obj.type](obj)
-				
+			
 			except UnexportableObjectException as err:
 				if self.visibility_scene.mitsuba_testing.object_analysis: print(' -> Unexportable object: %s : %s : %s' % (obj, obj.type, err))
 		

@@ -25,12 +25,14 @@ import os
 
 import bpy, math
 
+from bpy_extras.io_utils import axis_conversion
+
 from math import radians
 from mathutils import Matrix
 import extensions_framework.util as efutil
 
 from ..export			import matrix_to_list
-from ..export			import get_yup_matrix
+from ..export.volumes	import volumes
 from ..outputs import MtsLog
 from ..properties import ExportedVolumes
 
@@ -60,6 +62,7 @@ class Custom_Context(object):
 		self.exported_cameras = []
 		self.exported_materials = []
 		self.exported_textures = []
+		self.exported_media = []
 		self.hemi_lights = 0
 	
 	def wf(self, ind, st, tabs=0):
@@ -202,8 +205,9 @@ class Custom_Context(object):
 		self.wf(self.current_file, '/>\n')
 	
 	def exportMatrix(self, matrix):
-		matrix = get_yup_matrix(matrix)
-		l = matrix_to_list(matrix)
+		# Blender is Z up but Mitsuba is Y up, convert the matrix
+		global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
+		l = matrix_to_list( global_matrix * matrix)
 		value = " ".join(["%f " % f for f in  l])
 		self.element('matrix', {'value' : value})
 	
@@ -215,17 +219,87 @@ class Custom_Context(object):
 	def exportPoint(self, location):
 		self.parameter('point', 'center', {'x' : location[0],'y' : location[2],'z' : -location[1]})
 	
+	def exportVoxelData(self,objName , scene):
+		obj = None		
+		try :
+			obj = bpy.data.objects[objName]
+		except :
+			MtsLog("ERROR : assigning the object")
+		# path where to put the VOXEL FILES	
+		sc_fr = '%s/%s/%s/%05d' % (efutil.export_path, efutil.scene_filename(), bpy.path.clean_name(scene.name), scene.frame_current)
+		if not os.path.exists(sc_fr):
+			os.makedirs(sc_fr)
+		# path to the .bphys file
+		dir_name = os.path.dirname(bpy.data.filepath) + "/blendcache_" + os.path.basename(bpy.data.filepath)[:-6]
+		cachname = ("/%s_%06d_00.bphys"%(obj.modifiers['Smoke'].domain_settings.point_cache.name ,scene.frame_current) )
+		cachFile = dir_name + cachname
+		volume = volumes()
+		filenames = volume.smoke_convertion( cachFile, sc_fr, scene.frame_current, obj)
+		return filenames
+	
+	def reexportVoxelDataCoordinates(self, file):
+		obj = None
+		# get the Boundig Box object
+		#updateBoundinBoxCoorinates(file , obj)
+	
+	def exportMedium(self, scene, medium):
+		voxels = ['','']
+		
+		if medium.name in self.exported_media:
+			return
+		
+		self.exported_media += [medium.name]
+		self.openElement('medium', {'id' : medium.name, 'type' : medium.type})
+		if medium.type == 'homogeneous':
+			params = medium.get_paramset()
+			params.export(self)
+		elif medium.type == 'heterogeneous':
+			self.parameter('string', 'method', {'value' : str(medium.method)})
+			self.openElement('volume', {'name' : 'density','type' : 'gridvolume'})
+			self.exportWorldTrafo(Matrix())
+			if medium.externalDensity :
+				self.parameter('string', 'filename', {'value' : str(medium.density)})
+				# if medium.rewrite :
+				#	reexportVoxelDataCoordinates(medium.density)
+			else :	
+				voxels = self.exportVoxelData(medium.object,scene)
+				self.parameter('string', 'filename', {'value' : voxels[0] })
+			self.closeElement()
+			if not medium.albedo_usegridvolume :
+				self.openElement('volume', {'name' : 'albedo','type' : 'constvolume'})
+				self.parameter('spectrum', 'value', {'value' : "%f, %f, %f" %(medium.albado_color.r ,medium.albado_color.g, medium.albado_color.b)})
+			else :
+				self.openElement('volume', {'name' : 'albedo','type' : 'gridvolume'})
+				self.parameter('string', 'filename', {'value' : str(voxels[1])})
+			self.closeElement()	
+			self.parameter('float', 'scale', {'value' : str(medium.scale)})
+		if medium.g == 0:
+			self.element('phase', {'type' : 'isotropic'})
+		else:
+			self.openElement('phase', {'type' : 'hg'})
+			self.parameter('float', 'g', {'value' : str(medium.g)})
+			self.closeElement()
+		self.closeElement()
+	
+	def exportMediumReference(self, role, medium_name):
+		if medium_name == "":
+			return
+		
+		if role == '':
+			self.element('ref', { 'id' : medium_name})
+		else:
+			self.element('ref', { 'name' : role, 'id' : medium_name})
+	
 	def exportLamp(self, scene, lamp):
 		ltype = lamp.data.type
 		name = lamp.name
 		mlamp = lamp.data.mitsuba_lamp
 		mult = mlamp.intensity
-		if mlamp.exterior_medium != '':
-			self.exportMedium(scene, mlamp.exterior_medium)
+		
 		if ltype == 'POINT':
 			self.openElement('shape', { 'type' : 'sphere'})
 			self.exportPoint(lamp.location)
-			self.parameter('float', 'radius', {'value' : mlamp.radius*7})			# Multiply by 7 - Akos
+			self.parameter('float', 'radius', {'value' : mlamp.radius})
 			self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'area'})
 			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
 					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
@@ -234,6 +308,7 @@ class Custom_Context(object):
 				self.exportMediumReference('', mlamp.exterior_medium)
 			self.closeElement()
 			self.closeElement()
+			
 		elif ltype == 'AREA':
 			self.openElement('shape', { 'type' : 'rectangle'} )
 			(size_x, size_y) = (lamp.data.size/2.0, lamp.data.size/2.0)
@@ -251,6 +326,7 @@ class Custom_Context(object):
 			self.parameter('spectrum', 'reflectance', {'value' : '0'})
 			self.closeElement()
 			self.closeElement()
+			
 		elif ltype == 'SUN':
 			# sun is considered environment light by Mitsuba
 			if self.hemi_lights >= 1:
@@ -268,7 +344,8 @@ class Custom_Context(object):
 				self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'sky'})
 				#self.parameter('boolean', 'extend', {'value' : '%s' % str(mlamp.mitsuba_lamp_sun.extend).lower()})
 			LampParams.export(self)
-			#self.parameter('float', 'turbidity', {'value' : '%f' % (mlamp.mitsuba_lamp_sun.turbidity)})
+			# Sun needs a Matrix that negates the Z up to Y up conversion
+			#self.exportWorldTrafo(Matrix(((1,0,0,0),(0,0,-1,0),(0,1,0,0),(0,0,0,1))))
 			self.parameter('vector', 'sunDirection', {'x':'%f' % invmatrix[0][2], 'y':'%f' % invmatrix[2][2], 'z':'%f' % -invmatrix[1][2]})
 			self.closeElement()
 			
@@ -283,6 +360,7 @@ class Custom_Context(object):
 			if mlamp.exterior_medium != '':
 				self.exportMediumReference('', mlamp.exterior_medium)
 			self.closeElement()
+			
 		elif ltype == 'HEMI':
 			# hemi is environment light by Mitsuba
 			if self.hemi_lights >= 1:
@@ -493,19 +571,19 @@ class Custom_Context(object):
 		cam = camera.data
 		mcam = cam.mitsuba_camera
 		
-		if mcam.exterior_medium != '':
-			self.exportMedium(scene, mcam.exterior_medium)
-		
 		# detect sensor type
 		camType = 'orthographic' if cam.type == 'ORTHO' else 'spherical' if cam.type == 'PANO' else 'perspective'
 		if mcam.use_dof == True:
 			camType = 'telecentric' if cam.type == 'ORTHO' else 'thinlens'
 		self.openElement('sensor', { 'id' : '%s-camera' % camera.name, 'type' : str(camType)})
 		self.openElement('transform', {'name' : 'toWorld'})
+		
+		# Remove scale from Camera matrix and rotate 180 degrees on Y axis to point to the right direction
 		loc, rot, sca = camera.matrix_world.decompose()
 		mat_loc = Matrix.Translation(loc)
 		mat_rot = rot.to_matrix().to_4x4()
 		self.exportMatrix(mat_loc * mat_rot * Matrix(((-1,0,0,0),(0,1,0,0),(0,0,-1,0),(0,0,0,1))))
+		
 		if cam.type == 'ORTHO':
 			self.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
 		self.closeElement()

@@ -63,40 +63,64 @@ import os, struct, sys
 # Blender Libs
 import bpy
 
+# Mitsuba libs
+from ..outputs import MtsLog
+
 class library_loader():
 	
-	load_lzo_attempted  = False
-	load_lzma_attempted = False        
-	has_lzo     = False
-	lzodll      = None    
-	has_lzma    = False
-	lzmadll     = None
+	load_lzo_attempted = False
+	load_lzma_attempted = False
+	
+	# imported compression libraries
+	has_lzo = False
+	lzodll = None
+	
+	has_lzma = False
+	lzmadll = None
+	
+	ver_str = '%d.%d' % bpy.app.version[0:2]
 	
 	platform_search = {
 		'lzo': {
+			'darwin': [
+				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/liblzo2.dylib' ),
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzo2.dylib'
+			],
+			'win32': [
+				'lzo.dll',
+				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/lzo.dll'),
+				bpy.app.binary_path[:-11] + ver_str + '/scripts/addons/mtsblend/lzo.dll'
+			],
 			'linux': [
 				'/usr/lib/liblzo2.so',
 				'/usr/lib/liblzo2.so.2',
-				'/usr/lib64/liblzo2.so',
-				'/usr/lib64/liblzo2.so.2'
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzo2.so'
 			],
 			'linux2': [
 				'/usr/lib/liblzo2.so',
 				'/usr/lib/liblzo2.so.2',
-				'/usr/lib64/liblzo2.so',
-				'/usr/lib64/liblzo2.so.2'
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzo2.so'
 			]
 		},
 		'lzma': {
+			'darwin': [
+				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/liblzmadec.dylib'),
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzmadec.dylib'
+			],
+			'win32': [
+				'lzma.dll',
+				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/lzma.dll'),
+				bpy.app.binary_path[:-11] + ver_str + '/scripts/addons/mtsblend/lzma.dll'
+			],
 			'linux': [
 				'/usr/lib/liblzma.so',
 				'/usr/lib/liblzma.so.2',
-				'/usr/lib64/liblzma.so'
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzma.so'
 			],
 			'linux2': [
 				'/usr/lib/liblzma.so',
 				'/usr/lib/liblzma.so.2',
-				'/usr/lib64/liblzma.so'
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzma.so'
 			]
 		}
 	}
@@ -111,13 +135,13 @@ class library_loader():
 					cls.lzodll = cdll.LoadLibrary(sp)
 					cls.has_lzo = True
 					break
-				except Exception as e:
-					print(e)
+				except Exception:
+					continue
 			
 			if cls.has_lzo:
-				print('Volumes: LZO Library found')
+				MtsLog('Volumes: LZO Library found')
 			else:
-				print('Volumes: LZO Library not found')
+				MtsLog('Volumes: LZO Library not found')
 			
 			cls.load_lzo_attempted = True
 		
@@ -126,7 +150,6 @@ class library_loader():
 	@classmethod
 	def load_lzma(cls):
 		# Only attempt load once per session
-		print(sys.platform)
 		if not cls.load_lzma_attempted:
 			
 			for sp in cls.platform_search['lzma'][sys.platform]:
@@ -134,13 +157,13 @@ class library_loader():
 					cls.lzmadll = cdll.LoadLibrary(sp)
 					cls.has_lzma = True
 					break
-				except Exception as e:
-					print(e)
+				except Exception:
+					continue
 			
 			if cls.has_lzma:
-				print('Volumes: LZMA Library found')
+				MtsLog('Volumes: LZMA Library found')
 			else:
-				print('Volumes: LZMA Library not found')
+				MtsLog('Volumes: LZMA Library not found')
 			
 			cls.load_lzma_attempted = True
 		
@@ -154,10 +177,7 @@ class reading_cache_data():
 	SZ_UINT     = sizeof(c_uint)
 	
 	@classmethod
-	def read_data_segment(    
-	
-	
-self, cachefile, cell_count):
+	def read_data_segment(self, cachefile, cell_count):
 		compression     = 0
 		binary_file     = None    
 		steam_file      = None
@@ -185,20 +205,20 @@ self, cachefile, cell_count):
 		if data[0] == 1:
 			has_lzo, lzodll = library_loader.load_lzo()
 			if has_lzo:
-				print('Volumes: De-compressing LZO stream of length {0:0d} bytes...'.format(data[2]))                            
+				MtsLog('Volumes: De-compressing LZO stream of length {0:0d} bytes...'.format(data[2]))                            
 				uncomp_stream   = (c_float*cell_count*self.SZ_FLOAT)()
 				p_dens          = cast(uncomp_stream, POINTER(c_float))                                           
 				#call lzo decompressor
 				lzodll.lzo1x_decompress(data[1], data[2], p_dens,byref(outlen), None)
-				print("Out length: %s" % (str(outlen)))                
+				MtsLog("Out length: %s" % (str(outlen)))
 				for i in range(int(outlen.value / 4) ):
 					list.append(p_dens[i])
 			else:
-				print('Volumes: Cannot read compressed LZO stream; no library loaded')                        
+				MtsLog('Volumes: Cannot read compressed LZO stream; no library loaded')                        
 		elif data[0] == 2:
 			has_lzma, lzmadll = library_loader.load_lzma()
 			if has_lzma:
-				print('Volumes: De-compressing LZMA stream of length {0:0d} bytes...'.format(data[2]))                            
+				MtsLog('Volumes: De-compressing LZMA stream of length {0:0d} bytes...'.format(data[2]))                            
 				uncomp_stream   = (c_float*cell_count*self.SZ_FLOAT)()
 				p_dens          = cast(uncomp_stream, POINTER(c_float))
 				outlen          = c_uint(cell_count*SZ_FLOAT)                            
@@ -208,7 +228,7 @@ self, cachefile, cell_count):
 				for i in range(int(outlen.value / 4) ):
 					list.append(p_dens[i])
 			else:
-				print('Volumes: Cannot read compressed LZMA stream; no library loaded')
+				MtsLog('Volumes: Cannot read compressed LZMA stream; no library loaded')
 		else :                          
 		   #TODO: extrect so that it will be OK            
 		   list = struct.unpack(str(int(len(data[1])/4))+"f",data[1])
@@ -507,15 +527,15 @@ class volumes(object):
 			pass        
 		return colors  
 		
-	def smoke_convertion(self , report, sourceName, destination, frame, obj):
+	def smoke_convertion(self , sourceName, destination, frame, obj):
 		Amplificator     = 0
 		flowtype         = 0        
 		if not os.path.exists(sourceName):
-			report({'ERROR'}, 'File could not be found :  %s ' %str(sourceName))
+			MtsLog({'ERROR'}, 'File could not be found :  %s ' %str(sourceName))
 			return False
 		
 		if (obj.modifiers['Smoke'].type != 'SMOKE'):
-			report({'ERROR'}, 'Could not find the Smoke modifier (1)')
+			MtsLog({'ERROR'}, 'Could not find the Smoke modifier (1)')
 			return False
 		else :
 			if(obj.modifiers['Smoke'].domain_settings.use_high_resolution):                    

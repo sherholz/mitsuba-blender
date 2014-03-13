@@ -1,25 +1,42 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
+# -*- coding: utf8 -*-
 #
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
+# ***** BEGIN GPL LICENSE BLOCK *****
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# --------------------------------------------------------------------------
+# Blender Mitsuba Add-On
+# --------------------------------------------------------------------------
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# ##### END GPL LICENSE BLOCK #####
-
-from .. import MitsubaAddon
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+# ***** END GPL LICENSE BLOCK *****
+#
 
 from extensions_framework import declarative_property_group
 from extensions_framework import util as efutil
+from extensions_framework.validate import Logic_OR as O, Logic_AND as A, Logic_Operator as LO
+
+from .. import MitsubaAddon
+from ..outputs.pure_api import PYMTS_AVAILABLE
+
+def find_apis():
+	apis = [
+		('EXT', 'External', 'EXT'),
+	]
+	if PYMTS_AVAILABLE:
+		apis.append( ('INT', 'Internal', 'INT') )
+	
+	return apis
 
 @MitsubaAddon.addon_register_class
 class mitsuba_testing(declarative_property_group):
@@ -31,6 +48,7 @@ class mitsuba_testing(declarative_property_group):
 	
 	controls = [
 		'object_analysis',
+		're_raise'
 	]
 	
 	visibility = {}
@@ -39,52 +57,88 @@ class mitsuba_testing(declarative_property_group):
 		{
 			'type': 'bool',
 			'attr': 'object_analysis',
-			'name': 'Debug: print object analysis',
+			'name': 'Debug: Print Object Analysis',
 			'description': 'Show extra output as objects are processed',
+			'default': False
+		},
+		{
+			'type': 'bool',
+			'attr': 're_raise',
+			'name': 'Debug: Show Error Traceback Messages',
+			'description': 'Show export error messages in the UI as well as the console',
 			'default': False
 		},
 	]
 
 @MitsubaAddon.addon_register_class
 class mitsuba_engine(declarative_property_group):
+	'''
+	Storage class for Mitsuba Engine settings.
+	'''
+	
 	ef_attach_to = ['Scene']
 	
 	controls = [
-		'export_mode',
-		'render_mode',
+		'export_type',
+		'binary_name',
+		'write_files',
 		'mesh_type',
 		'partial_export',
+		'render',
 		'refresh_interval'
 	]
 	
 	visibility = {
-		'render_mode':		{ 'export_mode': 'render' },
-		'refresh_interval':	{ 'export_mode': 'render', 'render_mode' : 'cli' }
+		'write_files':				{ 'export_type': 'INT' },
+		'mesh_type':				O([ {'export_type':'EXT'}, A([ {'export_type':'INT'}, {'write_files': True} ]) ]),
+		'binary_name':				{ 'export_type': 'EXT' },
+		'render':					O([{'write_files': True}, { 'export_type': 'EXT' }]), #We need run renderer unless we are set for internal-pipe mode, which is the only time both of these are false
+		'refresh_interval':	{ 'binary_name': 'mitsuba', 'render': True }
 	}
 	
 	properties = [
 		{
 			'type': 'enum',
-			'attr': 'export_mode',
-			'name': 'Export mode',
-			'description': 'Specifies whether or not to launch the renderer after exporting the scene',
-			'default': 'render',
-			'items': [
-				('render', 'Export + Render', 'render'),
-				('exportonly', 'Only export', 'exportonly')
-			],
+			'attr': 'export_type',
+			'name': 'Export Type',
+			'description': 'Run Mitsuba inside or outside of Blender',
+			'default': 'EXT', # if not PYMTS_AVAILABLE else 'INT',
+			'items': find_apis(),
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'render',
+			'name': 'Run Renderer',
+			'description': 'Run renderer after export',
+			'default': efutil.find_config_value('mitsuba', 'defaults', 'auto_start', True),
+		},
+		{
+			'type': 'bool',
+			'attr': 'partial_export',
+			'name': 'Partial Mesh Export',
+			'description': 'Skip exporting Mesh files that already exist. Try disabling this if you have geometry issues',
+			'default': False,
 			'save_in_preset': True
 		},
 		{
 			'type': 'enum',
-			'attr': 'render_mode',
-			'name': 'Rendering mode',
-			'description': 'Launch the external GUI or use the command-line renderer?',
-			'default': 'cli',
+			'attr': 'binary_name',
+			'name': 'External Type',
+			'description': 'Choose full GUI or console renderer',
+			'default': 'mitsuba',
 			'items': [
-				('cli', 'Mitsuba CLI', 'cli'),
-				('gui', 'Mitsuba GUI', 'gui')
+				('mitsuba', 'Mitsuba Console', 'mitsuba'),
+				('mtsgui', 'Mitsuba GUI', 'mtsgui')
 			],
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'write_files',
+			'name': 'Write to Disk',
+			'description': 'Write scene files to disk',
+			'default': True,
 			'save_in_preset': True
 		},
 		{
@@ -97,14 +151,6 @@ class mitsuba_engine(declarative_property_group):
 				('binary_ply', 'Binary PLY', 'binary_ply')
 			],
 			'default': 'native',
-			'save_in_preset': True
-		},
-		{
-			'type': 'bool',
-			'attr': 'partial_export',
-			'name': 'Partial Mesh Export',
-			'description': 'Skip exporting Mesh files that already exist. Try disabling this if you have geometry issues',
-			'default': False,
 			'save_in_preset': True
 		},
 		{
