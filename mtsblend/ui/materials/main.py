@@ -45,7 +45,6 @@ def cycles_panel_node_draw(layout, id_data, output_type, input_name):
 	return True
 
 def node_tree_selector_draw(layout, id_data, output_type):
-	#layout.prop_search(mat.mitsuba_material, "nodetree", bpy.data, "node_groups")
 	try:
 		layout.prop_search(id_data.mitsuba_material, "nodetree", bpy.data, "node_groups")
 	except:
@@ -71,7 +70,7 @@ def panel_node_draw(layout, id_data, output_type, input_name):
 	return True
 
 @MitsubaAddon.addon_register_class
-class ui_mitsuba_material_header(mitsuba_material_base):
+class MitsubaMaterial_PT_header(mitsuba_material_base):
 	'''
 	Material Editor UI Panel
 	'''
@@ -141,7 +140,7 @@ class ui_mitsuba_material_header(mitsuba_material_base):
 				super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class MATERIAL_PT_material_utils(mitsuba_material_base):
+class MitsubaMaterial_PT_utils(mitsuba_material_base):
 	'''
 	Material Utils UI Panel
 	'''
@@ -166,7 +165,7 @@ class MATERIAL_PT_material_utils(mitsuba_material_base):
 		row.operator("mitsuba.convert_material_cycles", icon='MATERIAL_DATA')
 
 @MitsubaAddon.addon_register_class
-class MATERIAL_PT_material_bsdf(mitsuba_material_base, bpy.types.Panel):
+class MitsubaMaterial_PT_bsdf(mitsuba_material_base):
 	'''
 	Material BSDF UI Panel
 	'''

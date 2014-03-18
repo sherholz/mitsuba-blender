@@ -28,11 +28,11 @@ from extensions_framework.ui import property_group_renderer
 
 from .. import MitsubaAddon
 
-class camera_panel(bl_ui.properties_data_camera.CameraButtonsPanel, property_group_renderer):
+class mts_camera_panel(bl_ui.properties_data_camera.CameraButtonsPanel, property_group_renderer):
 	COMPAT_ENGINES = 'MITSUBA_RENDER'
 
 @MitsubaAddon.addon_register_class
-class MitsubaCamera_PT_camera(camera_panel):
+class MitsubaCamera_PT_camera(mts_camera_panel):
 	'''
 	Camera Settings
 	'''
@@ -44,7 +44,7 @@ class MitsubaCamera_PT_camera(camera_panel):
 	]
 
 @MitsubaAddon.addon_register_class
-class MitsubaCamera_PT_film(camera_panel):
+class MitsubaCamera_PT_film(mts_camera_panel):
 	'''
 	Camera Film Settings
 	'''

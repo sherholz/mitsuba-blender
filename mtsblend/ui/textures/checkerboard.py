@@ -1,28 +1,31 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
+# -*- coding: utf8 -*-
 #
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
+# ***** BEGIN GPL LICENSE BLOCK *****
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# --------------------------------------------------------------------------
+# Blender Mitsuba Add-On
+# --------------------------------------------------------------------------
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# ##### END GPL LICENSE BLOCK #####
-
-import bpy
-
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+# ***** END GPL LICENSE BLOCK *****
+#
 from ... import MitsubaAddon
 from ...ui.textures import mitsuba_texture_base
 
 @MitsubaAddon.addon_register_class
-class ui_texture_checkerboard(mitsuba_texture_base, bpy.types.Panel):
+class MitsubaTexture_PT_checkerboard(mitsuba_texture_base):
 	bl_label = 'Mitsuba Checkerboard Texture'
 	
 	MTS_COMPAT = {'checkerboard'}
