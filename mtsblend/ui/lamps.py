@@ -1,34 +1,39 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
+# -*- coding: utf8 -*-
 #
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
+# ***** BEGIN GPL LICENSE BLOCK *****
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# --------------------------------------------------------------------------
+# Blender Mitsuba Add-On
+# --------------------------------------------------------------------------
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# ##### END GPL LICENSE BLOCK #####
-
-import bpy, bl_ui
-
-from .. import MitsubaAddon
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+# ***** END GPL LICENSE BLOCK *****
+#
+import bl_ui
 
 from extensions_framework.ui import property_group_renderer
 
+from .. import MitsubaAddon
+
 narrowui = 180
 
-class lamps_panel(bl_ui.properties_data_lamp.DataButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES = { 'MITSUBA_RENDER' }
+class mts_lamps_panel(bl_ui.properties_data_lamp.DataButtonsPanel, property_group_renderer):
+	COMPAT_ENGINES = 'MITSUBA_RENDER'
 
 @MitsubaAddon.addon_register_class
-class lamps(lamps_panel):
+class MitsubaLamp_PT_lamps(mts_lamps_panel):
 	bl_label = 'Mitsuba Lamps'
 	
 	display_property_groups = [
@@ -119,7 +124,7 @@ class lamps(lamps_panel):
 				layout.label('Note: covers the whole sphere')
 
 @MitsubaAddon.addon_register_class
-class ui_mitsuba_lamp_sun(lamps_panel):
+class MitsubaLamp_PT_sun(mts_lamps_panel):
 	bl_label = 'Mitsuba Sun + Sky'
 	
 	display_property_groups = [

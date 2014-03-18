@@ -21,8 +21,7 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
-
-import bpy, bl_ui
+import bl_ui
 
 from ... import MitsubaAddon
 from ...outputs import MtsLog

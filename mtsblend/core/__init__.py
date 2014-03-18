@@ -307,6 +307,9 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			
 			preview_scene.preview_scene(scene, preview_context, obj=preview_objects[0], mat=pm, tex=pt)
 			
+			if file_based_preview:
+				preview_context.worldEnd()
+			
 			refresh_interval = 2
 			preview_spp = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_spp', '16'))
 			preview_depth = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_depth', '2'))
@@ -544,12 +547,11 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		
 		if self.MtsManager.mts_context.API_TYPE == 'FILE':
 			fn = self.MtsManager.mts_context.file_names[0]
-			#self.MtsManager.mts_context.worldEnd()
+			self.MtsManager.mts_context.worldEnd()
 			#if parse:
 			#	pass
 		elif worldEnd:
-			pass
-			#self.MtsManager.mts_context.worldEnd()
+			self.MtsManager.mts_context.worldEnd()
 		
 		# Begin rendering
 		if start_rendering:

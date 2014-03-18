@@ -27,7 +27,7 @@ from extensions_framework.ui import property_group_renderer
 
 from .. import MitsubaAddon
 
-class render_panel(bl_ui.properties_render.RenderButtonsPanel, property_group_renderer):
+class mts_render_panel(bl_ui.properties_render.RenderButtonsPanel, property_group_renderer):
 	'''
 	Base class for render engine settings panels
 	'''
@@ -35,7 +35,7 @@ class render_panel(bl_ui.properties_render.RenderButtonsPanel, property_group_re
 	COMPAT_ENGINES = 'MITSUBA_RENDER'
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_output(render_panel):
+class MitsubaRender_PT_output(mts_render_panel):
 	bl_label = "Output"
 	
 	display_property_groups = [
@@ -50,7 +50,7 @@ class MitsubaRender_PT_output(render_panel):
 		layout.prop(rd, "filepath", text="")
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_active_sensor(render_panel):
+class MitsubaRender_PT_active_sensor(mts_render_panel):
 	'''
 	Active Camera Sensor settings UI Panel
 	'''
@@ -62,7 +62,7 @@ class MitsubaRender_PT_active_sensor(render_panel):
 	]
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_active_film(render_panel):
+class MitsubaRender_PT_active_film(mts_render_panel):
 	'''
 	Active Camera Film settings UI Panel
 	'''
@@ -74,7 +74,7 @@ class MitsubaRender_PT_active_film(render_panel):
 	]
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_setup_preset(render_panel):
+class MitsubaRender_PT_setup_preset(mts_render_panel):
 	'''
 	Engine settings presets UI Panel
 	'''
@@ -90,7 +90,7 @@ class MitsubaRender_PT_setup_preset(render_panel):
 		super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_engine(render_panel):
+class MitsubaRender_PT_engine(mts_render_panel):
 	'''
 	Engine settings UI Panel
 	'''
@@ -108,7 +108,7 @@ class MitsubaRender_PT_engine(render_panel):
 		rd = context.scene.render
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_integrator(render_panel):
+class MitsubaRender_PT_integrator(mts_render_panel):
 	'''
 	Integrator settings UI Panel
 	'''
@@ -120,7 +120,7 @@ class MitsubaRender_PT_integrator(render_panel):
 	]
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_adaptive(render_panel):
+class MitsubaRender_PT_adaptive(mts_render_panel):
 	'''
 	Adaptive settings UI Panel
 	'''
@@ -139,7 +139,7 @@ class MitsubaRender_PT_adaptive(render_panel):
 		return super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_irrcache(render_panel):
+class MitsubaRender_PT_irrcache(mts_render_panel):
 	'''
 	Sampler settings UI Panel
 	'''
@@ -158,7 +158,7 @@ class MitsubaRender_PT_irrcache(render_panel):
 		return super().draw(context)
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_sampler(render_panel):
+class MitsubaRender_PT_sampler(mts_render_panel):
 	'''
 	Sampler settings UI Panel
 	'''
@@ -170,7 +170,7 @@ class MitsubaRender_PT_sampler(render_panel):
 	]
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_testing(render_panel):
+class MitsubaRender_PT_testing(mts_render_panel):
 	bl_label = 'Mitsuba Test/Debugging Options'
 	bl_options = {'DEFAULT_CLOSED'}
 	
@@ -178,25 +178,18 @@ class MitsubaRender_PT_testing(render_panel):
 		( ('scene',), 'mitsuba_testing' )
 	]
 
-class render_layer_panel(bl_ui.properties_render_layer.RenderLayerButtonsPanel, property_group_renderer):
-	'''
-	Base class for render layer panels
-	'''
-	
-	COMPAT_ENGINES = { 'MITSUBA_RENDER' }
-
 @MitsubaAddon.addon_register_class
-class MitsubaRenderLayer_PT_layers(render_layer_panel):
+class MitsubaRenderLayer_PT_layer_selector(mts_render_panel):
 	'''
-	Render Layers UI panel
+	Render Layers Selector panel
 	'''
 	
-	bl_label = 'Layers'
+	bl_label = 'Layer Selector'
 	bl_options = {'HIDE_HEADER'}
 	bl_context = "render_layer"
 	
 	def draw(self, context):
-		#Add in Blender's layer chooser, this taken from Blender's startup/properties_render_layer.py
+		#Add in Blender's layer chooser, this is taken from Blender's startup/properties_render_layer.py
 		layout = self.layout
 		
 		scene = context.scene
@@ -217,17 +210,16 @@ class MitsubaRenderLayer_PT_layers(render_layer_panel):
 		row.prop(rd, "use_single_layer", text="", icon_only=True)
 
 @MitsubaAddon.addon_register_class
-class MitsubaRenderLayer_PT_layer_options(render_layer_panel):
+class MitsubaRenderLayer_PT_layers(mts_render_panel):
 	'''
-	Render Layers UI panel
+	Render Layers panel
 	'''
 	
-	bl_label = 'Layers'
-	bl_options = {'DEFAULT_CLOSED'}
+	bl_label = 'Layer'
 	bl_context = "render_layer"
 	
 	def draw(self, context):
-		#Add in Blender's layer stuff, this taken from Blender's startup/properties_render_layer.py
+		#Add in Blender's layer stuff, this is taken from Blender's startup/properties_render_layer.py
 		layout = self.layout
 		
 		scene = context.scene
@@ -238,5 +230,6 @@ class MitsubaRenderLayer_PT_layer_options(render_layer_panel):
 		
 		col = split.column()
 		col.prop(scene, "layers", text="Scene")
+		col.label(text="")
 		col = split.column()
 		col.prop(rl, "layers", text="Layer")
