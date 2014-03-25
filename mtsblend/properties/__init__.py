@@ -28,7 +28,7 @@ class mitsuba_node(bpy.types.Node):
 	#This node is only for the Mitsuba node-tree
 	@classmethod	
 	def poll(cls, tree):
-		return tree.bl_idname == 'mitsuba_material_nodes'
+		return tree.bl_idname == 'Mitsuba_material_nodes'
 		
 class mitsuba_texture_node(mitsuba_node):
 	pass

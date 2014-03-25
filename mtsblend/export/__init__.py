@@ -26,7 +26,7 @@ import collections, math, os
 import bpy
 import copy, subprocess
 import string
-from mathutils import Matrix
+import mathutils
 
 from extensions_framework import util as efutil
 

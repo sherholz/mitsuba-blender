@@ -295,26 +295,26 @@ class mitsuba_material_type_node_coating(mitsuba_material_node):
 		return make_material(mat_type, self.name, coating_params)
 
 @MitsubaAddon.addon_register_class
-class mitsuba_material_type_node_bump(mitsuba_material_node):
-	'''Bump material node'''
-	bl_idname = 'mitsuba_bsdf_bump_node'
-	bl_label = 'Bump'
+class mitsuba_material_type_node_bumpmap(mitsuba_material_node):
+	'''Bumpmap material node'''
+	bl_idname = 'mitsuba_bsdf_bumpmap_node'
+	bl_label = 'Bumpmap'
 	bl_icon = 'MATERIAL'
 	bl_width_min = 160
 	
 	def init(self, context):
 		self.inputs.new('NodeSocketShader', 'BSDF')
-		self.inputs.new('mitsuba_TF_bump_socket', 'Bump Texture')
+		self.inputs.new('mitsuba_TF_bumpmap_socket', 'Bumpmap Texture')
 		
 		self.outputs.new('NodeSocketShader', 'Surface')
 	
 	def export_material(self, make_material, make_texture):
-		mat_type = 'bump'
+		mat_type = 'bumpmap'
 		
-		bump_params = ParamSet()
-		bump_params.update( get_socket_paramsets(self.inputs, make_texture) )
+		bumpmap_params = ParamSet()
+		bumpmap_params.update( get_socket_paramsets(self.inputs, make_texture) )
 		
-		return make_material(mat_type, self.name, bump_params)
+		return make_material(mat_type, self.name, bumpmap_params)
 
 @MitsubaAddon.addon_register_class
 class mitsuba_material_type_node_phong(mitsuba_material_node):

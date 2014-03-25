@@ -70,12 +70,6 @@ class SceneExporter(object):
 			if scene is None:
 				raise Exception('Scene is not valid for export to %s'%self.properties.filename)
 			
-			addon_prefs = MitsubaAddon.get_prefs()
-			mitsuba_path = addon_prefs.install_path
-			if mitsuba_path == '':
-				MtsLog("Error: the Mitsuba binary path was not specified!")
-				return False
-			
 			# Set up the rendering context
 			self.report({'INFO'}, 'Creating Mitsuba context')
 			created_mts_manager = False
@@ -107,7 +101,7 @@ class SceneExporter(object):
 					mts_filename,
 				)
 				
-			mts_context.exportIntegrator(scene)
+			mts_context.pmgr_create(scene.mitsuba_integrator.api_output())
 			
 			# Export all the Participating media
 			for media in scene.mitsuba_media.media:
@@ -116,13 +110,13 @@ class SceneExporter(object):
 			# Always export all Cameras, active camera last
 			allCameras = [cam for cam in scene.objects if cam.type == 'CAMERA' and cam.name != scene.camera.name]
 			for camera in allCameras:
-				mts_context.exportCamera(scene, camera)
-			mts_context.exportCamera(scene, scene.camera)
+				mts_context.pmgr_create(camera.data.mitsuba_camera.api_output(mts_context, scene))
+			mts_context.pmgr_create(scene.camera.data.mitsuba_camera.api_output(mts_context, scene))
 			
 			# Get all renderable LAMPS
 			renderableLamps = [lmp for lmp in scene.objects if is_obj_visible(scene, lmp) and lmp.type == 'LAMP']
 			for lamp in renderableLamps:
-				mts_context.exportLamp(scene, lamp)
+				mts_context.pmgr_create(lamp.data.mitsuba_lamp.api_output(mts_context, scene))
 			
 			# Export geometry
 			GE = export_geometry.GeometryExporter(mts_context, scene)

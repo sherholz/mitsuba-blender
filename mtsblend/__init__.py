@@ -21,7 +21,6 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
-
 bl_info = {
 	"name": "Mitsuba",
 	"author": "Wenzel Jakob, Bartosz Styperek, Francesc Juhe",

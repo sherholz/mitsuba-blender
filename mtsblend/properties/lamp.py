@@ -21,6 +21,10 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
+import math, mathutils
+
+import extensions_framework.util as efutil
+
 from extensions_framework import declarative_property_group
 from extensions_framework.validate import Logic_Operator, Logic_OR as LO
 
@@ -89,27 +93,28 @@ class mitsuba_lamp(declarative_property_group):
 			'soft_max': 1e5,
 			'save_in_preset': True
 		},
-		{
-			'type': 'enum',
-			'attr': 'envmap_type',
-			'name': 'Environment map type',
-			'description': 'Environment map type',
-			'default': 'constant',
-			'items': [
-				('constant', 'Constant background source', 'constant'),
-				('envmap', 'HDRI environment map', 'envmap')
-			],
-			'save_in_preset': True
-		},
-		{
-			'type': 'string',
-			'subtype': 'FILE_PATH',
-			'attr': 'envmap_file',
-			'name': 'HDRI Map',
-			'description': 'EXR image to use for lighting (in latitude-longitude format)',
-			'default': '',
-			'save_in_preset': True
-		},
+	] + LampMediumParameter('exterior', 'Exterior Medium')
+	
+	def api_output(self, mts_context, scene, lamp = None):
+		if lamp is None:
+			lamp = next(l for l in scene.objects if l.type == 'LAMP' and l.data.name == self.id_data.name)
+			if lamp is  None:
+				MtsLog("Error: Lamp not found!")
+				return
+		
+		if lamp.data.type in ['POINT', 'SPOT', 'SUN', 'AREA', 'HEMI']:
+			ltype = getattr(lamp.data.mitsuba_lamp, 'mitsuba_lamp_%s' % str(lamp.data.type).lower())
+			return ltype.api_output(mts_context, lamp)
+
+@MitsubaAddon.addon_register_class	
+class mitsuba_lamp_point(declarative_property_group):
+	ef_attach_to = ['mitsuba_lamp']
+	
+	controls = [
+		'radius',
+	]
+	
+	properties = [
 		{
 			'type': 'float',
 			'attr': 'radius',
@@ -119,7 +124,53 @@ class mitsuba_lamp(declarative_property_group):
 			'min': 0.001,
 			'max': 30.0,
 		}
-	] + LampMediumParameter('exterior', 'Exterior Medium')
+	]
+	
+	def api_output(self, mts_context, lamp):
+		mlamp = lamp.data.mitsuba_lamp
+		mult = mlamp.intensity
+		
+		return {
+			'type' : 'sphere',
+			'center' : mts_context.point(lamp.location.x, lamp.location.y, lamp.location.z),
+			'radius' : mlamp.mitsuba_lamp_point.radius,
+			'emitter' : {
+				'type' : 'area',
+				'id' : '%s-pointlight' % lamp.name,
+				'radiance' : mts_context.spectrum(lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult),
+				'samplingWeight' : mlamp.samplingWeight,
+			},
+			'bsdf' : {
+				'type' : 'diffuse',
+				'reflectance' : mts_context.spectrum(lamp.data.color.r, lamp.data.color.g, lamp.data.color.b),
+			},
+		}
+		#if mlamp.exterior_medium != '':
+		#	self.exportMediumReference('', mlamp.exterior_medium)
+
+@MitsubaAddon.addon_register_class	
+class mitsuba_lamp_spot(declarative_property_group):
+	ef_attach_to = ['mitsuba_lamp']
+	
+	controls = []
+	
+	properties = []
+	
+	def api_output(self, mts_context, lamp):
+		mlamp = lamp.data.mitsuba_lamp
+		mult = mlamp.intensity
+		
+		return {
+			'type' : 'spot',
+			'id' : '%s-spotlight' % lamp.name,
+			'toWorld' : mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((-1,0,0,0),(0,1,0,0),(0,0,-1,0),(0,0,0,1)))),
+			'intensity' : mts_context.spectrum(lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult),
+			'cutoffAngle' : (lamp.data.spot_size * 180 / (math.pi * 2)),
+			'beamWidth' : ((1-lamp.data.spot_blend) * lamp.data.spot_size * 180 / (math.pi * 2)),
+			'samplingWeight' : mlamp.samplingWeight,
+		}
+		#if mlamp.exterior_medium != '':
+		#	self.exportMediumReference('', mlamp.exterior_medium)
 
 @MitsubaAddon.addon_register_class	
 class mitsuba_lamp_sun(declarative_property_group):
@@ -241,27 +292,127 @@ class mitsuba_lamp_sun(declarative_property_group):
 		}
 	]
 	
-	def get_paramset(self, lamp_object):
-		params = ParamSet()
+	def api_output(self, mts_context, lamp):
+		# sun is considered environment light by Mitsuba
+		if mts_context.hemi_lights >= 1:
+			# Mitsuba supports only one environment light
+			return False
+		mts_context.hemi_lights += 1
 		
-		params.add_float('turbidity', self.turbidity)
-		if self.sunsky_advanced and self.sunsky_type != 'sun':
-			params.add_float('stretch', self.stretch)
-			params.add_color('albedo', self.albedo)
-		if self.sunsky_advanced and self.sunsky_type == 'sky':
-			params.add_float('scale', self.skyScale)
-		elif self.sunsky_advanced and self.sunsky_type == 'sun':
-			params.add_float('scale', self.sunScale)
-			params.add_float('sunRadiusScale', self.sunScale)
-		elif self.sunsky_advanced and self.sunsky_type == 'sunsky':
-			params.add_float('skyScale', self.skyScale)
-			params.add_float('sunScale', self.sunScale)
-			params.add_float('sunRadiusScale', self.sunRadiusScale)
-		if self.sunsky_advanced:
-			params.add_integer('resolution', self.resolution)
+		mlamp = lamp.data.mitsuba_lamp
+		msun = mlamp.mitsuba_lamp_sun
+		invmatrix = lamp.matrix_world
 		
-		#if self.sunsky_advanced and self.sunsky_type != 'sun':
-			#params.add_float('horizonbrightness', self.horizonbrightness)
-			#params.add_float('horizonsize', self.horizonsize)
+		params = {
+			'type' : mlamp.mitsuba_lamp_sun.sunsky_type,
+			'id' : '%s-sunlight' % lamp.name,
+			'samplingWeight' : mlamp.samplingWeight,
+			'turbidity' : msun.turbidity,
+			'sunDirection' : mts_context.vector(invmatrix[0][2], invmatrix[1][2], invmatrix[2][2]),
+		}
+		
+		if msun.sunsky_advanced:
+			params.update({'resolution': msun.resolution})
+			if msun.sunsky_type != 'sun':
+				params.update({'stretch': msun.stretch})
+				params.update({'albedo': mts_context.spectrum(msun.albedo.r, msun.albedo.g, msun.albedo.b)})
+			if msun.sunsky_type == 'sky':
+				params.update({'scale': msun.skyScale})
+			elif msun.sunsky_type == 'sun':
+				params.update({'scale': msun.sunScale})
+				params.update({'sunRadiusScale': msun.sunScale})
+			elif msun.sunsky_type == 'sunsky':
+				params.update({'skyScale': msun.skyScale})
+				params.update({'sunScale': msun.sunScale})
+				params.update({'sunRadiusScale': msun.sunRadiusScale})
 		
 		return params
+
+@MitsubaAddon.addon_register_class	
+class mitsuba_lamp_area(declarative_property_group):
+	ef_attach_to = ['mitsuba_lamp']
+	
+	controls = []
+	
+	properties = []
+	
+	def api_output(self, mts_context, lamp):
+		mlamp = lamp.data.mitsuba_lamp
+		mult = mlamp.intensity
+		
+		(size_x, size_y) = (lamp.data.size/2.0, lamp.data.size/2.0)
+		if lamp.data.shape == 'RECTANGLE':
+			size_y = lamp.data.size_y/2.0
+		return {
+			'type' : 'rectangle',
+			'toWorld' : mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((size_x,0,0,0),(0,size_y,0,0),(0,0,-1,0),(0,0,0,1)))),
+			'emitter' : {
+				'type' : 'area',
+				'id' : '%s-arealight' % lamp.name,
+				'radiance' : mts_context.spectrum(lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult),
+				'samplingWeight' : mlamp.samplingWeight,
+			},
+			'bsdf' : {
+				'type' : 'diffuse',
+				'reflectance' : mts_context.spectrum(lamp.data.color.r, lamp.data.color.g, lamp.data.color.b),
+			},
+		}
+		#if mlamp.exterior_medium != '':
+		#	self.exportMediumReference('', mlamp.exterior_medium)
+
+@MitsubaAddon.addon_register_class	
+class mitsuba_lamp_hemi(declarative_property_group):
+	ef_attach_to = ['mitsuba_lamp']
+	
+	controls = []
+	
+	properties = [
+		{
+			'type': 'enum',
+			'attr': 'envmap_type',
+			'name': 'Environment map type',
+			'description': 'Environment map type',
+			'default': 'constant',
+			'items': [
+				('constant', 'Constant background source', 'constant'),
+				('envmap', 'HDRI environment map', 'envmap')
+			],
+			'save_in_preset': True
+		},
+		{
+			'type': 'string',
+			'subtype': 'FILE_PATH',
+			'attr': 'envmap_file',
+			'name': 'HDRI Map',
+			'description': 'EXR image to use for lighting (in latitude-longitude format)',
+			'default': '',
+			'save_in_preset': True
+		},
+	]
+	
+	def api_output(self, mts_context, lamp):
+		# hemi is environment light by Mitsuba
+		if mts_context.hemi_lights >= 1:
+			# Mitsuba supports only one environment light
+			return False
+		mts_context.hemi_lights += 1
+		
+		mlamp = lamp.data.mitsuba_lamp
+		mult = mlamp.intensity
+		
+		if mlamp.mitsuba_lamp_hemi.envmap_type == 'constant':
+			return {
+				'type' : 'constant',
+				'id' : '%s-hemilight' % lamp.name,
+				'radiance' : mts_context.spectrum(lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult),
+				'samplingWeight' : mlamp.samplingWeight,
+			}
+		elif mlamp.mitsuba_lamp_hemi.envmap_type == 'envmap':
+			return {
+				'type' : 'envmap',
+				'id' : '%s-hemilight' % lamp.name,
+				'toWorld' : mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((1,0,0,0),(0,0,-1,0),(0,1,0,0),(0,0,0,1)))),
+				'filename' : efutil.filesystem_path(mlamp.mitsuba_lamp_hemi.envmap_file),
+				'scale' : mult,
+				'samplingWeight' : mlamp.samplingWeight,
+			}

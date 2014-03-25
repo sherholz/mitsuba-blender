@@ -527,23 +527,23 @@ class mitsuba_TC_albedo_socket(bpy.types.NodeSocket):
 		return albedo_params
 
 @MitsubaAddon.addon_register_class
-class mitsuba_TF_bump_socket(bpy.types.NodeSocket):
-	'''Bump socket'''
-	bl_idname = 'mitsuba_TF_bump_socket'
-	bl_label = 'Bump socket'
+class mitsuba_TF_bumpmap_socket(bpy.types.NodeSocket):
+	'''Bumpmap socket'''
+	bl_idname = 'mitsuba_TF_bumpmap_socket'
+	bl_label = 'Bumpmap socket'
 	
 	# meaningful property
-	def bump_update(self, context):
+	def bumpmap_update(self, context):
 		pass
 	
-	bump = bpy.props.FloatProperty(name=get_props(TF_bumpmap, 'name'), description=get_props(TF_bumpmap, 'description'), default=get_props(TF_bumpmap, 'default'), subtype=get_props(TF_bumpmap, 'subtype'), unit=get_props(TF_bumpmap, 'unit'), min=get_props(TF_bumpmap, 'min'), max=get_props(TF_bumpmap, 'max'), soft_min=get_props(TF_bumpmap, 'soft_min'), soft_max=get_props(TF_bumpmap, 'soft_max'), precision=get_props(TF_bumpmap, 'precision'), update=bump_update)
+	bumpmap = bpy.props.FloatProperty(name=get_props(TF_bumpmap, 'name'), description=get_props(TF_bumpmap, 'description'), default=get_props(TF_bumpmap, 'default'), subtype=get_props(TF_bumpmap, 'subtype'), unit=get_props(TF_bumpmap, 'unit'), min=get_props(TF_bumpmap, 'min'), max=get_props(TF_bumpmap, 'max'), soft_min=get_props(TF_bumpmap, 'soft_min'), soft_max=get_props(TF_bumpmap, 'soft_max'), precision=get_props(TF_bumpmap, 'precision'), update=bumpmap_update)
 	
 	# helper property
 	def default_value_get(self):
-		return self.bump
+		return self.bumpmap
 	
 	def default_value_set(self, value):
-		self.bump = value
+		self.bumpmap = value
 	
 	default_value = bpy.props.FloatProperty(name=get_props(TF_bumpmap, 'name'), description=get_props(TF_bumpmap, 'description'), default=get_props(TF_bumpmap, 'default'), subtype=get_props(TF_bumpmap, 'subtype'), unit=get_props(TF_bumpmap, 'unit'), min=get_props(TF_bumpmap, 'min'), max=get_props(TF_bumpmap, 'max'), soft_min=get_props(TF_bumpmap, 'soft_min'), soft_max=get_props(TF_bumpmap, 'soft_max'), precision=get_props(TF_bumpmap, 'precision'), get=default_value_get, set=default_value_set)
 	
@@ -554,7 +554,7 @@ class mitsuba_TF_bump_socket(bpy.types.NodeSocket):
 		return float_socket_color
 	
 	def get_paramset(self, make_texture):
-		bump_params = ParamSet()
+		bumpmap_params = ParamSet()
 		
 		tex_node = get_linked_node(self)
 		
@@ -562,9 +562,9 @@ class mitsuba_TF_bump_socket(bpy.types.NodeSocket):
 			# only export linked bumpmap sockets
 			tex_name = tex_node.export_texture(make_texture)
 			
-			bump_params.add_texture('bumpmap', tex_name)
+			bumpmap_params.add_texture('bumpmap', tex_name)
 		
-		return bump_params
+		return bumpmap_params
 
 @MitsubaAddon.addon_register_class
 class mitsuba_TF_exponent_socket(bpy.types.NodeSocket):

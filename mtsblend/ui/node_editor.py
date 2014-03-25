@@ -36,7 +36,7 @@ from .. import MitsubaAddon
 class mitsuba_mat_node_editor(bpy.types.NodeTree):
 	'''Mitsuba Material Nodes'''
 
-	bl_idname = 'mitsuba_material_nodes'
+	bl_idname = 'Mitsuba_material_nodes'
 	bl_label = 'Mitsuba Material Nodes'
 	bl_icon = 'MATERIAL'
 	
@@ -77,7 +77,7 @@ class mitsuba_mat_node_editor(bpy.types.NodeTree):
 class mitsuba_node_category(NodeCategory):
 	@classmethod
 	def poll(cls, context):
-		return context.space_data.tree_type == 'mitsuba_material_nodes'
+		return context.space_data.tree_type == 'Mitsuba_material_nodes'
 
 mitsuba_node_catagories = [
 #	mitsuba_node_category("MITSUBA_INPUT", "Input", items = [
@@ -97,7 +97,7 @@ mitsuba_node_catagories = [
 	NodeItem("mitsuba_bsdf_conductor_node"),
 	NodeItem("mitsuba_bsdf_plastic_node"),
 	NodeItem("mitsuba_bsdf_coating_node"),
-	NodeItem("mitsuba_bsdf_bump_node"),
+	NodeItem("mitsuba_bsdf_bumpmap_node"),
 	NodeItem("mitsuba_bsdf_phong_node"),
 	NodeItem("mitsuba_bsdf_ward_node"),
 	NodeItem("mitsuba_bsdf_mixturebsdf_node"),
