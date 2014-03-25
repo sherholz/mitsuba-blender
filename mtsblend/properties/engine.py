@@ -27,16 +27,9 @@ from extensions_framework import util as efutil
 from extensions_framework.validate import Logic_OR as O, Logic_AND as A, Logic_Operator as LO
 
 from .. import MitsubaAddon
-from ..outputs.pure_api import PYMTS_AVAILABLE
 
-def find_apis():
-	apis = [
-		('EXT', 'External', 'EXT'),
-	]
-	if PYMTS_AVAILABLE:
-		apis.append( ('INT', 'Internal', 'INT') )
-	
-	return apis
+addon_prefs = None
+pymts_available = False
 
 @MitsubaAddon.addon_register_class
 class mitsuba_testing(declarative_property_group):
@@ -78,6 +71,22 @@ class mitsuba_engine(declarative_property_group):
 	
 	ef_attach_to = ['Scene']
 	
+	def find_apis(self, context):
+		global addon_prefs
+		global pymts_available
+		apis = [
+			('EXT', 'External', 'EXT'),
+		]
+		if addon_prefs is None:
+			addon_prefs = MitsubaAddon.get_prefs()
+			if addon_prefs is not None:
+				from ..outputs.pure_api import PYMTS_AVAILABLE
+				pymts_available = PYMTS_AVAILABLE
+		if pymts_available:
+			apis.append( ('INT', 'Internal', 'INT') )
+		
+		return apis
+	
 	controls = [
 		'export_type',
 		'binary_name',
@@ -102,8 +111,8 @@ class mitsuba_engine(declarative_property_group):
 			'attr': 'export_type',
 			'name': 'Export Type',
 			'description': 'Run Mitsuba inside or outside of Blender',
-			'default': 'EXT', # if not PYMTS_AVAILABLE else 'INT',
-			'items': find_apis(),
+			#'default': 'EXT', # if not PYMTS_AVAILABLE else 'INT',
+			'items': find_apis,
 			'save_in_preset': True
 		},
 		{

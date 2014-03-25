@@ -21,10 +21,23 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
+import os, sys
+
+from extensions_framework import util as efutil
+
+# Mitsuba libs
+from .. import MitsubaAddon
 from ..outputs import MtsLog
 
-if not 'PYMTS_AVAILABLE' in locals():
+addon_prefs = MitsubaAddon.get_prefs()
+
+if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 	try:
+		if sys.platform == 'win32':
+			if addon_prefs is not None:
+				mitsuba_path = efutil.filesystem_path( addon_prefs.install_path )
+				os.environ['PATH'] = mitsuba_path + os.pathsep + os.environ['PATH']
+		
 		import multiprocessing
 		from .. import mitsuba
 		from mitsuba.core import Scheduler, LocalWorker, Thread
