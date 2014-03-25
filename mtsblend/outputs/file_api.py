@@ -49,6 +49,8 @@ class Custom_Context(object):
 	
 	API_TYPE = 'FILE'
 	
+	
+	
 	context_name = ''
 	files = []
 	file_names = []
@@ -64,6 +66,203 @@ class Custom_Context(object):
 		self.exported_textures = []
 		self.exported_media = []
 		self.hemi_lights = 0
+		
+		# Reverse translation tables for Mitsuba extension dictionary
+		self.plugins = {
+			# Shapes
+			'sphere' : 'shape',
+			'rectangle' : 'shape',
+			'shapegroup' : 'shape',
+			'instance' : 'shape',
+			'serialized' : 'shape',
+			'ply' : 'shape',
+			# Shapes
+			'diffuse' : 'bsdf',
+			# Emitters
+			'area' : 'emitter',
+			'spot' : 'emitter',
+			'constant' : 'emitter',
+			'envmap' : 'emitter',
+			'sun' : 'emitter',
+			'sky' : 'emitter',
+			'sunsky' : 'emitter',
+			# Sensors
+			'perspective' : 'sensor',
+			'thinlens' : 'sensor',
+			'orthographic' : 'sensor',
+			'telecentric' : 'sensor',
+			'spherical' : 'sensor',
+			# Integrators
+			'ao' : 'integrator',
+			'direct' : 'integrator',
+			'path' : 'integrator',
+			'volpath_simple' : 'integrator',
+			'volpath' : 'integrator',
+			'bdpt' : 'integrator',
+			'photonmapper' : 'integrator',
+			'ppm' : 'integrator',
+			'sppm' : 'integrator',
+			'pssmlt' : 'integrator',
+			'mlt' : 'integrator',
+			'erpt' : 'integrator',
+			'ptracer' : 'integrator',
+			'vpl' : 'integrator',
+			'adaptive' : 'integrator',
+			'irrcache' : 'integrator',
+			'multichannel' : 'integrator',
+			# Sample generators
+			'independent' : 'sampler',
+			'stratified' : 'sampler',
+			'ldsampler' : 'sampler',
+			'halton' : 'sampler',
+			'hammersley' : 'sampler',
+			'sobol' : 'sampler',
+			# Films
+			'hdrfilm' : 'film',
+			'ldrfilm' : 'film',
+			# Rfilters
+			'box' : 'rfilter',
+			'tent' : 'rfilter',
+			'gaussian' : 'rfilter',
+			'mitchell' : 'rfilter',
+			'catmullrom' : 'rfilter',
+			'lanczos' : 'rfilter',
+		}
+		
+		self.parameters = {
+			'shape' : {
+				'center' : self._point,
+				'radius' : self._float,
+				'bsdf' : self._addChild,
+				'emitter' : self._addChild,
+				'filename' : self._string,
+				'toWorld' : self._transform,
+				'faceNormals' : self._bool,
+				'ref_bsdf' : self._ref,
+				'ref_subsurface' : self._ref,
+				'ref_interior' : self._ref,
+				'ref_exterior' : self._ref,
+				'ref_shapegroup' : self._ref,
+				'shape' : self._addChild,
+			},
+			'bsdf' : {
+				'reflectance' : self._spectrum,
+			},
+			'emitter' : {
+				'radiance' : self._spectrum,
+				'intensity' : self._spectrum,
+				'cutoffAngle' : self._float,
+				'beamWidth' : self._float,
+				'scale' : self._float,
+				'samplingWeight' : self._float,
+				'filename' : self._string,
+				'toWorld' : self._transform,
+				'turbidity' : self._float,
+				'sunDirection' : self._vector,
+				'resolution' : self._integer,
+				'stretch' : self._float,
+				'albedo' : self._spectrum,
+				'scale' : self._float,
+				'skyScale' : self._float,
+				'sunScale' : self._float,
+				'sunRadiusScale' : self._float,
+			},
+			'sensor' : {
+				'fov' : self._float,
+				'fovAxis' : self._string,
+				'nearClip' : self._float,
+				'farClip' : self._float,
+				'apertureRadius' : self._float,
+				'focusDistance' : self._float,
+				'shutterOpen' : self._float,
+				'shutterClose' : self._float,
+				'toWorld' : self._transform,
+				'sampler' : self._addChild,
+				'film' : self._addChild,
+			},
+			'integrator' : {
+				'shadingSamples' : self._integer,
+				'rayLength' : self._float,
+				'emitterSamples' : self._integer,
+				'bsdfSamples' : self._integer,
+				'strictNormals' : self._bool,
+				'maxDepth' : self._integer,
+				'rrDepth' : self._integer,
+				'lightImage' : self._bool,
+				'sampleDirect' : self._bool,
+				'directSamples' : self._integer,
+				'glossySamples' : self._integer,
+				'globalPhotons' : self._integer,
+				'causticPhotons' : self._integer,
+				'volumePhotons' : self._integer,
+				'globalLookupRadius' : self._float,
+				'causticLookupRadius' : self._float,
+				'lookupSize' : self._integer,
+				'granularity' : self._integer,
+				'photonCount' : self._integer,
+				'initialRadius' : self._float,
+				'alpha' : self._float,
+				'bidirectional' : self._bool,
+				'luminanceSamples' : self._integer,
+				'twoStage' : self._bool,
+				'pLarge' : self._float,
+				'bidirectionalMutation' : self._bool,
+				'lensPerturbation' : self._bool,
+				'causticPerturbation' : self._bool,
+				'multiChainPerturbation' : self._bool,
+				'manifoldPerturbation' : self._bool,
+				'lambda' : self._float,
+				'numChains' : self._float,
+				'maxChains' : self._integer,
+				'chainLength' : self._integer,
+				'shadowMapResolution' : self._integer,
+				'clamping' : self._float,
+				'integrator' : self._addChild,
+				'maxError' : self._float,
+				'pValue' : self._float,
+				'maxSampleFactor' : self._integer,
+				'clampNeighbor' : self._bool,
+				'clampScreen' : self._bool,
+				'debug' : self._bool,
+				'indirectOnly' : self._bool,
+				'gradients' : self._bool,
+				'overture' : self._bool,
+				'quality' : self._float,
+				'qualityAdjustment' : self._float,
+				'resolution' : self._integer,
+			},
+			'sampler' : {
+				'sampleCount' : self._integer,
+				'scramble' : self._integer,
+			},
+			'film' : {
+				# common
+				'width' : self._integer,
+				'height' : self._integer,
+				'fileFormat' : self._string,
+				'pixelFormat' : self._string,
+				'banner' : self._bool,
+				'highQualityEdges' : self._bool,
+				'label[10,10]' : self._string,
+				# hdrfilm
+				'componentFormat' : self._string,
+				'attachLog' : self._bool,
+				# ldrfilm
+				'tonemapMethod' : self._string,
+				'gamma' : self._float,
+				'exposure' : self._float,
+				'key' : self._float,
+				'burn' : self._float,
+				'rfilter' : self._addChild,
+			},
+			'rfilter' : {
+				'stddev' : self._float,
+				'B' : self._float,
+				'C' : self._float,
+				'lobes' : self._integer,
+			},
+		}
+		
 	
 	def wf(self, ind, st, tabs=0):
 		'''
@@ -169,7 +368,7 @@ class Custom_Context(object):
 		
 		self.wf(self.current_file, '<%s' % name, self.file_tabs[self.current_file])
 		for (k, v) in attributes.items():
-			self.wf(self.current_file, ' %s=\"%s\"' % (k, v))
+			self.wf(self.current_file, ' %s=\"%s\"' % (k, v.replace('"','')))
 		self.wf(self.current_file, '>\n')
 		
 		# Indent
@@ -204,6 +403,105 @@ class Custom_Context(object):
 			self.wf(self.current_file, ' %s=\"%s\"' % (k, v))
 		self.wf(self.current_file, '/>\n')
 	
+	# Callback functions
+	
+	def _string(self, name, value):
+		self.parameter('string', name, {'value' : str(value)})
+		#self.wf(self.current_file, '<string name="%s" value="%s"/>\n' % (name, value), self.file_tabs[self.current_file])
+	
+	def _bool(self, name, value):
+		self.parameter('boolean', name, {'value' : str(value).lower()})
+		#self.wf(self.current_file, '<boolean name="%s" value="%s"/>\n' % (name, str(value).lower()), self.file_tabs[self.current_file])
+	
+	def _integer(self, name, value):
+		self.parameter('integer', name, {'value' : '%d' % value})
+		#self.wf(self.current_file, '<integer name="%s" value="%d"/>\n' % (name, value), self.file_tabs[self.current_file])
+	
+	def _float(self, name, value):
+		self.parameter('float', name, {'value' : '%f' % value})
+		#self.wf(self.current_file, '<float name="%s" value="%f"/>\n' % (name, value), self.file_tabs[self.current_file])
+	
+	def _spectrum(self, name, value):
+		self.parameter('spectrum', name, value)
+	
+	def _vector(self, name, value):
+		self.parameter('vector', name, value)
+	
+	def _point(self, name, value):
+		self.parameter('point', name, value)
+	
+	def _transform(self, plugin, params):
+		self.openElement('transform', {'name' : 'toWorld'})
+		for param in params:
+			self.element(param, params[param])
+		self.closeElement()
+	
+	def _ref(self, name, value):
+		self.element('ref', value)
+	
+	def _addChild(self, plugin, param_dict):
+		self.pmgr_create(param_dict)
+	
+	# Funtions to emulate Mitsuba extension API
+	
+	def pmgr_create(self, param_dict):
+		if param_dict is None or type(param_dict) is not dict or len(param_dict) == 0 or 'type' not in param_dict or param_dict['type'] not in self.plugins:
+			return
+		
+		args = {}
+		
+		args['type'] = param_dict.pop('type')
+		if 'id' in param_dict:
+			args['id'] = param_dict.pop('id')
+		
+		plugin = self.plugins[args['type']]
+		if len(param_dict) > 0:
+			self.openElement(plugin, args)
+			valid_parameters = self.parameters[plugin]
+			for param in valid_parameters:
+				if param in param_dict:
+					valid_parameters[param](param, param_dict[param])
+			self.closeElement()
+		elif len(param_dict) == 0:
+			self.element(plugin, args)
+	
+	def spectrum(self, r, g, b):
+		return {'value' : "%f %f %f" % (r, g, b)}
+	
+	def vector(self, x, y, z):
+		# Blender is Z up but Mitsuba is Y up, convert the vector
+		return {'x' : '%f' % x, 'y' : '%f' % z, 'z' : '%f' % -y}
+	
+	def point(self, x, y, z):
+		# Blender is Z up but Mitsuba is Y up, convert the point
+		return {'x' : '%f' % x, 'y' : '%f' % z, 'z' : '%f' % -y}
+	
+	def transform_lookAt(self, origin, target, up):
+		# Blender is Z up but Mitsuba is Y up, convert the lookAt
+		return {
+			'lookat' : {
+				'origin' : '%f, %f, %f' % (origin[0],origin[2],-origin[1]),
+				'target' : '%f, %f, %f' % (target[0],target[2],-target[1]),
+				'up' : '%f, %f, %f' % (up[0],up[2],-up[1])
+			}
+		}
+	
+	def transform_matrix(self, matrix):
+		# Blender is Z up but Mitsuba is Y up, convert the matrix
+		global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
+		l = matrix_to_list( global_matrix * matrix)
+		value = " ".join(["%f" % f for f in  l])
+		return {'matrix' : {'value' : value}}
+	
+	def area_emitter(self, ob_mat):
+		lamp = ob_mat.mitsuba_mat_emitter
+		mult = lamp.intensity
+		return {
+			'type' : 'area',
+			'samplingWeight' : lamp.samplingWeight,
+			'radiance' : self.spectrum(lamp.color.r*mult, lamp.color.g*mult, lamp.color.b*mult),
+		}
+	
 	def exportMatrix(self, matrix):
 		# Blender is Z up but Mitsuba is Y up, convert the matrix
 		global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
@@ -215,9 +513,6 @@ class Custom_Context(object):
 		self.openElement('transform', {'name' : 'toWorld'})
 		self.exportMatrix(trafo)
 		self.closeElement()
-	
-	def exportPoint(self, location):
-		self.parameter('point', 'center', {'x' : location[0],'y' : location[2],'z' : -location[1]})
 	
 	def exportVoxelData(self,objName , scene):
 		obj = None		
@@ -290,121 +585,6 @@ class Custom_Context(object):
 		else:
 			self.element('ref', { 'name' : role, 'id' : medium_name})
 	
-	def exportLamp(self, scene, lamp):
-		ltype = lamp.data.type
-		name = lamp.name
-		mlamp = lamp.data.mitsuba_lamp
-		mult = mlamp.intensity
-		
-		if ltype == 'POINT':
-			self.openElement('shape', { 'type' : 'sphere'})
-			self.exportPoint(lamp.location)
-			self.parameter('float', 'radius', {'value' : mlamp.radius})
-			self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'area'})
-			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
-					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
-			self.parameter('float', 'samplingWeight', {'value' : '%f' % mlamp.samplingWeight})
-			if mlamp.exterior_medium != '':
-				self.exportMediumReference('', mlamp.exterior_medium)
-			self.closeElement()
-			self.closeElement()
-			
-		elif ltype == 'AREA':
-			self.openElement('shape', { 'type' : 'rectangle'} )
-			(size_x, size_y) = (lamp.data.size/2.0, lamp.data.size/2.0)
-			if lamp.data.shape == 'RECTANGLE':
-				size_y = lamp.data.size_y/2.0
-			self.exportWorldTrafo(lamp.matrix_world * Matrix(((size_x,0,0,0),(0,size_y,0,0),(0,0,-1,0),(0,0,0,1))))
-			self.openElement('emitter', { 'id' : '%s-arealight' % name, 'type' : 'area'})
-			self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
-					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
-			self.parameter('float', 'samplingWeight', {'value' : '%f' % mlamp.samplingWeight})
-			if mlamp.exterior_medium != '':
-				self.exportMediumReference('', mlamp.exterior_medium)
-			self.closeElement()
-			self.openElement('bsdf', { 'type' : 'diffuse'})
-			self.parameter('spectrum', 'reflectance', {'value' : '0'})
-			self.closeElement()
-			self.closeElement()
-			
-		elif ltype == 'SUN':
-			# sun is considered environment light by Mitsuba
-			if self.hemi_lights >= 1:
-				# Mitsuba supports only one environment light
-				return False
-			self.hemi_lights += 1
-			invmatrix = lamp.matrix_world
-			skyType = mlamp.mitsuba_lamp_sun.sunsky_type
-			LampParams = getattr(mlamp, 'mitsuba_lamp_sun' ).get_paramset(lamp)
-			if skyType == 'sunsky':
-				self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'sunsky'})
-			elif skyType == 'sun':
-				self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'sun'})
-			elif skyType == 'sky':
-				self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'sky'})
-				#self.parameter('boolean', 'extend', {'value' : '%s' % str(mlamp.mitsuba_lamp_sun.extend).lower()})
-			LampParams.export(self)
-			# Sun needs a Matrix that negates the Z up to Y up conversion
-			#self.exportWorldTrafo(Matrix(((1,0,0,0),(0,0,-1,0),(0,1,0,0),(0,0,0,1))))
-			self.parameter('vector', 'sunDirection', {'x':'%f' % invmatrix[0][2], 'y':'%f' % invmatrix[2][2], 'z':'%f' % -invmatrix[1][2]})
-			self.closeElement()
-			
-		elif ltype == 'SPOT':
-			self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'spot'})
-			self.exportWorldTrafo(lamp.matrix_world * Matrix(((-1,0,0,0),(0,1,0,0),(0,0,-1,0),(0,0,0,1))))
-			self.parameter('rgb', 'intensity', { 'value' : "%f %f %f"
-					% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
-			self.parameter('float', 'cutoffAngle', {'value' : '%f' % (lamp.data.spot_size * 180 / (math.pi * 2))})
-			self.parameter('float', 'beamWidth', {'value' : '%f' % ((1-lamp.data.spot_blend) * lamp.data.spot_size * 180 / (math.pi * 2))})
-			self.parameter('float', 'samplingWeight', {'value' : '%f' % mlamp.samplingWeight})
-			if mlamp.exterior_medium != '':
-				self.exportMediumReference('', mlamp.exterior_medium)
-			self.closeElement()
-			
-		elif ltype == 'HEMI':
-			# hemi is environment light by Mitsuba
-			if self.hemi_lights >= 1:
-				# Mitsuba supports only one environment light
-				return False
-			self.hemi_lights += 1
-			if mlamp.envmap_type == 'constant':
-				self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'constant'})
-				self.parameter('float', 'samplingWeight', {'value' : '%f' % mlamp.samplingWeight})
-				self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
-						% (lamp.data.color.r*mult, lamp.data.color.g*mult, lamp.data.color.b*mult)})
-				self.closeElement()
-			elif mlamp.envmap_type == 'envmap':
-				self.openElement('emitter', { 'id' : '%s-light' % name, 'type' : 'envmap'})
-				self.parameter('string', 'filename', {'value' : efutil.filesystem_path(mlamp.envmap_file)})
-				self.exportWorldTrafo(lamp.matrix_world * Matrix(((1,0,0,0),(0,0,-1,0),(0,1,0,0),(0,0,0,1))))
-				self.parameter('float', 'scale', {'value' : '%f' % mlamp.intensity})
-				self.parameter('float', 'samplingWeight', {'value' : '%f' % mlamp.samplingWeight})
-				self.closeElement()
-	
-	def exportIntegrator(self, scene):
-		pIndent = self.file_tabs[self.current_file]
-		IntegParams = scene.mitsuba_integrator.get_paramset()
-		if scene.mitsuba_adaptive.use_adaptive == True:
-			AdpParams = scene.mitsuba_adaptive.get_paramset()
-			self.openElement('integrator', { 'id' : 'adaptive', 'type' : 'adaptive'})
-			AdpParams.export(self)
-		if scene.mitsuba_irrcache.use_irrcache == True:
-			IrrParams = scene.mitsuba_irrcache.get_paramset()
-			self.openElement('integrator', { 'id' : 'irrcache', 'type' : 'irrcache'})
-			IrrParams.export(self)
-		self.openElement('integrator', { 'id' : 'integrator', 'type' : scene.mitsuba_integrator.type})
-		IntegParams.export(self)
-		while self.file_tabs[self.current_file] > pIndent:
-			self.closeElement()
-	
-	def exportSampler(self, sampler, camera):
-		samplerParams = sampler.get_paramset()
-		mcam = camera.data.mitsuba_camera
-		self.openElement('sampler', { 'id' : '%s-camera_sampler'% camera.name, 'type' : sampler.type})
-		#self.parameter('integer', 'sampleCount', { 'value' : '%i' % sampler.sampleCount})
-		samplerParams.export(self)
-		self.closeElement()
-	
 	def findTexture(self, name):
 		if name in bpy.data.textures:
 			return bpy.data.textures[name]
@@ -432,13 +612,13 @@ class Custom_Context(object):
 		params.export(self)
 		self.closeElement()
 	
-	def exportBump(self, mat):
+	def exportBumpmap(self, mat):
 		mmat = mat.mitsuba_material
 		self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
-		self.element('ref', {'name' : 'bump_ref', 'id' : '%s-material' % mmat.mitsuba_bsdf_bump.ref_name})
+		self.element('ref', {'name' : 'bumpmap_ref', 'id' : '%s-material' % mmat.mitsuba_bsdf_bumpmap.ref_name})
 		self.openElement('texture', {'type' : 'scale'})
-		self.parameter('float', 'scale', {'value' : '%f' % mmat.mitsuba_bsdf_bump.scale})
-		self.element('ref', {'name' : 'bump_ref', 'id' : mmat.mitsuba_bsdf_bump.bump_floattexturename})
+		self.parameter('float', 'scale', {'value' : '%f' % mmat.mitsuba_bsdf_bumpmap.scale})
+		self.element('ref', {'name' : 'bumpmap_ref', 'id' : mmat.mitsuba_bsdf_bumpmap.bumpmap_floattexturename})
 		self.closeElement()
 		self.closeElement()
 	
@@ -492,8 +672,8 @@ class Custom_Context(object):
 		
 		# Export Surface BSDF
 		if mat.mitsuba_material.use_bsdf:
-			if mmat.type == 'bump':
-				self.exportBump(mat)
+			if mmat.type == 'bumpmap':
+				self.exportBumpmap(mat)
 			else:
 				bsdf = getattr(mmat, 'mitsuba_bsdf_%s' % mmat.type)
 				mtype = mmat.type
@@ -531,95 +711,6 @@ class Custom_Context(object):
 				
 				#if (mmat.type in twoSidedMatherial) and needTwoSided:
 				#	self.closeElement()
-	
-	def exportMaterialEmitter(self, ob_mat):
-		lamp = ob_mat.mitsuba_mat_emitter
-		mult = lamp.intensity
-		self.openElement('emitter', { 'type' : 'area'})
-		self.parameter('float', 'samplingWeight', {'value' : '%f' % lamp.samplingWeight})
-		self.parameter('rgb', 'radiance', { 'value' : "%f %f %f"
-				% (lamp.color.r*mult, lamp.color.g*mult, lamp.color.b*mult)})
-		self.closeElement()
-	
-	def exportFilm(self, scene, camera):
-		film = camera.data.mitsuba_camera.mitsuba_film
-		filmParams = film.get_paramset()
-		self.openElement('film', {'id' : '%s-camera_film' % camera.name,'type': film.type})
-		[width,height] = film.resolution(scene)
-		self.parameter('integer', 'width', {'value' : '%d' % width})
-		self.parameter('integer', 'height', {'value' : '%d' % height})
-		filmParams.export(self)
-		if film.rfilter in ['gaussian', 'mitchell', 'lanczos']:
-			self.openElement('rfilter', {'type': film.rfilter})
-			if film.rfilter == 'gaussian':
-				self.parameter('float', 'stddev', {'value' : '%f' % film.stddev})
-			elif film.rfilter == 'mitchell':
-				self.parameter('float', 'B', {'value' : '%f' % film.B})
-				self.parameter('float', 'C', {'value' : '%f' % film.C})
-			else:
-				self.parameter('integer', 'lobes', {'value' : '%d' % film.lobes})
-			self.closeElement() # closing rfilter element
-		else:
-			self.element('rfilter', {'type' : film.rfilter})
-		self.closeElement() # closing film element
-	
-	def exportCamera(self, scene, camera):
-		if camera.name in self.exported_cameras:
-			return
-		self.exported_cameras += [camera.name]
-		
-		cam = camera.data
-		mcam = cam.mitsuba_camera
-		
-		# detect sensor type
-		camType = 'orthographic' if cam.type == 'ORTHO' else 'spherical' if cam.type == 'PANO' else 'perspective'
-		if mcam.use_dof == True:
-			camType = 'telecentric' if cam.type == 'ORTHO' else 'thinlens'
-		self.openElement('sensor', { 'id' : '%s-camera' % camera.name, 'type' : str(camType)})
-		self.openElement('transform', {'name' : 'toWorld'})
-		
-		# Remove scale from Camera matrix and rotate 180 degrees on Y axis to point to the right direction
-		loc, rot, sca = camera.matrix_world.decompose()
-		mat_loc = Matrix.Translation(loc)
-		mat_rot = rot.to_matrix().to_4x4()
-		self.exportMatrix(mat_loc * mat_rot * Matrix(((-1,0,0,0),(0,1,0,0),(0,0,-1,0),(0,0,0,1))))
-		
-		if cam.type == 'ORTHO':
-			self.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
-		self.closeElement()
-		if cam.type == 'PERSP':
-			if cam.sensor_fit == 'VERTICAL':
-				sensor = cam.sensor_height
-				axis = 'y'
-			else:
-				sensor = cam.sensor_width
-				axis = 'x'
-			fov = math.degrees(2.0 * math.atan((sensor / 2.0) / cam.lens))
-			self.parameter('float', 'fov', {'value' : fov})
-			self.parameter('string', 'fovAxis', {'value' : axis})
-		self.parameter('float', 'nearClip', {'value' : str(cam.clip_start)})
-		self.parameter('float', 'farClip', {'value' : str(cam.clip_end)})
-		if mcam.use_dof == True:
-			self.parameter('float', 'apertureRadius', {'value' : str(mcam.apertureRadius)})
-			self.parameter('float', 'focusDistance', {'value' : str(cam.dof_distance)})
-		
-		#if scene.mitsuba_integrator.motionBlur:
-		if mcam.motionBlur:
-			frameTime = 1.0/scene.render.fps
-			#shutterTime = scene.mitsuba_integrator.shutterTime
-			shutterTime = mcam.shutterTime
-			shutterOpen = (scene.frame_current - shutterTime/2.0) * frameTime
-			shutterClose = (scene.frame_current + shutterTime/2.0) * frameTime
-			self.parameter('float', 'shutterOpen', {'value' : str(shutterOpen)})
-			self.parameter('float', 'shutterClose', {'value' : str(shutterClose)})
-		
-		self.exportSampler(scene.mitsuba_sampler, camera)
-		self.exportFilm(scene, camera)
-		
-		if mcam.exterior_medium != '':
-			self.exportMediumReference('exterior', mcam.exterior_medium)
-		
-		self.closeElement() # closing sensor element 
 	
 	def worldEnd(self):
 		'''

@@ -21,13 +21,15 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
-from .. import MitsubaAddon
 from copy import deepcopy
 
 from extensions_framework import declarative_property_group
 
-from ..properties.texture import (ColorTextureParameter, FloatTextureParameter)
+from .. import MitsubaAddon
 from ..export import ParamSet
+from ..properties.texture import (
+	ColorTextureParameter, FloatTextureParameter
+)
 
 param_scattCoeff = ColorTextureParameter('sigmaS', 'Scattering Coefficient', default=(0.8, 0.8, 0.8))
 param_absorptionCoefficient = ColorTextureParameter('sigmaA', 'Absorption Coefficient', default=(0.0, 0.0, 0.0))
@@ -49,7 +51,7 @@ def texture_append_visibility(vis_main, textureparam_object, vis_append):
 				vis_main[prop['attr']][vk] = vi
 	return vis_main
 
-def MediumParameter(attr, name):
+def WorldMediumParameter(attr, name):
 	return [
 		{
 			'attr': '%s_medium' % attr,
@@ -63,11 +65,39 @@ def MediumParameter(attr, name):
 			'attr': attr,
 			'src': lambda s,c: s.scene.mitsuba_media,
 			'src_attr': 'media',
-			'trg': lambda s,c: c.mitsuba_mat_medium,
+			'trg': lambda s,c: c.mitsuba_world,
 			'trg_attr': '%s_medium' % attr,
 			'name': name
 		}
 	]
+
+@MitsubaAddon.addon_register_class
+class mitsuba_world(declarative_property_group):
+	ef_attach_to = ['Scene']
+	
+	controls = [
+		'default_interior',
+		'default_exterior'
+	]
+	
+	properties = [
+				  {
+				  'attr': 'preview_object_size',
+				  'type': 'float',
+				  'name': 'Preview Object Size',
+				  'description': 'Real Size of the Preview Objects Edges or Sphere-Diameter',
+				  'min': 0.01,
+				  'soft_min': 0.01,
+				  'max': 100.0,
+				  'soft_max': 100.0,
+				  'step': 100,
+				  'default': 2.0,
+				  'subtype': 'DISTANCE',
+				  'unit': 'LENGTH',
+				  }
+				  ] + \
+		WorldMediumParameter('default_interior', 'Default Interior') + \
+		WorldMediumParameter('default_exterior', 'Default Exterior')
 
 @MitsubaAddon.addon_register_class
 class mitsuba_medium_data(declarative_property_group):

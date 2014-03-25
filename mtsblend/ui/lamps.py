@@ -52,76 +52,73 @@ class MitsubaLamp_PT_lamps(mts_lamps_panel):
 			else:
 				layout.prop(lamp, "type", text="")
 
-			split = layout.split()
+			#rowBut = layout.row(align=True)
+			#rowBut.operator("mitsuba.convert_all_lamps")
+			#rowBut.operator("mitsuba.convert_active_lamps")#, icon='WORLD_DATA'
 			
-			col = split.column()
-			
-			rowBut = layout.row(align=True)
-			rowBut.operator("mitsuba.convert_all_lamps")
-			rowBut.operator("mitsuba.convert_active_lamps")#, icon='WORLD_DATA'
-			
-			if lamp.type == 'HEMI':
-				layout.prop(lamp.mitsuba_lamp, "envmap_type", text="Type")
-
-			if not(lamp.type == 'HEMI' and
-					lamp.mitsuba_lamp.envmap_type == 'envmap'):
-				layout.prop(lamp, "color", text="Color")
-			else:
-				layout.prop(lamp.mitsuba_lamp, "envmap_file", text="HDRI file")
 			layout.prop(lamp.mitsuba_lamp, "intensity", text="Intensity")
 			layout.prop(lamp.mitsuba_lamp, "samplingWeight", text = "Sampling weight")
-			
-			# Point LAMP: Blender Properties
-			if lamp.type == 'POINT':
-				wide_ui = context.region.width > narrowui
-				
-				if wide_ui:
-					#col = split.column()
-					col=layout.row()
-				else:
-					col=layout.column()
-				col.prop(lamp.mitsuba_lamp, "radius", text="Size")
-				col=layout.row()
-
-			# SPOT LAMP: Blender Properties
-			if lamp.type == 'SPOT':
-				wide_ui = context.region.width > narrowui
-				
-				if wide_ui:
-					#col = split.column()
-					col=layout.row()
-				else:
-					col=layout.column()
-				col.prop(lamp, "spot_size", text="Size")
-				col.prop(lamp, "spot_blend", text="Blend", slider=True)
-				col=layout.row()
-				col.prop(lamp, "show_cone")
-
-			# AREA LAMP: Blender Properties
-			elif lamp.type == 'AREA':
-				if wide_ui:
-					col=layout.row()
-				else:
-					col=layout.column()
-				col.row().prop(lamp, "shape", expand=True)
-				sub = col.column(align=True)
-
-				if (lamp.shape == 'SQUARE'):
-					sub.prop(lamp, "size")
-				elif (lamp.shape == 'RECTANGLE'):
-					sub.prop(lamp, "size", text="Size X")
-					sub.prop(lamp, "size_y", text="Size Y")
-			elif wide_ui:
-				col = split.column()
 			
 			layout.prop_search(
 				lamp.mitsuba_lamp, 'exterior_medium',
 				context.scene.mitsuba_media, 'media',
 				text = 'Medium'
 			)
-			
-			if lamp.type == 'HEMI':
-				layout.label('Note: covers the whole sphere')
+
+@MitsubaAddon.addon_register_class
+class MitsubaLamp_PT_point(mts_lamps_panel):
+	bl_label = 'Mitsuba Point Lamp'
+	
+	display_property_groups = [
+		( ('lamp','mitsuba_lamp'), 'mitsuba_lamp_point' )
+	]
+	
+	@classmethod
+	def poll(cls, context):
+		return super().poll(context) and context.lamp.type == 'POINT'
+	
+	def draw(self, context):
+		layout = self.layout
+		lamp = context.lamp
+		wide_ui = context.region.width > narrowui
+		
+		layout.prop(lamp, "color", text="Color")
+		
+		if wide_ui:
+			col=layout.row()
+		else:
+			col=layout.column()
+		
+		col.prop(lamp.mitsuba_lamp.mitsuba_lamp_point, "radius", text="Size")
+
+@MitsubaAddon.addon_register_class
+class MitsubaLamp_PT_spot(mts_lamps_panel):
+	bl_label = 'Mitsuba Spot Lamp'
+	
+	display_property_groups = [
+		( ('lamp','mitsuba_lamp'), 'mitsuba_lamp_spot' )
+	]
+	
+	@classmethod
+	def poll(cls, context):
+		return super().poll(context) and context.lamp.type == 'SPOT'
+	
+	def draw(self, context):
+		layout = self.layout
+		lamp = context.lamp
+		wide_ui = context.region.width > narrowui
+		
+		layout.prop(lamp, "color", text="Color")
+		
+		if wide_ui:
+			col=layout.row()
+		else:
+			col=layout.column()
+		
+		col.prop(lamp, "spot_size", text="Size")
+		col.prop(lamp, "spot_blend", text="Blend", slider=True)
+		col=layout.row()
+		col.prop(lamp, "show_cone")
 
 @MitsubaAddon.addon_register_class
 class MitsubaLamp_PT_sun(mts_lamps_panel):
@@ -134,3 +131,62 @@ class MitsubaLamp_PT_sun(mts_lamps_panel):
 	@classmethod
 	def poll(cls, context):
 		return super().poll(context) and context.lamp.type == 'SUN'
+
+@MitsubaAddon.addon_register_class
+class MitsubaLamp_PT_area(mts_lamps_panel):
+	bl_label = 'Mitsuba Area Lamp'
+	
+	display_property_groups = [
+		( ('lamp','mitsuba_lamp'), 'mitsuba_lamp_area' )
+	]
+	
+	@classmethod
+	def poll(cls, context):
+		return super().poll(context) and context.lamp.type == 'AREA'
+	
+	def draw(self, context):
+		layout = self.layout
+		lamp = context.lamp
+		wide_ui = context.region.width > narrowui
+		
+		layout.prop(lamp, "color", text="Color")
+		
+		if wide_ui:
+			col=layout.row()
+		else:
+			col=layout.column()
+		
+		col.row().prop(lamp, "shape", expand=True)
+		sub = col.column(align=True)
+		
+		if (lamp.shape == 'SQUARE'):
+			sub.prop(lamp, "size")
+		elif (lamp.shape == 'RECTANGLE'):
+			sub.prop(lamp, "size", text="Size X")
+			sub.prop(lamp, "size_y", text="Size Y")
+
+@MitsubaAddon.addon_register_class
+class MitsubaLamp_PT_hemi(mts_lamps_panel):
+	bl_label = 'Mitsuba Hemi Lamp'
+	
+	display_property_groups = [
+		( ('lamp','mitsuba_lamp'), 'mitsuba_lamp_hemi' )
+	]
+	
+	@classmethod
+	def poll(cls, context):
+		return super().poll(context) and context.lamp.type == 'HEMI'
+	
+	def draw(self, context):
+		layout = self.layout
+		lamp = context.lamp
+		wide_ui = context.region.width > narrowui
+		
+		layout.prop(lamp.mitsuba_lamp.mitsuba_lamp_hemi, "envmap_type", text="Type")
+		
+		if lamp.mitsuba_lamp.mitsuba_lamp_hemi.envmap_type == 'envmap':
+			layout.prop(lamp.mitsuba_lamp.mitsuba_lamp_hemi, "envmap_file", text="HDRI file")
+		else:
+			layout.prop(lamp, "color", text="Color")
+		
+		layout.label('Note: covers the whole sphere')

@@ -75,7 +75,7 @@ TF_alphaRoughnessU = FloatTextureParameter('alphaU', 'Roughness U', add_float_va
 TF_alphaRoughnessV = FloatTextureParameter('alphaV', 'Roughness V', add_float_value=True, default=0.1)
 TF_exponent = FloatTextureParameter('exponent', 'Exponent', add_float_value=True, default=30, max=1000)
 TF_weightBlend = FloatTextureParameter('weight', 'Blending factor', add_float_value=True, default=0.2)
-TF_bumpmap = FloatTextureParameter('bump', 'Bump Texture', add_float_value=False, default=1.0, precision=6, ignore_unassigned=True, subtype='DISTANCE', unit='LENGTH')
+TF_bumpmap = FloatTextureParameter('bumpmap', 'Bumpmap Texture', add_float_value=False, default=1.0, precision=6, ignore_unassigned=True, subtype='DISTANCE', unit='LENGTH')
 
 # Color Textures
 TC_reflectance = ColorTextureParameter('reflectance', 'Reflectance Color', default=(0.5, 0.5, 0.5))
@@ -129,7 +129,7 @@ class mitsuba_material(declarative_property_group):
 				('conductor', 'Conductor', 'conductor'),
 				('plastic', 'Plastic', 'plastic'),
 				('coating', 'Dielectric coating', 'coating'),
-				('bump', 'Bump map modifier', 'bump'),
+				('bumpmap', 'Bumpmap map modifier', 'bumpmap'),
 				('phong','Modified Phong BRDF', 'phong'),
 				('ward', 'Anisotropic Ward BRDF', 'ward'),
 				('mixturebsdf', 'Mixture material', 'mixturebsdf'),
@@ -777,13 +777,13 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		params.add_color('weft_ks', self.weft_ks)
 		return params
 
-def BumpProperty():
+def BumpmapProperty():
 	return [
 		{
 			'attr': 'ref_name',
 			'type': 'string',
 			'name': 'Material Reference Name',
-			'description': 'Bump Material',
+			'description': 'Bumpmap Material',
 			'save_in_preset': True
 		},
 		{
@@ -791,14 +791,14 @@ def BumpProperty():
 			'attr': 'mat_list',
 			'src': lambda s,c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_bump,
+			'trg': lambda s,c: c.mitsuba_bsdf_bumpmap,
 			'trg_attr': 'ref_name',
-			'name': 'Bump Material'
+			'name': 'Bumpmap Material'
 		}
 	]
 
 @MitsubaAddon.addon_register_class
-class mitsuba_bsdf_bump(declarative_property_group):
+class mitsuba_bsdf_bumpmap(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	
 	controls = [
@@ -824,7 +824,7 @@ class mitsuba_bsdf_bump(declarative_property_group):
 			'type': 'float',
 			'attr': 'scale',
 			'name' : 'Strength',
-			'description' : 'Bump strength multiplier',
+			'description' : 'Bumpmap strength multiplier',
 			'default' : 1.0,
 			'min': 0.001,
 			'max': 100.0,
@@ -832,7 +832,7 @@ class mitsuba_bsdf_bump(declarative_property_group):
 		}
 	] + \
 		TF_bumpmap.properties + \
-		BumpProperty()
+		BumpmapProperty()
 	
 	visibility = TF_bumpmap.visibility 
 	

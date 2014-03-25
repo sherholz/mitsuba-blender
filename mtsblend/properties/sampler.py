@@ -87,12 +87,14 @@ class mitsuba_sampler(declarative_property_group):
 		}
 	]
 	
-	def get_paramset(self):
-		params = ParamSet()
-		params.add_integer('sampleCount', self.sampleCount)
-		if self.type == 'halton' or self.type == 'hammersley':
-			params.add_integer('scramble', self.scramble)
-		elif self.type == 'sobol':
-			params.add_integer('scramble', str(int(self.scramble)+1))
+	def api_output(self):
+		sampler_dict = {}
 		
-		return params
+		sampler_dict['type'] = self.type
+		sampler_dict['sampleCount'] = self.sampleCount
+		if self.type == 'halton' or self.type == 'hammersley':
+			sampler_dict['scramble'] = self.scramble
+		elif self.type == 'sobol':
+			sampler_dict['scramble'] = self.scramble + 1
+		
+		return sampler_dict

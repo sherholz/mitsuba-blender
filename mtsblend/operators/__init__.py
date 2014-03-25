@@ -60,7 +60,7 @@ class MITSUBA_OT_add_material_nodetree(bpy.types.Operator):
 		context_data = {'material':context.material, 'lamp':context.lamp }
 		idblock = context_data[idtype]
 		
-		nt = bpy.data.node_groups.new(idblock.name, type='mitsuba_material_nodes')
+		nt = bpy.data.node_groups.new(idblock.name, type='Mitsuba_material_nodes')
 		nt.use_fake_user = True
 		idblock.mitsuba_material.nodetree = nt.name
 		
@@ -73,7 +73,7 @@ class MITSUBA_OT_add_material_nodetree(bpy.types.Operator):
 		if ctx_mat.type == 'conductor': editor_type = ctx_mat.mitsuba_bsdf_conductor
 		if ctx_mat.type == 'plastic': editor_type = ctx_mat.mitsuba_bsdf_plastic
 		if ctx_mat.type == 'coating': editor_type = ctx_mat.mitsuba_bsdf_coating
-		if ctx_mat.type == 'bump': editor_type = ctx_mat.mitsuba_bsdf_bump
+		if ctx_mat.type == 'bumpmap': editor_type = ctx_mat.mitsuba_bsdf_bumpmap
 		if ctx_mat.type == 'phong': editor_type = ctx_mat.mitsuba_bsdf_phong
 		if ctx_mat.type == 'ward': editor_type = ctx_mat.mitsuba_bsdf_ward
 		if ctx_mat.type == 'mixturebsdf': editor_type = ctx_mat.mitsuba_bsdf_mixturebsdf

@@ -497,90 +497,120 @@ class mitsuba_integrator(declarative_property_group):
 		},
 	]
 	
-	def get_paramset(self):
-		params = ParamSet()
+	def api_output(self):
+		params = {}
+		
 		if self.type == 'ao':
-			params.add_integer('shadingSamples', self.shadingSamples)
-			params.add_float('rayLength', self.rayLength)
+			params = {
+				'shadingSamples' : self.shadingSamples,
+				'rayLength' : self.rayLength,
+			}
 		elif self.type == 'direct':
-			params.add_integer('emitterSamples', self.emitterSamples)
-			params.add_integer('bsdfSamples', self.bsdfSamples)
-			params.add_bool('strictNormals', self.strictNormals)
+			params = {
+				'emitterSamples' : self.emitterSamples,
+				'bsdfSamples' : self.bsdfSamples,
+				'strictNormals' : self.strictNormals,
+			}
 		elif self.type in ['path', 'volpath_simple', 'volpath']:
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_integer('rrDepth', self.rrDepth)
-			params.add_bool('strictNormals', self.strictNormals)
+			params = {
+				'maxDepth' : self.maxDepth,
+				'rrDepth' : self.rrDepth,
+				'strictNormals' : self.strictNormals,
+			}
 		elif self.type == 'bdpt':
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_bool('lightImage', self.lightImage)
-			params.add_bool('sampleDirect', self.sampleDirect)
-			params.add_integer('rrDepth', self.rrDepth)
+			params = {
+				'maxDepth' : self.maxDepth,
+				'lightImage' : self.lightImage,
+				'sampleDirect' : self.sampleDirect,
+				'rrDepth' : self.rrDepth,
+			}
 		elif self.type == 'photonmapper':
-			params.add_integer('directSamples', self.directSamples)
-			params.add_integer('glossySamples', self.glossySamples)
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_integer('globalPhotons', self.globalPhotons)
-			params.add_integer('causticPhotons', self.causticPhotons)
-			params.add_integer('volumePhotons', self.volumePhotons)
-			params.add_float('globalLookupRadius', self.globalLookupRadius)
-			params.add_float('causticLookupRadius', self.causticLookupRadius)
-			params.add_integer('lookupSize', self.causticLookupSize)
-			params.add_integer('granularity', self.granularityPM)
-			params.add_integer('rrDepth', self.rrDepth)
+			params = {
+				'directSamples' : self.directSamples,
+				'glossySamples' : self.glossySamples,
+				'maxDepth' : self.maxDepth,
+				'globalPhotons' : self.globalPhotons,
+				'causticPhotons' : self.causticPhotons,
+				'volumePhotons' : self.volumePhotons,
+				'globalLookupRadius' : self.globalLookupRadius,
+				'causticLookupRadius' : self.causticLookupRadius,
+				'lookupSize' : self.causticLookupSize,
+				'granularity' : self.granularityPM,
+				'rrDepth' : self.rrDepth,
+			}
 		elif self.type in ['ppm', 'sppm']:
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_integer('photonCount', self.photonCount)
-			params.add_float('initialRadius', self.initialRadius)
-			params.add_float('alpha', self.alphaR)
-			params.add_integer('granularity', self.granularityPM)
-			params.add_integer('rrDepth', self.rrDepth)
+			params = {
+				'maxDepth' : self.maxDepth,
+				'photonCount' : self.photonCount,
+				'initialRadius' : self.initialRadius,
+				'alpha' : self.alphaR,
+				'granularity' : self.granularityPM,
+				'rrDepth' : self.rrDepth,
+			}
 		elif self.type == 'pssmlt':
-			params.add_bool('bidirectional', self.bidirectional)
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_integer('directSamples', self.directSamples)
-			params.add_integer('rrDepth', self.rrDepth)
-			params.add_integer('luminanceSamples', self.luminanceSamples)
-			params.add_bool('twoStage', self.twoStage)
-			params.add_float('pLarge', self.pLarge)
+			params = {
+				'bidirectional' : self.bidirectional,
+				'maxDepth' : self.maxDepth,
+				'directSamples' : self.directSamples,
+				'rrDepth' : self.rrDepth,
+				'luminanceSamples' : self.luminanceSamples,
+				'twoStage' : self.twoStage,
+				'pLarge' : self.pLarge,
+			}
 		elif self.type == 'mlt':
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_integer('directSamples', self.directSamples)
-			params.add_integer('luminanceSamples', self.luminanceSamples)
-			params.add_bool('twoStage', self.twoStage)
-			params.add_bool('bidirectionalMutation', self.bidirectionalMutation)
-			params.add_bool('lensPerturbation', self.lensPerturbation)
-			params.add_bool('causticPerturbation', self.causticPerturbation)
-			params.add_bool('multiChainPerturbation', self.multiChainPerturbation)
-			params.add_bool('manifoldPerturbation', self.manifoldPerturbation)
-			params.add_float('lambda', self.lambdaMP)
+			params = {
+				'maxDepth' : self.maxDepth,
+				'directSamples' : self.directSamples,
+				'luminanceSamples' : self.luminanceSamples,
+				'twoStage' : self.twoStage,
+				'bidirectionalMutation' : self.bidirectionalMutation,
+				'lensPerturbation' : self.lensPerturbation,
+				'causticPerturbation' : self.causticPerturbation,
+				'multiChainPerturbation' : self.multiChainPerturbation,
+				'manifoldPerturbation' : self.manifoldPerturbation,
+				'lambda' : self.lambdaMP,
+			}
 		elif self.type == 'erpt':
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_float('numChains', self.numChains)
-			params.add_integer('maxChains', self.maxChains)
-			params.add_integer('chainLength', self.chainLength)
-			params.add_integer('directSamples', self.directSamples)
-			params.add_integer('luminanceSamples', self.luminanceSamples)
-			params.add_bool('bidirectionalMutation', self.bidirectionalMutation)
-			params.add_bool('lensPerturbation', self.lensPerturbation)
-			params.add_bool('causticPerturbation', self.causticPerturbation)
-			params.add_bool('multiChainPerturbation', self.multiChainPerturbation)
-			params.add_bool('manifoldPerturbation', self.manifoldPerturbation)
-			params.add_float('lambda', self.lambdaMP)
-			params.add_integer('rrDepth', self.rrDepth)
+			params = {
+				'maxDepth' : self.maxDepth,
+				'numChains' : self.numChains,
+				'maxChains' : self.maxChains,
+				'chainLength' : self.chainLength,
+				'directSamples' : self.directSamples,
+				'luminanceSamples' : self.luminanceSamples,
+				'bidirectionalMutation' : self.bidirectionalMutation,
+				'lensPerturbation' : self.lensPerturbation,
+				'causticPerturbation' : self.causticPerturbation,
+				'multiChainPerturbation' : self.multiChainPerturbation,
+				'manifoldPerturbation' : self.manifoldPerturbation,
+				'lambda' : self.lambdaMP,
+				'rrDepth' : self.rrDepth,
+			}
 		elif self.type == 'ptracer':
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_integer('rrDepth', self.rrDepth)
-			params.add_integer('granularity', self.granularityPT)
+			params = {
+				'maxDepth' : self.maxDepth,
+				'rrDepth' : self.rrDepth,
+				'granularity' : self.granularityPT,
+			}
 		elif self.type == 'vpl':
-			params.add_integer('maxDepth', self.maxDepth)
-			params.add_integer('shadowMapResolution', self.shadowMapResolution)
-			params.add_float('clamping', self.clamping)
+			params = {
+				'maxDepth' : self.maxDepth,
+				'shadowMapResolution' : self.shadowMapResolution,
+				'clamping' : self.clamping,
+			}
+		
+		params['type'] = self.type
+		
+		if self.mitsuba_irrcache.use_irrcache:
+			params = self.mitsuba_irrcache.api_output(params)
+		if self.mitsuba_adaptive.use_adaptive:
+			params = self.mitsuba_adaptive.api_output(params)
 		
 		return params
 
 @MitsubaAddon.addon_register_class
 class mitsuba_adaptive(declarative_property_group):
-	ef_attach_to = ['Scene']
+	ef_attach_to = ['mitsuba_integrator']
 	
 	controls = [
 		'maxError',
@@ -628,17 +658,23 @@ class mitsuba_adaptive(declarative_property_group):
 		}
 	]
 	
-	def get_paramset(self):
-		params = ParamSet()
-		params.add_float('maxError', self.maxError)
-		params.add_float('pValue', self.pValue)
-		params.add_integer('maxSampleFactor', self.maxSampleFactor)
+	def api_output(self, integrator):
 		
-		return params
+		if self.use_adaptive:
+			adaptive = {
+				'type' : 'adaptive',
+				'maxError' : self.maxError,
+				'pValue' : self.pValue,
+				'maxSampleFactor' : self.maxSampleFactor,
+				'integrator' : integrator,
+			}
+			return adaptive
+		else:
+			return integrator
 
 @MitsubaAddon.addon_register_class
 class mitsuba_irrcache(declarative_property_group):
-	ef_attach_to = ['Scene']
+	ef_attach_to = ['mitsuba_integrator']
 	
 	controls = [
 		'resolution',
@@ -740,16 +776,22 @@ class mitsuba_irrcache(declarative_property_group):
 		}
 	]
 	
-	def get_paramset(self):
-		params = ParamSet()
-		params.add_bool('clampNeighbor', self.clampNeighbor)
-		params.add_bool('clampScreen', self.clampScreen)
-		params.add_bool('debug', self.debug)
-		params.add_bool('indirectOnly', self.indirectOnly)
-		params.add_bool('gradients', self.gradients)
-		params.add_bool('overture', self.overture)
-		params.add_float('quality', self.quality)
-		params.add_float('qualityAdjustment', self.qualityAdjustment)
-		params.add_integer('resolution', self.resolution)
+	def api_output(self, integrator):
 		
-		return params
+		if self.use_irrcache:
+			irrcache = {
+				'type' : 'irrcache',
+				'clampNeighbor' : self.clampNeighbor,
+				'clampScreen' : self.clampScreen,
+				'debug' : self.debug,
+				'indirectOnly' : self.indirectOnly,
+				'gradients' : self.gradients,
+				'overture' : self.overture,
+				'quality' : self.quality,
+				'qualityAdjustment' : self.qualityAdjustment,
+				'resolution' : self.resolution,
+				'integrator' : integrator,
+			}
+			return irrcache
+		else:
+			return integrator

@@ -618,22 +618,22 @@ class mitsuba_tex_scale(declarative_property_group):
 	
 	controls = [
 		'scale',
-		'bump_bitmap'
+		'bumpmap_bitmap'
 	]
 	
 	properties = [
 		{
 			'type': 'string',
-			'name' : 'Ref. bump bitmap',
-			'attr': 'bump_bitmap',
-			'description' : 'Points to bump bitmap texture',
+			'name' : 'Ref. bumpmap bitmap',
+			'attr': 'bumpmap_bitmap',
+			'description' : 'Points to bumpmap bitmap texture',
 			'save_in_preset': True
 		},
 		{
 			'attr': 'scale',
 			'type': 'float',
 			'name' : 'Scale',
-			'description' : 'Bump scale',
+			'description' : 'Bumpmap scale',
 			'default' : 1.0,
 			'min': 0.001,
 			'max': 100.0,

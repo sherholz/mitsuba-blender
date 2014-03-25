@@ -128,14 +128,14 @@ class MitsubaRender_PT_adaptive(mts_render_panel):
 	bl_label = 'Use Adaptive Integrator'
 	bl_options = {'DEFAULT_CLOSED'}
 	display_property_groups = [
-		( ('scene',), 'mitsuba_adaptive' )
+		( ('scene', 'mitsuba_integrator',), 'mitsuba_adaptive' )
 	]
 	
 	def draw_header(self, context):
-		self.layout.prop(context.scene.mitsuba_adaptive, "use_adaptive", text="")
+		self.layout.prop(context.scene.mitsuba_integrator.mitsuba_adaptive, "use_adaptive", text="")
 	
 	def draw(self, context):
-		self.layout.active = (context.scene.mitsuba_adaptive.use_adaptive)
+		self.layout.active = (context.scene.mitsuba_integrator.mitsuba_adaptive.use_adaptive)
 		return super().draw(context)
 
 @MitsubaAddon.addon_register_class
@@ -147,14 +147,14 @@ class MitsubaRender_PT_irrcache(mts_render_panel):
 	bl_label = 'Use Irradiance Cache'
 	bl_options = {'DEFAULT_CLOSED'}
 	display_property_groups = [
-		( ('scene',), 'mitsuba_irrcache' )
+		( ('scene', 'mitsuba_integrator',), 'mitsuba_irrcache' )
 	]
 	
 	def draw_header(self, context):
-		self.layout.prop(context.scene.mitsuba_irrcache, "use_irrcache", text="")
+		self.layout.prop(context.scene.mitsuba_integrator.mitsuba_irrcache, "use_irrcache", text="")
 	
 	def draw(self, context):
-		self.layout.active = (context.scene.mitsuba_irrcache.use_irrcache)
+		self.layout.active = (context.scene.mitsuba_integrator.mitsuba_irrcache.use_irrcache)
 		return super().draw(context)
 
 @MitsubaAddon.addon_register_class

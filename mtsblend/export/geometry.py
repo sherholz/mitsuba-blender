@@ -101,6 +101,14 @@ class GeometryExporter(object):
 		self.valid_duplis_callbacks = self.callbacks['duplis'].keys()
 		self.valid_particles_callbacks = self.callbacks['particles'].keys()
 		self.valid_objects_callbacks = self.callbacks['objects'].keys()
+		
+		self.fast_export = False
+		self.serializer = None
+		from ..outputs.pure_api import PYMTS_AVAILABLE
+		if PYMTS_AVAILABLE:
+			self.fast_export = True
+			from ..outputs.pure_api import Custom_Context as Pymts_Context
+			self.serializer = Pymts_Context('serializer')
 	
 	def buildMesh(self, obj, name = 'none'):
 		"""
@@ -312,12 +320,10 @@ class GeometryExporter(object):
 					else:
 						MtsLog('Skipping already exported PLY: %s' % mesh_name)
 					
-					shape_params = ParamSet().add_string(
-						'filename',
-						efutil.path_relative_to_export(ply_path)
-					)
+					shape_params = {'filename': efutil.path_relative_to_export(ply_path)}
+					
 					if obj.data.mitsuba_mesh.normals == 'facenormals':
-						shape_params.add_boolean('faceNormals', {'value' : 'true'})
+						shape_params.update({'faceNormals': 'true'})
 					
 					mesh_definition = (
 						mesh_name,
@@ -327,12 +333,7 @@ class GeometryExporter(object):
 					)
 					# Only export Shapegroup and cache this mesh_definition if we plan to use instancing
 					if self.allowShapeInstancing(obj, i):
-						self.exportShapeGroup(obj, mesh_definition)
-						shape_params = ParamSet().add_reference(
-							'id',
-							'',
-							mesh_name + '-shapegroup_%i' % (i)
-						)
+						shape_params = self.exportShapeGroup(obj, mesh_definition)
 						
 						mesh_definition = (
 							mesh_name,
@@ -426,109 +427,110 @@ class GeometryExporter(object):
 						else:
 							uv_layer = None
 						
-						# Export data
-						points = array.array('d',[])
-						normals = array.array('d',[])
-						uvs = array.array('d',[])
-						ntris = 0
-						face_vert_indices = array.array('I',[])		# list of face vert indices
-						
-						# Caches
-						vert_vno_indices = {}		# mapping of vert index to exported vert index for verts with vert normals
-						vert_use_vno = set()		# Set of vert indices that use vert normals
-						
-						vert_index = 0				# exported vert index
-						for face in ffaces_mats[i]:
-							fvi = []
-							for j, vertex in enumerate(face.vertices):
-								v = mesh.vertices[vertex]
-								
-								if uv_layer:
-									# Flip UV Y axis. Blender UV coord is bottom-left, Mitsuba is top-left.
-									uv_coord = (uv_layer[face.index].uv[j][0], 1.0 - uv_layer[face.index].uv[j][1])
-								
-								if face.use_smooth:
+						if self.fast_export:
+							self.serializer.serialize(ser_path, mesh_name, mesh, i)
+						else:
+							# Export data
+							points = array.array('d',[])
+							normals = array.array('d',[])
+							uvs = array.array('d',[])
+							ntris = 0
+							face_vert_indices = array.array('I',[])		# list of face vert indices
+							
+							# Caches
+							vert_vno_indices = {}		# mapping of vert index to exported vert index for verts with vert normals
+							vert_use_vno = set()		# Set of vert indices that use vert normals
+							
+							vert_index = 0				# exported vert index
+							for face in ffaces_mats[i]:
+								fvi = []
+								for j, vertex in enumerate(face.vertices):
+									v = mesh.vertices[vertex]
 									
 									if uv_layer:
-										vert_data = (v.co[:], v.normal[:], uv_coord )
-									else:
-										vert_data = (v.co[:], v.normal[:], tuple() )
+										# Flip UV Y axis. Blender UV coord is bottom-left, Mitsuba is top-left.
+										uv_coord = (uv_layer[face.index].uv[j][0], 1.0 - uv_layer[face.index].uv[j][1])
 									
-									if vert_data not in vert_use_vno:
-										vert_use_vno.add(vert_data)
+									if face.use_smooth:
 										
-										points.extend( vert_data[0] )
-										normals.extend( vert_data[1] )
-										uvs.extend( vert_data[2] )
+										if uv_layer:
+											vert_data = (v.co[:], v.normal[:], uv_coord )
+										else:
+											vert_data = (v.co[:], v.normal[:], tuple() )
 										
-										vert_vno_indices[vert_data] = vert_index
+										if vert_data not in vert_use_vno:
+											vert_use_vno.add(vert_data)
+											
+											points.extend( vert_data[0] )
+											normals.extend( vert_data[1] )
+											uvs.extend( vert_data[2] )
+											
+											vert_vno_indices[vert_data] = vert_index
+											fvi.append(vert_index)
+											
+											vert_index += 1
+										else:
+											fvi.append(vert_vno_indices[vert_data])
+										
+									else:
+										# all face-vert-co-no are unique, we cannot
+										# cache them
+										points.extend( v.co[:] )
+										normals.extend( face.normal[:] )
+										if uv_layer: uvs.extend( uv_coord )
+										
 										fvi.append(vert_index)
 										
 										vert_index += 1
-									else:
-										fvi.append(vert_vno_indices[vert_data])
-									
-								else:
-									# all face-vert-co-no are unique, we cannot
-									# cache them
-									points.extend( v.co[:] )
-									normals.extend( face.normal[:] )
-									if uv_layer: uvs.extend( uv_coord )
-									
-									fvi.append(vert_index)
-									
-									vert_index += 1
-							
-							# For Mitsuba, we need to triangulate quad faces
-							face_vert_indices.extend( fvi[0:3] )
-							ntris += 3
-							if len(fvi) == 4:
-								face_vert_indices.extend(( fvi[0], fvi[2], fvi[3] ))
+								
+								# For Mitsuba, we need to triangulate quad faces
+								face_vert_indices.extend( fvi[0:3] )
 								ntris += 3
-						
-						del vert_vno_indices
-						del vert_use_vno
-						
-						with open(ser_path, 'wb') as ser:
-							# create mesh flags
-							flags = 0
-							# turn on double precision
-							flags = flags | 0x2000
-							# turn on vertex normals
-							flags = flags | 0x0001
-							# turn on uv layer
-							if uv_layer:
-								flags = flags | 0x0002
+								if len(fvi) == 4:
+									face_vert_indices.extend(( fvi[0], fvi[2], fvi[3] ))
+									ntris += 3
 							
-							# begin serialized mesh data
-							ser.write(struct.pack('<HH', 0x041C, 0x0004))
+							del vert_vno_indices
+							del vert_use_vno
 							
-							# encode serialized mesh
-							encoder = zlib.compressobj()
-							ser.write(encoder.compress(struct.pack('<I', flags)))
-							ser.write(encoder.compress(bytes(mesh_name + "_serialized\0",'latin-1')))
-							ser.write(encoder.compress(struct.pack('<QQ', vert_index, int(ntris/3))))
-							ser.write(encoder.compress(points.tostring()))
-							ser.write(encoder.compress(normals.tostring()))
-							if uv_layer:
-								ser.write(encoder.compress(uvs.tostring()))
-							ser.write(encoder.compress(face_vert_indices.tostring()))
-							ser.write(encoder.flush())
-							
-							ser.write(struct.pack('<Q', 0))
-							ser.write(struct.pack('<I', 1))
-							ser.close()
+							with open(ser_path, 'wb') as ser:
+								# create mesh flags
+								flags = 0
+								# turn on double precision
+								flags = flags | 0x2000
+								# turn on vertex normals
+								flags = flags | 0x0001
+								# turn on uv layer
+								if uv_layer:
+									flags = flags | 0x0002
+								
+								# begin serialized mesh data
+								ser.write(struct.pack('<HH', 0x041C, 0x0004))
+								
+								# encode serialized mesh
+								encoder = zlib.compressobj()
+								ser.write(encoder.compress(struct.pack('<I', flags)))
+								ser.write(encoder.compress(bytes(mesh_name + "_serialized\0",'latin-1')))
+								ser.write(encoder.compress(struct.pack('<QQ', vert_index, int(ntris/3))))
+								ser.write(encoder.compress(points.tostring()))
+								ser.write(encoder.compress(normals.tostring()))
+								if uv_layer:
+									ser.write(encoder.compress(uvs.tostring()))
+								ser.write(encoder.compress(face_vert_indices.tostring()))
+								ser.write(encoder.flush())
+								
+								ser.write(struct.pack('<Q', 0))
+								ser.write(struct.pack('<I', 1))
+								ser.close()
 						
 						MtsLog('Binary Serialized file written: %s' % (ser_path))
 					else:
 						MtsLog('Skipping already exported Serialized mesh: %s' % mesh_name)
 					
-					shape_params = ParamSet().add_string(
-						'filename',
-						efutil.path_relative_to_export(ser_path)
-					)
+					shape_params = {'filename': efutil.path_relative_to_export(ser_path)}
+					
 					if obj.data.mitsuba_mesh.normals == 'facenormals':
-						shape_params.add_boolean('faceNormals', {'value' : 'true'})
+						shape_params.update({'faceNormals': 'true'})
 					
 					mesh_definition = (
 						mesh_name,
@@ -538,12 +540,7 @@ class GeometryExporter(object):
 					)
 					# Only export Shapegroup and cache this mesh_definition if we plan to use instancing
 					if self.allowShapeInstancing(obj, i):
-						self.exportShapeGroup(obj, mesh_definition)
-						shape_params = ParamSet().add_reference(
-							'id',
-							'',
-							mesh_name + '-shapegroup_%i' % (i)
-						)
+						shape_params = self.exportShapeGroup(obj, mesh_definition)
 						
 						mesh_definition = (
 							mesh_name,
@@ -642,17 +639,25 @@ class GeometryExporter(object):
 		
 		ob_mat = self.exportShapeMaterial(obj, me_mat_index)
 		
-		self.mts_context.openElement('shape', { 'id' : me_name + '-shapegroup_%i' % (me_mat_index), 'type' : 'shapegroup'})
-		self.mts_context.openElement('shape', { 'id' : me_name + '-shape_%i' % (me_mat_index), 'type' : me_shape_type})
-		me_shape_params.export(self.mts_context)
+		shape = {
+			'type' : me_shape_type,
+			'id' : me_name + '-shape_%i' % (me_mat_index),
+		}
+		shape.update(me_shape_params)
 		
 		if ob_mat != None:
-			self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % (ob_mat.name)})
+			shape.update({'ref_bsdf': {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name}})
 		
-		self.mts_context.closeElement()
-		self.mts_context.closeElement()
+		self.mts_context.pmgr_create({
+			'type' : 'shapegroup',
+			'id' : me_name + '-shapegroup_%i' % (me_mat_index),
+			'shape' : shape
+		})
+		
 		
 		MtsLog('Mesh definition exported: %s' % me_name)
+		
+		return {'ref_shapegroup': {'id': me_name + '-shapegroup_%i' % (me_mat_index)}}
 	
 	def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None, index=None):
 		
@@ -684,34 +689,37 @@ class GeometryExporter(object):
 				
 				ob_mat = self.exportShapeMaterial(mat_object, me_mat_index)
 			
-			self.mts_context.openElement('shape', { 'id' : '%s_%s-shape%s_%i' % (obj.name, me_name, shape_index, me_mat_index), 'type' : me_shape_type})
-			me_shape_params.export(self.mts_context)
+			shape = {
+				'type' : me_shape_type,
+				'id' : '%s_%s-shape%s_%i' % (obj.name, me_name, shape_index, me_mat_index),
+			}
+			shape.update(me_shape_params)
 			
 			if matrix is not None:
-				self.mts_context.exportWorldTrafo(matrix[0])
+				shape.update({'toWorld' : self.mts_context.transform_matrix(matrix[0])})
 			else:
-				self.mts_context.exportWorldTrafo(obj.matrix_world)
+				shape.update({'toWorld' : self.mts_context.transform_matrix(obj.matrix_world)})
 			
 			if me_shape_type != 'instance':
 				if ob_mat != None:
 					if ob_mat.mitsuba_material.use_bsdf:
-						self.mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name})
+						shape.update({'ref_bsdf': {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name}})
 					if ob_mat.mitsuba_mat_subsurface.use_subsurface:
 						if ob_mat.mitsuba_mat_subsurface.type == 'dipole':
-							self.mts_context.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name})
+							shape.update({'ref_subsurface': {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name}})
 						#elif ob_mat.mitsuba_mat_subsurface.type == 'homogeneous':
 						#	self.mts_context.element('ref', {'name' : 'interior', 'id' : '%s-interior' % ob_mat.name})
 						elif ob_mat.mitsuba_mat_subsurface.type == 'participating':
-							self.mts_context.element('ref', {'name' : 'interior', 'id' : '%s' % ob_mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium})
+							shape.update({'ref_interior': {'name' : 'interior', 'id' : '%s' % ob_mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium}})
 					#mmat_medium = ob_mat.mitsuba_mat_medium
 					#if mmat_medium.use_medium:
 					#	self.mts_context.exportMediumReference('exterior', mmat_medium.exterior_medium)
 					#if ob_mat.mitsuba_mat_extmedium.use_extmedium:
 					#	self.mts_context.element('ref', {'name' : 'exterior', 'id' : '%s' % ob_mat.mitsuba_mat_extmedium.mitsuba_extmed_participating.exterior_medium})
 					if ob_mat.mitsuba_mat_emitter.use_emitter:
-						self.mts_context.exportMaterialEmitter(ob_mat)
+						shape.update({'emitter': self.mts_context.area_emitter(ob_mat)})
 			
-			self.mts_context.closeElement()
+			self.mts_context.pmgr_create(shape)
 	
 	def BSpline(self, points, dimension, degree, u):
 		controlpoints = []

@@ -77,29 +77,23 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
 					#mat.mitsuba_material.export(scene, mts_context, mat)
 					mts_context.exportMaterial(mat)
 				
-				mts_context.openElement('shape', { 'id' : '%s_%s-shape' % (obj.name, mesh_name), 'type' : mesh_type})
-				mesh_params.export(mts_context)
-				mts_context.exportWorldTrafo(obj.matrix_world)
+				shape = {
+					'type' : mesh_type,
+					'id' : '%s_%s-shape' % (obj.name, mesh_name),
+					'toWorld' : mts_context.transform_matrix(obj.matrix_world)
+				}
+				shape.update(mesh_params)
 				if mat.mitsuba_material.use_bsdf:
-					mts_context.element('ref', {'name' : 'bsdf', 'id' : '%s-material' % mat.name})
+					shape.update({'ref_bsdf': {'name' : 'bsdf', 'id' : '%s-material' % mat.name}})
 				if mat.mitsuba_mat_subsurface.use_subsurface:
 					if mat.mitsuba_mat_subsurface.type == 'dipole':
-						mts_context.element('ref', {'name' : 'subsurface', 'id' : '%s-subsurface' % mat.name})
+						shape.update({'ref_subsurface': {'name' : 'subsurface', 'id' : '%s-subsurface' % mat.name}})
 				if mat.mitsuba_mat_emitter.use_emitter:
-					mts_context.exportMaterialEmitter(mat)
-				mts_context.closeElement()
-				#mts_context.shape(mesh_type, mesh_params)
+					shape.update({'emitter': mts_context.area_emitter(mat)})
+				
+				mts_context.pmgr_create(shape)
 		else:
 			# else
 			pass
-	
-	#mts_context.exportCamera(scene, scene.camera)
-	
-	# Get all renderable LAMPS
-	#renderableLamps = [lmp for lmp in scene.objects if lmp.type == 'LAMP']
-	#for lamp in renderableLamps:
-	#	mts_context.exportLamp(scene, lamp)
-	
-	#return int(xr), int(yr)
 	
 	mts_context.writeFooter(0)

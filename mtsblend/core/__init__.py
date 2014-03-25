@@ -110,6 +110,7 @@ def mts_use_alternate_matview(self, context):
 		row.prop(engine, "preview_depth")
 		row.prop(engine, "preview_spp")
 		row = self.layout.row()
+		row.prop(context.scene.mitsuba_world, "preview_object_size", text="Size")
 		row.prop(context.material.mitsuba_material, "preview_zoom", text="Zoom")
 		
 		global cached_depth

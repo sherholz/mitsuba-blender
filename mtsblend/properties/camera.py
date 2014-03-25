@@ -21,9 +21,12 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
+import math
+
 from extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
+from ..export import get_worldscale
 from ..export import ParamSet
 
 def CameraMediumParameter(attr, name):
@@ -102,6 +105,113 @@ class mitsuba_camera(declarative_property_group):
 			'default': 3
 		}
 	] + CameraMediumParameter('exterior', 'Exterior medium')
+	
+	def lookAt(self, scene, camera = None, matrix = None):
+		'''
+		Derive a list describing 3 points for a Mitsuba LookAt statement
+		
+		Returns		tuple(9) (floats)
+		'''
+		#if camera is None:
+		#	camera = scene.objects[self.id_data.name]
+		if matrix is None:
+			matrix = camera.matrix_world.copy()
+		ws = get_worldscale()
+		matrix *= ws
+		ws = get_worldscale(as_scalematrix=False)
+		matrix[0][3] *= ws
+		matrix[1][3] *= ws
+		matrix[2][3] *= ws
+		# transpose to extract columns
+		# TODO - update to matrix.col when available
+		matrix = matrix.transposed() 
+		pos = matrix[3]
+		forwards = -matrix[2]
+		target = (pos + forwards)
+		up = matrix[1]
+		return (pos, target, up)
+	
+	def api_output(self, mts_context, scene, camera = None):
+		'''
+		mts_context		Custom_Context
+		scene			bpy.types.scene
+		camera			bpy.types.camera
+		
+		Format this class's members into a Mitsuba dictionary
+		
+		Returns dict
+		'''
+		# Camera TODO
+		#if camera.name in mts_context.exported_cameras:
+		#	return
+		#mts_context.exported_cameras += [camera.name]
+		
+		# TODO export scale in toWorld
+		#if cam.type == 'ORTHO':
+		#	mts_context.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
+		
+		# TODO export medium reference
+		#if mcam.exterior_medium != '':
+		#	mts_context.exportMediumReference('exterior', mcam.exterior_medium)
+		
+		if camera is None:
+			camera = next(cam for cam in scene.objects if cam.type == 'CAMERA' and cam.data.name == self.id_data.name)
+			if camera is  None:
+				MtsLog("Error: Camera not found!")
+				return
+		
+		cam_dict = {}
+		
+		cam = camera.data
+		mcam = cam.mitsuba_camera
+		
+		cam_dict['id'] = '%s-camera' % camera.name
+		
+		# detect sensor type
+		cam_dict['type'] = 'orthographic' if cam.type == 'ORTHO' else 'spherical' if cam.type == 'PANO' else 'perspective'
+		if mcam.use_dof == True:
+			cam_dict['type'] = 'telecentric' if cam.type == 'ORTHO' else 'thinlens'
+		
+		# Get camera position, target and up vector
+		origin, target, up = mcam.lookAt(scene, camera)
+		cam_dict['toWorld'] = mts_context.transform_lookAt(origin, target, up)
+		
+		#if cam.type == 'ORTHO':
+		#	self.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
+		
+		if cam.type == 'PERSP':
+			if cam.sensor_fit == 'VERTICAL':
+				sensor = cam.sensor_height
+				cam_dict['fovAxis'] = 'y'
+			else:
+				sensor = cam.sensor_width
+				cam_dict['fovAxis'] = 'x'
+			cam_dict['fov'] = math.degrees(2.0 * math.atan((sensor / 2.0) / cam.lens))
+		
+		cam_dict['nearClip'] = cam.clip_start
+		cam_dict['farClip'] = cam.clip_end
+		
+		if mcam.use_dof == True:
+			cam_dict['apertureRadius'] = mcam.apertureRadius
+			cam_dict['focusDistance'] = cam.dof_distance
+		
+		#if scene.mitsuba_integrator.motionBlur:
+		if mcam.motionBlur:
+			frameTime = 1.0/scene.render.fps
+			#shutterTime = scene.mitsuba_integrator.shutterTime
+			shutterTime = mcam.shutterTime
+			shutterOpen = (scene.frame_current - shutterTime/2.0) * frameTime
+			shutterClose = (scene.frame_current + shutterTime/2.0) * frameTime
+			cam_dict['shutterOpen'] = shutterOpen
+			cam_dict['shutterClose'] = shutterClose
+		
+		cam_dict['sampler'] = scene.mitsuba_sampler.api_output()
+		cam_dict['film'] = mcam.mitsuba_film.api_output(scene)
+		
+		#if mcam.exterior_medium != '':
+		#	cam_dict['exterior'] = mcam.exterior_medium
+		
+		return cam_dict
 
 @MitsubaAddon.addon_register_class
 class mitsuba_film(declarative_property_group):
@@ -379,23 +489,43 @@ class mitsuba_film(declarative_property_group):
 		
 		return xr, yr
 	
-	def get_paramset(self):
-		params = ParamSet()
-		params.add_string('fileFormat', self.fileFormat)
-		params.add_string('pixelFormat', self.pixelFormat)
+	def api_output(self, scene):
+		film_dict = {}
+		
+		film_dict['type'] = self.type
+		
+		[ film_dict['width'], film_dict['height'] ] = self.resolution(scene)
+		
+		film_dict['fileFormat'] = self.fileFormat
+		film_dict['pixelFormat'] = self.pixelFormat
 		if self.fileFormat == 'openexr':
-			params.add_string('componentFormat', self.componentFormat)
-			params.add_bool('attachLog', self.attachLog)
+			film_dict['componentFormat'] = self.componentFormat
+			film_dict['attachLog'] = self.attachLog
 		if self.type == 'ldrfilm':
-			params.add_string('tonemapMethod', self.tonemapMethod)
-			params.add_float('gamma', self.gamma)
+			film_dict['tonemapMethod'] = self.tonemapMethod
+			film_dict['gamma'] = self.gamma
 			if self.tonemapMethod == 'reinhard':
-				params.add_float('key', self.key)
-				params.add_float('burn', self.burn)
+				film_dict['key'] = self.key
+				film_dict['burn'] = self.burn
 			else:
-				params.add_float('exposure', self.exposure)
-		params.add_bool('banner', self.banner)
-		params.add_bool('highQualityEdges', self.highQualityEdges)
+				film_dict['exposure'] = self.exposure
+		film_dict['banner'] = self.banner
+		film_dict['highQualityEdges'] = self.highQualityEdges
+		
+		rfilt_dict = {}
+		rfilt_dict['type'] = self.rfilter
+		if self.rfilter in ['gaussian', 'mitchell', 'lanczos']:
+			if self.rfilter == 'gaussian':
+				rfilt_dict['stddev'] = self.stddev
+			elif self.rfilter == 'mitchell':
+				rfilt_dict['B'] = self.B
+				rfilt_dict['C'] = self.C
+			else:
+				rfilt_dict['lobes'] = self.lobes
+		
+		film_dict['rfilter'] = rfilt_dict
+		
 		if self.statistics:
-			params.add_string('label[10,10]', 'Integrator:$integrator[\'type\'], $film[\'width\']x$film[\'height\'],$sampler[\'sampleCount\']spp, rendertime:$scene[\'renderTime\'],memory:$scene[\'memUsage\']' )
-		return params
+			film_dict['label[10,10]'] = 'Integrator:$integrator[\'type\'], $film[\'width\']x$film[\'height\'],$sampler[\'sampleCount\']spp, rendertime:$scene[\'renderTime\'],memory:$scene[\'memUsage\']'
+		
+		return film_dict
