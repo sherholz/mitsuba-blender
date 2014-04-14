@@ -79,6 +79,9 @@ class MitsubaTexture_PT_context_texture(bl_ui.properties_texture.TextureButtonsP
 		
 		if pin_id:
 			layout.template_ID(space, "pin_id")
+		
+		if context.texture:
+			layout.prop(context.texture.mitsuba_texture, "type", text="Type")
 
 class mitsuba_texture_base(bl_ui.properties_texture.TextureButtonsPanel, property_group_renderer):
 	'''

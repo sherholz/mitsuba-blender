@@ -116,7 +116,11 @@ class SceneExporter(object):
 			# Get all renderable LAMPS
 			renderableLamps = [lmp for lmp in scene.objects if is_obj_visible(scene, lmp) and lmp.type == 'LAMP']
 			for lamp in renderableLamps:
-				mts_context.pmgr_create(lamp.data.mitsuba_lamp.api_output(mts_context, scene))
+				params = lamp.data.mitsuba_lamp.api_output(mts_context, scene)
+				for p in mts_context.findReferences(params):
+					if p['id'].endswith('-texture'):
+						mts_context.exportTexture(mts_context.findTexture(p['id'][:len(p['id'])-8]))
+				mts_context.pmgr_create(params)
 			
 			# Export geometry
 			GE = export_geometry.GeometryExporter(mts_context, scene)

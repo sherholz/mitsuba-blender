@@ -31,7 +31,7 @@ from extensions_framework import util as efutil
 
 from ..outputs import MtsLog
 from ..outputs.file_api import Files
-from ..export import ParamSet, ExportProgressThread, ExportCache
+from ..export import ExportProgressThread, ExportCache
 from ..export import MtsManager
 from ..export import is_obj_visible
 from ..properties import find_node
@@ -422,10 +422,16 @@ class GeometryExporter(object):
 						
 						uv_textures = mesh.tessface_uv_textures
 						if len(uv_textures) > 0:
-							if uv_textures.active and uv_textures.active.data:
+							if mesh.uv_textures.active and uv_textures.active.data:
 								uv_layer = uv_textures.active.data
 						else:
 							uv_layer = None
+						
+						vertex_color = 	mesh.tessface_vertex_colors.active
+						if vertex_color:
+							vertex_color_layer = vertex_color.data
+						else:
+							vertex_color_layer = None
 						
 						if self.fast_export:
 							self.serializer.serialize(ser_path, mesh_name, mesh, i)
@@ -434,6 +440,7 @@ class GeometryExporter(object):
 							points = array.array('d',[])
 							normals = array.array('d',[])
 							uvs = array.array('d',[])
+							vtx_colors = array.array('d',[])
 							ntris = 0
 							face_vert_indices = array.array('I',[])		# list of face vert indices
 							
@@ -442,10 +449,20 @@ class GeometryExporter(object):
 							vert_use_vno = set()		# Set of vert indices that use vert normals
 							
 							vert_index = 0				# exported vert index
-							for face in ffaces_mats[i]:
+							for fidx, face in enumerate(ffaces_mats[i]):
 								fvi = []
 								for j, vertex in enumerate(face.vertices):
 									v = mesh.vertices[vertex]
+									
+									if vertex_color_layer:
+										if j == 0:
+											vert_col = vertex_color_layer[fidx].color1
+										elif j == 1:
+											vert_col = vertex_color_layer[fidx].color2
+										elif j == 2:
+											vert_col = vertex_color_layer[fidx].color3
+										elif j == 3:
+											vert_col = vertex_color_layer[fidx].color4
 									
 									if uv_layer:
 										# Flip UV Y axis. Blender UV coord is bottom-left, Mitsuba is top-left.
@@ -454,16 +471,28 @@ class GeometryExporter(object):
 									if face.use_smooth:
 										
 										if uv_layer:
-											vert_data = (v.co[:], v.normal[:], uv_coord )
+											if vertex_color_layer:                                                                                        
+												vert_data = (v.co[:], v.normal[:], uv_coord[:], vert_col[:])
+											else:
+												vert_data = (v.co[:], v.normal[:], uv_coord[:])
 										else:
-											vert_data = (v.co[:], v.normal[:], tuple() )
+											if vertex_color_layer:                                                                                    
+												vert_data = (v.co[:], v.normal[:], vert_col[:])
+											else:
+												vert_data = (v.co[:], v.normal[:])
 										
 										if vert_data not in vert_use_vno:
 											vert_use_vno.add(vert_data)
 											
 											points.extend( vert_data[0] )
 											normals.extend( vert_data[1] )
-											uvs.extend( vert_data[2] )
+											if uv_layer:
+												uvs.extend( vert_data[2] )
+												if vertex_color_layer:                                                                                    
+													vtx_colors.extend( vert_data[3] )
+											else:
+												if vertex_color_layer:                                                                                    
+													vtx_colors.extend( vert_data[2] )
 											
 											vert_vno_indices[vert_data] = vert_index
 											fvi.append(vert_index)
@@ -473,11 +502,12 @@ class GeometryExporter(object):
 											fvi.append(vert_vno_indices[vert_data])
 										
 									else:
-										# all face-vert-co-no are unique, we cannot
+										# all face-vert-co-no-uv-color are unique, we cannot
 										# cache them
 										points.extend( v.co[:] )
 										normals.extend( face.normal[:] )
-										if uv_layer: uvs.extend( uv_coord )
+										if uv_layer: uvs.extend( uv_coord[:] )
+										if vertex_color_layer: vtx_colors.extend( vert_col[:] )
 										
 										fvi.append(vert_index)
 										
@@ -503,6 +533,8 @@ class GeometryExporter(object):
 								# turn on uv layer
 								if uv_layer:
 									flags = flags | 0x0002
+								if vertex_color_layer:
+									flags = flags | 0x0008
 								
 								# begin serialized mesh data
 								ser.write(struct.pack('<HH', 0x041C, 0x0004))
@@ -516,6 +548,8 @@ class GeometryExporter(object):
 								ser.write(encoder.compress(normals.tostring()))
 								if uv_layer:
 									ser.write(encoder.compress(uvs.tostring()))
+								if vertex_color_layer:
+									ser.write(encoder.compress(vtx_colors.tostring()))
 								ser.write(encoder.compress(face_vert_indices.tostring()))
 								ser.write(encoder.flush())
 								
@@ -540,13 +574,13 @@ class GeometryExporter(object):
 					)
 					# Only export Shapegroup and cache this mesh_definition if we plan to use instancing
 					if self.allowShapeInstancing(obj, i):
-						shape_params = self.exportShapeGroup(obj, mesh_definition)
+						instance_params = self.exportShapeGroup(obj, mesh_definition)
 						
 						mesh_definition = (
 							mesh_name,
 							i,
 							'instance',
-							shape_params
+							instance_params
 						)
 						self.ExportedMeshes.add(mesh_cache_key, mesh_definition)
 					
@@ -576,11 +610,11 @@ class GeometryExporter(object):
 			return False
 		
 		mmat = mat.mitsuba_material
-		params = mmat.get_paramset()
+		params = mmat.api_output(self.mts_context, mat)
 		
-		for p in params:
-			if p.type == 'reference_material':
-				if not self.allowMaterialInstancing(self.mts_context.findMaterial(p.value)):
+		for p in self.mts_context.findReferences(params):
+			if p['id'].endswith('-material'):
+				if not self.allowMaterialInstancing(self.mts_context.findMaterial(p['id'][:len(p['id'])-9])):
 					return False
 		
 		return True
@@ -646,7 +680,7 @@ class GeometryExporter(object):
 		shape.update(me_shape_params)
 		
 		if ob_mat != None:
-			shape.update({'ref_bsdf': {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name}})
+			shape.update({'ref_bsdf': {'type' : 'ref', 'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name}})
 		
 		self.mts_context.pmgr_create({
 			'type' : 'shapegroup',
@@ -657,7 +691,7 @@ class GeometryExporter(object):
 		
 		MtsLog('Mesh definition exported: %s' % me_name)
 		
-		return {'ref_shapegroup': {'id': me_name + '-shapegroup_%i' % (me_mat_index)}}
+		return {'ref_shapegroup': {'type' : 'ref', 'id': me_name + '-shapegroup_%i' % (me_mat_index)}}
 	
 	def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None, index=None):
 		
@@ -703,21 +737,25 @@ class GeometryExporter(object):
 			if me_shape_type != 'instance':
 				if ob_mat != None:
 					if ob_mat.mitsuba_material.use_bsdf:
-						shape.update({'ref_bsdf': {'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name}})
+						shape.update({'ref_bsdf': {'type' : 'ref', 'name' : 'bsdf', 'id' : '%s-material' % ob_mat.name}})
 					if ob_mat.mitsuba_mat_subsurface.use_subsurface:
 						if ob_mat.mitsuba_mat_subsurface.type == 'dipole':
-							shape.update({'ref_subsurface': {'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name}})
+							shape.update({'ref_subsurface': {'type' : 'ref', 'name' : 'subsurface', 'id' : '%s-subsurface' % ob_mat.name}})
 						#elif ob_mat.mitsuba_mat_subsurface.type == 'homogeneous':
 						#	self.mts_context.element('ref', {'name' : 'interior', 'id' : '%s-interior' % ob_mat.name})
 						elif ob_mat.mitsuba_mat_subsurface.type == 'participating':
-							shape.update({'ref_interior': {'name' : 'interior', 'id' : '%s' % ob_mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium}})
+							shape.update({
+								'ref_interior': {
+									'type' : 'ref',
+									'name' : 'interior',
+									'id' : '%s-medium' % ob_mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium
+								}
+							})
 					#mmat_medium = ob_mat.mitsuba_mat_medium
-					#if mmat_medium.use_medium:
-					#	self.mts_context.exportMediumReference('exterior', mmat_medium.exterior_medium)
 					#if ob_mat.mitsuba_mat_extmedium.use_extmedium:
 					#	self.mts_context.element('ref', {'name' : 'exterior', 'id' : '%s' % ob_mat.mitsuba_mat_extmedium.mitsuba_extmed_participating.exterior_medium})
 					if ob_mat.mitsuba_mat_emitter.use_emitter:
-						shape.update({'emitter': self.mts_context.area_emitter(ob_mat)})
+						shape.update({'emitter': ob_mat.mitsuba_mat_emitter.api_output(self.mts_context)})
 			
 			self.mts_context.pmgr_create(shape)
 	
@@ -794,13 +832,10 @@ class GeometryExporter(object):
 		hair_filename = '%s.hair' % bpy.path.clean_name(partsys_name)
 		hair_file_path = '/'.join([sc_fr, hair_filename])
 		
-		shape_params = ParamSet().add_string(
-			'filename',
-			efutil.path_relative_to_export(hair_file_path)
-		).add_float(
-			'radius',
-			size
-		)
+		shape_params = {
+			'filename' : efutil.path_relative_to_export(hair_file_path),
+			'radius' : size
+		}
 		mesh_definitions = []
 		mesh_definition = (
 			psys.name,

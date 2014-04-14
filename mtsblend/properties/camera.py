@@ -27,7 +27,6 @@ from extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
 from ..export import get_worldscale
-from ..export import ParamSet
 
 def CameraMediumParameter(attr, name):
 	return [
@@ -141,18 +140,9 @@ class mitsuba_camera(declarative_property_group):
 		
 		Returns dict
 		'''
-		# Camera TODO
 		#if camera.name in mts_context.exported_cameras:
 		#	return
 		#mts_context.exported_cameras += [camera.name]
-		
-		# TODO export scale in toWorld
-		#if cam.type == 'ORTHO':
-		#	mts_context.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
-		
-		# TODO export medium reference
-		#if mcam.exterior_medium != '':
-		#	mts_context.exportMediumReference('exterior', mcam.exterior_medium)
 		
 		if camera is None:
 			camera = next(cam for cam in scene.objects if cam.type == 'CAMERA' and cam.data.name == self.id_data.name)
@@ -174,10 +164,8 @@ class mitsuba_camera(declarative_property_group):
 		
 		# Get camera position, target and up vector
 		origin, target, up = mcam.lookAt(scene, camera)
-		cam_dict['toWorld'] = mts_context.transform_lookAt(origin, target, up)
-		
-		#if cam.type == 'ORTHO':
-		#	self.element('scale', { 'x' : cam.ortho_scale / 2.0, 'y' : cam.ortho_scale / 2.0})
+		scale = cam.ortho_scale / 2.0 if cam.type == 'ORTHO' else False
+		cam_dict['toWorld'] = mts_context.transform_lookAt(origin, target, up, scale)
 		
 		if cam.type == 'PERSP':
 			if cam.sensor_fit == 'VERTICAL':
@@ -208,8 +196,11 @@ class mitsuba_camera(declarative_property_group):
 		cam_dict['sampler'] = scene.mitsuba_sampler.api_output()
 		cam_dict['film'] = mcam.mitsuba_film.api_output(scene)
 		
-		#if mcam.exterior_medium != '':
-		#	cam_dict['exterior'] = mcam.exterior_medium
+		if mcam.exterior_medium != '':
+			cam_dict['exterior'] = {
+				'type' : 'ref',
+				'id' : '%s-medium' % mcam.exterior_medium,
+			}
 		
 		return cam_dict
 

@@ -22,19 +22,17 @@
 # ***** END GPL LICENSE BLOCK *****
 #
 from copy import deepcopy
+from mathutils import Matrix
 
 from extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
-from ..export import ParamSet
-from ..properties.texture import (
-	ColorTextureParameter, FloatTextureParameter
-)
+from ..properties.texture import ColorTextureParameter
 
-param_scattCoeff = ColorTextureParameter('sigmaS', 'Scattering Coefficient', default=(0.8, 0.8, 0.8))
-param_absorptionCoefficient = ColorTextureParameter('sigmaA', 'Absorption Coefficient', default=(0.0, 0.0, 0.0))
-param_extinctionCoeff = ColorTextureParameter('sigmaT', 'Extinction Coefficient', default=(0.8, 0.8, 0.8))
-param_albedo = ColorTextureParameter('albedo', 'Albedo', default=(0.01, 0.01, 0.01))
+TC_sigmaS = ColorTextureParameter('sigmaS', 'Scattering Coefficient', default=(0.8, 0.8, 0.8))
+TC_sigmaA = ColorTextureParameter('sigmaA', 'Absorption Coefficient', default=(0.0, 0.0, 0.0))
+TC_sigmaT = ColorTextureParameter('sigmaT', 'Extinction Coefficient', default=(0.8, 0.8, 0.8))
+TC_albedo = ColorTextureParameter('albedo', 'Albedo', default=(0.01, 0.01, 0.01))
 
 def dict_merge(*args):
 	vis = {}
@@ -116,10 +114,10 @@ class mitsuba_medium_data(declarative_property_group):
 		'g',
 		'useAlbSigmaT'
 	] + \
-		param_absorptionCoefficient.controls + \
-		param_scattCoeff.controls + \
-		param_extinctionCoeff.controls + \
-		param_albedo.controls + \
+		TC_sigmaA.controls + \
+		TC_sigmaS.controls + \
+		TC_sigmaT.controls + \
+		TC_albedo.controls + \
 	[
 		'scale',
 		'externalDensity',
@@ -257,10 +255,10 @@ class mitsuba_medium_data(declarative_property_group):
 			'save_in_preset': True
 		},
 	] + \
-		param_absorptionCoefficient.properties + \
-		param_scattCoeff.properties + \
-		param_extinctionCoeff.properties + \
-		param_albedo.properties
+		TC_sigmaA.properties + \
+		TC_sigmaS.properties + \
+		TC_sigmaT.properties + \
+		TC_albedo.properties
 	
 	visibility = dict_merge(
 		{
@@ -275,29 +273,87 @@ class mitsuba_medium_data(declarative_property_group):
 			'object_pop' : {'type' : 'heterogeneous' , 'externalDensity' : False },
 			'albedo_gridVolumeType' : {'type' : 'heterogeneous', 'albedo_usegridvolume' : True}
 		},
-		param_absorptionCoefficient.visibility,
-		param_scattCoeff.visibility,
-		param_extinctionCoeff.visibility,
-		param_albedo.visibility
+		TC_sigmaA.visibility,
+		TC_sigmaS.visibility,
+		TC_sigmaT.visibility,
+		TC_albedo.visibility
 	)
 	
-	visibility = texture_append_visibility(visibility, param_extinctionCoeff, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
-	visibility = texture_append_visibility(visibility, param_albedo, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
-	visibility = texture_append_visibility(visibility, param_scattCoeff, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
-	visibility = texture_append_visibility(visibility, param_absorptionCoefficient, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_sigmaT, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_albedo, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_sigmaS, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_sigmaA, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
 	
-	def get_paramset(self):
-		params = ParamSet()
-		if self.material=='':
-			if self.useAlbSigmaT != True:
-				params.update(param_absorptionCoefficient.get_paramset(self))
-				params.update(param_scattCoeff.get_paramset(self))
+	def api_output(self, mts_context, scene):
+		voxels = ['','']
+		
+		params = {
+			'id' : '%s-medium' % self.name,
+			'type' : self.type
+		}
+		if self.type == 'homogeneous':
+			if self.material=='':
+				if self.useAlbSigmaT != True:
+					params.update({
+						'sigmaA' : TC_sigmaA.api_output(mts_context, self),
+						'sigmaS' : TC_sigmaS.api_output(mts_context, self)
+					})
+				else:
+					params.update({
+						'sigmaT' : TC_sigmaT.api_output(mts_context, self),
+						'albedo' : TC_albedo.api_output(mts_context, self)
+					})
 			else:
-				params.update(param_extinctionCoeff.get_paramset(self))
-				params.update(param_albedo.get_paramset(self))
+				params.update({'material' : self.material})
+			params.update({'scale' : self.scale})
+		elif self.type == 'heterogeneous':
+			matrix = mts_context.transform_matrix(Matrix())
+			
+			density_params = {
+				'type' : 'gridvolume',
+				'name' : 'density',
+				'toWorld' : matrix,
+			}
+			if self.externalDensity :
+				density_params.update({'filename' : self.density})
+				# if self.rewrite :
+				#	reexportVoxelDataCoordinates(self.density)
+			else :	
+				voxels = mts_context.exportVoxelData(self.object,scene)
+				density_params.update({'filename' : voxels[0]})
+			
+			albedo_params = {
+				'name' : 'albedo',
+				'toWorld' : matrix,
+			}
+			if not self.albedo_usegridvolume :
+				albedo_params.update({
+					'type' : 'constvolume',
+					'value' : mts_context.spectrum(self.albado_color.r ,self.albado_color.g, self.albado_color.b)
+				})
+			else :
+				albedo_params.update({
+					'type' : 'gridvolume',
+					'filename' : voxels[1]
+				})
+			
+			params.update({
+				'method' : self.method,
+				'scale' : self.scale,
+				'density' : density_params,
+				'albedo' : albedo_params,
+			})
+		
+		if self.g == 0:
+			params.update({'phase' : {'type' : 'isotropic'}})
 		else:
-			params.add_string('material', self.material)
-		params.add_float('scale', self.scale)
+			params.update({
+				'phase' : {
+					'type' : 'hg',
+					'g' : self.g,
+				}
+			})
+		
 		return params
 
 @MitsubaAddon.addon_register_class

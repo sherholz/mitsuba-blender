@@ -36,7 +36,7 @@ from ..properties import (mitsuba_node, mitsuba_material_node, get_linked_node, 
 from ..properties.texture import (
 	shorten_name, refresh_preview
 )
-from ..export import ParamSet, process_filepath_data
+from ..export import ParamSet
 from ..export.materials import (
 	MaterialCounter, TextureCounter, ExportedMaterials, ExportedTextures, get_texture_from_scene
 )

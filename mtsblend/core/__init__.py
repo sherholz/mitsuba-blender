@@ -63,7 +63,7 @@ from ..ui.materials import (
 
 #Legacy texture editor panels
 from ..ui.textures import (
-	main, bitmap, checkerboard, gridtexture, mapping, scale, wireframe
+	main as tex_main, scale, bitmap, checkerboard, gridtexture, mapping, wireframe, curvature
 )
 
 # Exporter Operators need to be imported to ensure initialisation

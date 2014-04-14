@@ -22,7 +22,6 @@
 # ***** END GPL LICENSE BLOCK *****
 #
 from .. import MitsubaAddon
-from ..export import ParamSet
 from extensions_framework import declarative_property_group
 from extensions_framework import util as efutil
 from extensions_framework.validate import Logic_OR as O, Logic_AND as A, Logic_Operator as LO
