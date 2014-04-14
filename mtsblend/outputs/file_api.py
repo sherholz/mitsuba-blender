@@ -65,10 +65,13 @@ class Custom_Context(object):
 		self.exported_materials = []
 		self.exported_textures = []
 		self.exported_media = []
+		self.exported_ids = []
 		self.hemi_lights = 0
 		
 		# Reverse translation tables for Mitsuba extension dictionary
 		self.plugins = {
+			# References
+			'ref' : 'ref',
 			# Shapes
 			'sphere' : 'shape',
 			'rectangle' : 'shape',
@@ -76,8 +79,47 @@ class Custom_Context(object):
 			'instance' : 'shape',
 			'serialized' : 'shape',
 			'ply' : 'shape',
-			# Shapes
+			'hair' : 'shape',
+			# Surface scattering models
 			'diffuse' : 'bsdf',
+			'roughdiffuse' : 'bsdf',
+			'dielectric' : 'bsdf',
+			'thindielectric' : 'bsdf',
+			'roughdielectric' : 'bsdf',
+			'conductor' : 'bsdf',
+			'roughconductor' : 'bsdf',
+			'plastic' : 'bsdf',
+			'roughplastic' : 'bsdf',
+			'coating' : 'bsdf',
+			'roughcoating' : 'bsdf',
+			'bumpmap' : 'bsdf',
+			'phong' : 'bsdf',
+			'ward' : 'bsdf',
+			'mixturebsdf' : 'bsdf',
+			'blendbsdf' : 'bsdf',
+			'mask' : 'bsdf',
+			'twosided' : 'bsdf',
+			'difftrans' : 'bsdf',
+			'hk' : 'bsdf',
+			#'irawan' : 'bsdf',
+			# Textures
+			'bitmap' : 'texture',
+			'checkerboard' : 'texture',
+			'gridtexture' : 'texture',
+			'scale' : 'texture',
+			'wireframe' : 'texture',
+			'curvature' : 'texture',
+			# Subsurface
+			'dipole' : 'subsurface',
+			# Medium
+			'homogeneous' : 'medium',
+			'heterogeneous' : 'medium',
+			# Phase
+			'isotropic' : 'phase',
+			'hg' : 'phase',
+			# Medium
+			'constvolume' : 'volume',
+			'gridvolume' : 'volume',
 			# Emitters
 			'area' : 'emitter',
 			'spot' : 'emitter',
@@ -133,20 +175,87 @@ class Custom_Context(object):
 			'shape' : {
 				'center' : self._point,
 				'radius' : self._float,
-				'bsdf' : self._addChild,
-				'emitter' : self._addChild,
 				'filename' : self._string,
 				'toWorld' : self._transform,
 				'faceNormals' : self._bool,
-				'ref_bsdf' : self._ref,
-				'ref_subsurface' : self._ref,
-				'ref_interior' : self._ref,
-				'ref_exterior' : self._ref,
-				'ref_shapegroup' : self._ref,
-				'shape' : self._addChild,
 			},
 			'bsdf' : {
 				'reflectance' : self._spectrum,
+				'specularReflectance' : self._spectrum,
+				'specularTransmittance' : self._spectrum,
+				'diffuseReflectance' : self._spectrum,
+				'opacity' : self._spectrum,
+				'transmittance' : self._spectrum,
+				'sigmaS' : self._spectrum,
+				'sigmaA' : self._spectrum,
+				'sigmaT' : self._spectrum,
+				'albedo' : self._spectrum,
+				'alpha' : self._float,
+				'alphaU' : self._float,
+				'alphaV' : self._float,
+				'exponent' : self._float,
+				'weight' : self._float,
+				'intIOR' : self._float, # string not supported yet
+				'extIOR' : self._float, # string not supported yet
+				'extEta' : self._float, # string not supported yet
+				'eta' : self._spectrum,
+				'k' : self._spectrum,
+				'thickness' : self._float,
+				'distribution' : self._string,
+				'material' : self._string,
+				'variant' : self._string,
+				'weights' : self._string,
+				'useFastApprox' : self._bool,
+				'nonlinear' : self._bool,
+			},
+			'texture' : {
+				'filename' : self._string,
+				'wrapModeU' : self._string,
+				'wrapModeV' : self._string,
+				'gamma' : self._float,
+				'filterType' : self._string,
+				'maxAnisotropy' : self._float,
+				'channel' : self._string,
+				'cache' : self._bool,
+				'color0' : self._spectrum,
+				'color1' : self._spectrum,
+				'interiorColor' : self._spectrum,
+				'edgeColor' : self._spectrum,
+				'lineWidth' : self._float,
+				'stepWidth' : self._float,
+				'curvature' : self._string,
+				'scale' : self._float,
+				'uscale' : self._float,
+				'vscale' : self._float,
+				'uoffset' : self._float,
+				'voffset' : self._float,
+			},
+			'subsurface' : {
+				'material' : self._string,
+				'sigmaA' : self._spectrum,
+				'sigmaS' : self._spectrum,
+				'sigmaT' : self._spectrum,
+				'albedo' : self._spectrum,
+				'scale' : self._float,
+				'intIOR' : self._float, # string not supported yet
+				'extIOR' : self._float, # string not supported yet
+				'irrSamples' : self._integer,
+			},
+			'medium' : {
+				'sigmaA' : self._spectrum,
+				'sigmaS' : self._spectrum,
+				'sigmaT' : self._spectrum,
+				'albedo' : self._spectrum,
+				'scale' : self._float,
+				'method' : self._string,
+			},
+			'phase' : {
+				'g' : self._float,
+			},
+			'volume' : {
+				'filename' : self._string,
+				'value' : self._spectrum, # float or vector not supported yet
+				'toWorld' : self._transform,
 			},
 			'emitter' : {
 				'radiance' : self._spectrum,
@@ -177,8 +286,6 @@ class Custom_Context(object):
 				'shutterOpen' : self._float,
 				'shutterClose' : self._float,
 				'toWorld' : self._transform,
-				'sampler' : self._addChild,
-				'film' : self._addChild,
 			},
 			'integrator' : {
 				'shadingSamples' : self._integer,
@@ -186,6 +293,7 @@ class Custom_Context(object):
 				'emitterSamples' : self._integer,
 				'bsdfSamples' : self._integer,
 				'strictNormals' : self._bool,
+				'hideEmitters' : self._bool,
 				'maxDepth' : self._integer,
 				'rrDepth' : self._integer,
 				'lightImage' : self._bool,
@@ -217,7 +325,6 @@ class Custom_Context(object):
 				'chainLength' : self._integer,
 				'shadowMapResolution' : self._integer,
 				'clamping' : self._float,
-				'integrator' : self._addChild,
 				'maxError' : self._float,
 				'pValue' : self._float,
 				'maxSampleFactor' : self._integer,
@@ -253,7 +360,6 @@ class Custom_Context(object):
 				'exposure' : self._float,
 				'key' : self._float,
 				'burn' : self._float,
-				'rfilter' : self._addChild,
 			},
 			'rfilter' : {
 				'stddev' : self._float,
@@ -407,19 +513,15 @@ class Custom_Context(object):
 	
 	def _string(self, name, value):
 		self.parameter('string', name, {'value' : str(value)})
-		#self.wf(self.current_file, '<string name="%s" value="%s"/>\n' % (name, value), self.file_tabs[self.current_file])
 	
 	def _bool(self, name, value):
 		self.parameter('boolean', name, {'value' : str(value).lower()})
-		#self.wf(self.current_file, '<boolean name="%s" value="%s"/>\n' % (name, str(value).lower()), self.file_tabs[self.current_file])
 	
 	def _integer(self, name, value):
 		self.parameter('integer', name, {'value' : '%d' % value})
-		#self.wf(self.current_file, '<integer name="%s" value="%d"/>\n' % (name, value), self.file_tabs[self.current_file])
 	
 	def _float(self, name, value):
 		self.parameter('float', name, {'value' : '%f' % value})
-		#self.wf(self.current_file, '<float name="%s" value="%f"/>\n' % (name, value), self.file_tabs[self.current_file])
 	
 	def _spectrum(self, name, value):
 		self.parameter('spectrum', name, value)
@@ -444,26 +546,55 @@ class Custom_Context(object):
 	
 	# Funtions to emulate Mitsuba extension API
 	
-	def pmgr_create(self, param_dict):
-		if param_dict is None or type(param_dict) is not dict or len(param_dict) == 0 or 'type' not in param_dict or param_dict['type'] not in self.plugins:
+	def pmgr_create(self, mts_dict):
+		if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
+			return
+		if mts_dict['type'] not in self.plugins:
+			MtsLog('************** Plugin not supported: %s **************' % mts_dict['type'])
 			return
 		
+		param_dict = mts_dict.copy()
 		args = {}
 		
-		args['type'] = param_dict.pop('type')
+		plugin_type = param_dict.pop('type')
+		
+		if plugin_type != 'ref':
+			args['type'] = plugin_type
+		
 		if 'id' in param_dict:
 			args['id'] = param_dict.pop('id')
+			if args['id'] in self.exported_ids:
+				if plugin_type != 'ref':
+					MtsLog('************** Plugin - %s - ID - %s - already exported **************' % (plugin_type, args['id']))
+					return
+			else:
+				if plugin_type != 'ref':
+					self.exported_ids += [args['id']]
+				else:
+					MtsLog('************** Reference ID - %s - exported before referencing **************' % (args['id']))
+					return
 		
-		plugin = self.plugins[args['type']]
-		if len(param_dict) > 0:
+		if 'name' in param_dict:
+			args['name'] = param_dict.pop('name')
+		
+		plugin = self.plugins[plugin_type]
+		if len(param_dict) > 0 and plugin in self.parameters:
 			self.openElement(plugin, args)
 			valid_parameters = self.parameters[plugin]
-			for param in valid_parameters:
-				if param in param_dict:
-					valid_parameters[param](param, param_dict[param])
+			for param, value in param_dict.items():
+				if isinstance(value, dict) and 'type' in value:
+					self.pmgr_create(value)
+				elif param in valid_parameters:
+					valid_parameters[param](param, value)
+				else:
+					MtsLog('************** %s param not exported: %s **************' % (plugin_type, param))
+					MtsLog(value)
 			self.closeElement()
 		elif len(param_dict) == 0:
 			self.element(plugin, args)
+		else:
+			MtsLog('************** Plugin not exported: %s **************' % plugin_type)
+			MtsLog(param_dict)
 	
 	def spectrum(self, r, g, b):
 		return {'value' : "%f %f %f" % (r, g, b)}
@@ -476,15 +607,23 @@ class Custom_Context(object):
 		# Blender is Z up but Mitsuba is Y up, convert the point
 		return {'x' : '%f' % x, 'y' : '%f' % z, 'z' : '%f' % -y}
 	
-	def transform_lookAt(self, origin, target, up):
+	def transform_lookAt(self, origin, target, up, scale = False):
 		# Blender is Z up but Mitsuba is Y up, convert the lookAt
-		return {
+		params = {
 			'lookat' : {
 				'origin' : '%f, %f, %f' % (origin[0],origin[2],-origin[1]),
 				'target' : '%f, %f, %f' % (target[0],target[2],-target[1]),
 				'up' : '%f, %f, %f' % (up[0],up[2],-up[1])
 			}
 		}
+		if scale:
+			params.update({
+				'scale' : {
+					'x' : scale,
+					'y' : scale
+				}
+			})
+		return params
 	
 	def transform_matrix(self, matrix):
 		# Blender is Z up but Mitsuba is Y up, convert the matrix
@@ -492,27 +631,6 @@ class Custom_Context(object):
 		l = matrix_to_list( global_matrix * matrix)
 		value = " ".join(["%f" % f for f in  l])
 		return {'matrix' : {'value' : value}}
-	
-	def area_emitter(self, ob_mat):
-		lamp = ob_mat.mitsuba_mat_emitter
-		mult = lamp.intensity
-		return {
-			'type' : 'area',
-			'samplingWeight' : lamp.samplingWeight,
-			'radiance' : self.spectrum(lamp.color.r*mult, lamp.color.g*mult, lamp.color.b*mult),
-		}
-	
-	def exportMatrix(self, matrix):
-		# Blender is Z up but Mitsuba is Y up, convert the matrix
-		global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
-		l = matrix_to_list( global_matrix * matrix)
-		value = " ".join(["%f " % f for f in  l])
-		self.element('matrix', {'value' : value})
-	
-	def exportWorldTrafo(self, trafo):
-		self.openElement('transform', {'name' : 'toWorld'})
-		self.exportMatrix(trafo)
-		self.closeElement()
 	
 	def exportVoxelData(self,objName , scene):
 		obj = None		
@@ -538,52 +656,23 @@ class Custom_Context(object):
 		#updateBoundinBoxCoorinates(file , obj)
 	
 	def exportMedium(self, scene, medium):
-		voxels = ['','']
-		
 		if medium.name in self.exported_media:
 			return
-		
 		self.exported_media += [medium.name]
-		self.openElement('medium', {'id' : medium.name, 'type' : medium.type})
-		if medium.type == 'homogeneous':
-			params = medium.get_paramset()
-			params.export(self)
-		elif medium.type == 'heterogeneous':
-			self.parameter('string', 'method', {'value' : str(medium.method)})
-			self.openElement('volume', {'name' : 'density','type' : 'gridvolume'})
-			self.exportWorldTrafo(Matrix())
-			if medium.externalDensity :
-				self.parameter('string', 'filename', {'value' : str(medium.density)})
-				# if medium.rewrite :
-				#	reexportVoxelDataCoordinates(medium.density)
-			else :	
-				voxels = self.exportVoxelData(medium.object,scene)
-				self.parameter('string', 'filename', {'value' : voxels[0] })
-			self.closeElement()
-			if not medium.albedo_usegridvolume :
-				self.openElement('volume', {'name' : 'albedo','type' : 'constvolume'})
-				self.parameter('spectrum', 'value', {'value' : "%f, %f, %f" %(medium.albado_color.r ,medium.albado_color.g, medium.albado_color.b)})
-			else :
-				self.openElement('volume', {'name' : 'albedo','type' : 'gridvolume'})
-				self.parameter('string', 'filename', {'value' : str(voxels[1])})
-			self.closeElement()	
-			self.parameter('float', 'scale', {'value' : str(medium.scale)})
-		if medium.g == 0:
-			self.element('phase', {'type' : 'isotropic'})
-		else:
-			self.openElement('phase', {'type' : 'hg'})
-			self.parameter('float', 'g', {'value' : str(medium.g)})
-			self.closeElement()
-		self.closeElement()
-	
-	def exportMediumReference(self, role, medium_name):
-		if medium_name == "":
-			return
 		
-		if role == '':
-			self.element('ref', { 'id' : medium_name})
-		else:
-			self.element('ref', { 'name' : role, 'id' : medium_name})
+		params = medium.api_output(self, scene)
+		
+		self.pmgr_create(params)
+	
+	def findReferences(self, params):
+		if isinstance(params, dict):
+			for p in params.values():
+				if isinstance(p, dict):
+					if 'type' in p and p['type'] == 'ref' and p['id'] != '':
+						yield p
+					else:
+						for r in self.findReferences(p):
+							yield r
 	
 	def findTexture(self, name):
 		if name in bpy.data.textures:
@@ -602,25 +691,11 @@ class Custom_Context(object):
 		if tex.name in self.exported_textures:
 			return
 		self.exported_textures += [tex.name]
-		params = tex.mitsuba_texture.get_paramset()
 		
-		for p in params:
-			if p.type == 'reference_texture':
-				self.exportTexture(self.findTexture(p.value))
+		params = {'id' : '%s-texture' % tex.name}
+		params.update(tex.mitsuba_texture.api_output(self))
 		
-		self.openElement('texture', {'id' : '%s' % tex.name, 'type' : tex.mitsuba_texture.type})
-		params.export(self)
-		self.closeElement()
-	
-	def exportBumpmap(self, mat):
-		mmat = mat.mitsuba_material
-		self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mmat.type})
-		self.element('ref', {'name' : 'bumpmap_ref', 'id' : '%s-material' % mmat.mitsuba_bsdf_bumpmap.ref_name})
-		self.openElement('texture', {'type' : 'scale'})
-		self.parameter('float', 'scale', {'value' : '%f' % mmat.mitsuba_bsdf_bumpmap.scale})
-		self.element('ref', {'name' : 'bumpmap_ref', 'id' : mmat.mitsuba_bsdf_bumpmap.bumpmap_floattexturename})
-		self.closeElement()
-		self.closeElement()
+		self.pmgr_create(params)
 	
 	def exportMaterial(self, mat):
 		if not hasattr(mat, 'name') or mat.name in self.exported_materials:
@@ -631,86 +706,21 @@ class Custom_Context(object):
 			self.element('null', {'id' : '%s-material' % mat.name})
 			return
 		
-		params = mmat.get_paramset()
+		mat_params = mmat.api_output(self, mat)
 		
-		for p in params:
-			if p.type == 'reference_material' and p.value != '':
-				self.exportMaterial(self.findMaterial(p.value))
-			elif p.type == 'reference_texture' and p.value != '':
-				self.exportTexture(self.findTexture(p.value))
-		
-		if mat.mitsuba_mat_subsurface.use_subsurface:
-			msss = mat.mitsuba_mat_subsurface
-			if msss.type == 'dipole':
-				self.openElement('subsurface', {'id' : '%s-subsurface' % mat.name, 'type' : 'dipole'})
-				sss_params = msss.get_paramset()
-				sss_params.export(self)
-				self.closeElement()
-			elif msss.type in ['homogeneous','heterogeneous']:
-				phase = getattr(msss, 'mitsuba_sss_%s' % msss.type)
-				self.openElement('medium', {'id' : '%s-interior' % mat.name, 'type' : msss.type})
-				if msss.type == 'heterogeneous':
-					self.openElement('volume', {'name' : 'density', 'type' : 'constvolume'})
-					self.parameter('float', 'value', {'value' : str(phase.density)})
-					self.closeElement()
-					self.openElement('volume', {'name' : 'albedo', 'type' : 'constvolume'})
-					self.parameter('rgb', 'value', { 'value' : "%f %f %f"
-						% (phase.albedo.r, phase.albedo.g, phase.albedo.b)})
-					self.closeElement()
-					self.openElement('volume', {'name' : 'orientation', 'type' : 'constvolume'})
-					self.parameter('vector', 'value', { 'x' : phase.orientation[0], 'y' : phase.orientation[1], 'z' : phase.orientation[2]})
-					self.closeElement()
-				self.openElement('phase', {'id' : '%s-intphase' % mat.name, 'type' : phase.phaseType})
-				if phase.phaseType == 'hg':
-					self.parameter('float', 'g', {'value' : str(phase.g)})
-				elif phase.phaseType == 'microflake':
-					self.parameter('float', 'stddev', {'value' : str(phase.stddev)})
-				self.closeElement()
-				sss_params = msss.get_paramset()
-				sss_params.export(self)
-				self.closeElement()
+		for p in self.findReferences(mat_params):
+			if p['id'].endswith('-material'):
+				self.exportMaterial(self.findMaterial(p['id'][:len(p['id'])-9]))
+			elif p['id'].endswith('-texture'):
+				self.exportTexture(self.findTexture(p['id'][:len(p['id'])-8]))
 		
 		# Export Surface BSDF
 		if mat.mitsuba_material.use_bsdf:
-			if mmat.type == 'bumpmap':
-				self.exportBumpmap(mat)
-			else:
-				bsdf = getattr(mmat, 'mitsuba_bsdf_%s' % mmat.type)
-				mtype = mmat.type
-				if mmat.type == 'diffuse' and (bsdf.alpha_floatvalue > 0 or (bsdf.alpha_usefloattexture and bsdf.alpha_floattexturename != '')):
-					mtype = 'roughdiffuse'
-				elif mmat.type == 'dielectric' and bsdf.thin:
-					mtype = 'thindielectric'
-				elif mmat.type in ['dielectric', 'conductor', 'plastic', 'coating'] and bsdf.distribution != 'none':
-					mtype = 'rough%s' % mmat.type
-
-				#needTwoSided = False
-				#twoSidedMatherial = ['diffuse','conductor','plastic','phong' ,'coating','ward','blendbsdf','mixturebsdf']
-				
-				#if mmat.type in twoSidedMatherial:
-				#	sub_type = getattr(mmat, 'mitsuba_bsdf_%s' % mmat.type)
-				#	needTwoSided = sub_type.use_two_sided_bsdf
-				
-				#if (mmat.type in twoSidedMatherial) and needTwoSided:
-				#	self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : "twosided"})
-				#	self.openElement('bsdf', {'type' : mtype})
-				#else :
-				self.openElement('bsdf', {'id' : '%s-material' % mat.name, 'type' : mtype})
-				
-				params.export(self)
-				
-				if mmat.type == 'hg':
-					if mmat.g == 0:
-						self.element('phase', {'type' : 'isotropic'})
-					else:
-						self.openElement('phase', {'type' : 'hg'})
-						self.parameter('float', 'g', {'value' : str(mmat.g)})
-						self.closeElement()
-				
-				self.closeElement()
-				
-				#if (mmat.type in twoSidedMatherial) and needTwoSided:
-				#	self.closeElement()
+			self.pmgr_create(mat_params)
+		
+		if mat.mitsuba_mat_subsurface.use_subsurface:
+			sss_params = mat.mitsuba_mat_subsurface.api_output(self, mat)
+			self.pmgr_create(sss_params)
 	
 	def worldEnd(self):
 		'''

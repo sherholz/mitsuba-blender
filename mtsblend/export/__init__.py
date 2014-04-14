@@ -249,19 +249,5 @@ def matrix_to_list(matrix, apply_worldscale=False):
 	
 	return [float(i) for i in l]
 
-def process_filepath_data(scene, obj, file_path, paramset, parameter_name):
-	file_basename		= os.path.basename(file_path)
-	library_filepath	= obj.library.filepath if (hasattr(obj, 'library') and obj.library) else ''
-	file_library_path	= efutil.filesystem_path(bpy.path.abspath(file_path, library_filepath))
-	file_relative		= efutil.filesystem_path(file_library_path) if (hasattr(obj, 'library') and obj.library) else efutil.filesystem_path(file_path)
-	
-	if scene.mitsuba_engine.allow_file_embed():
-		paramset.add_string(parameter_name, file_basename)
-		encoded_data, encoded_size = bencode_file2string_with_size(file_relative)
-		paramset.increase_size('%s_data' % parameter_name, encoded_size)
-		paramset.add_string('%s_data' % parameter_name, encoded_data.splitlines() )
-	else:
-		paramset.add_string(parameter_name, file_relative)
-
 def get_output_filename(scene):
 	return '%s.%s.%05d' % (efutil.scene_filename(), bpy.path.clean_name(scene.name), scene.frame_current)

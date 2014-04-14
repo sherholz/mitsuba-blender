@@ -24,7 +24,6 @@
 from .. import MitsubaAddon
 from extensions_framework import declarative_property_group
 from extensions_framework import util as efutil
-from ..export import ParamSet
 from extensions_framework.validate import Logic_OR as O, Logic_AND as A, Logic_Operator as LO
 
 @MitsubaAddon.addon_register_class
@@ -76,6 +75,7 @@ class mitsuba_integrator(declarative_property_group):
 		'granularityPT',
 		'shadowMapResolution',
 		'clamping',
+		'hideEmitters',
 	]
 	
 	visibility = {
@@ -88,6 +88,7 @@ class mitsuba_integrator(declarative_property_group):
 		'rrDepth':					{'type': O(['path', 'volpath_simple', 'volpath', 'bdpt', 'photonmapper',
 										'ppm', 'sppm', 'pssmlt', 'erpt', 'ptracer'])},
 		'strictNormals':			{'type': O(['direct', 'path', 'volpath_simple', 'volpath'])},
+		'hideEmitters':				{'type': O(['direct', 'path', 'volpath_simple', 'volpath', 'photonmapper'])},
 		'lightImage':				{'type': 'bdpt'},
 		'sampleDirect':				{'type': 'bdpt'},
 		'directSamples':			{'type': O(['photonmapper', 'pssmlt', 'mlt', 'erpt'])},
@@ -190,6 +191,14 @@ class mitsuba_integrator(declarative_property_group):
 			'attr': 'strictNormals',
 			'name': 'Strict Normals',
 			'description': 'Be strict about potential inconsistencies involving shading normals?',
+			'default' : False,
+			'save_in_preset': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'hideEmitters',
+			'name': 'Hide Emitters',
+			'description': 'Hide environment and area emitters?',
 			'default' : False,
 			'save_in_preset': True
 		},
@@ -510,12 +519,14 @@ class mitsuba_integrator(declarative_property_group):
 				'emitterSamples' : self.emitterSamples,
 				'bsdfSamples' : self.bsdfSamples,
 				'strictNormals' : self.strictNormals,
+				'hideEmitters' : self.hideEmitters,
 			}
 		elif self.type in ['path', 'volpath_simple', 'volpath']:
 			params = {
 				'maxDepth' : self.maxDepth,
 				'rrDepth' : self.rrDepth,
 				'strictNormals' : self.strictNormals,
+				'hideEmitters' : self.hideEmitters,
 			}
 		elif self.type == 'bdpt':
 			params = {
@@ -536,6 +547,7 @@ class mitsuba_integrator(declarative_property_group):
 				'causticLookupRadius' : self.causticLookupRadius,
 				'lookupSize' : self.causticLookupSize,
 				'granularity' : self.granularityPM,
+				'hideEmitters' : self.hideEmitters,
 				'rrDepth' : self.rrDepth,
 			}
 		elif self.type in ['ppm', 'sppm']:

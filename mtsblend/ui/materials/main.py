@@ -134,10 +134,10 @@ class MitsubaMaterial_PT_header(mitsuba_material_base):
 		node_tree_selector_draw(layout, mat, 'mitsuba_material_output_node')
 		if not panel_node_draw(layout, mat, 'mitsuba_material_output_node', 'Surface'):
 			row = self.layout.row(align=True)
-			if slot:
+			#if slot:
 				#row.label("Material type")
 				#row.menu('MATERIAL_MT_mitsuba_type', text=context.material.mitsuba_material.type_label)
-				super().draw(context)
+				#super().draw(context)
 
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_utils(mitsuba_material_base):
@@ -173,9 +173,7 @@ class MitsubaMaterial_PT_bsdf(mitsuba_material_base):
 	bl_label	= 'Mitsuba BSDF Material'
 	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
 	
-	display_property_groups = [
-		( ('material',), 'mitsuba_material' )
-	]
+	display_property_groups = []
 	
 	def draw_header(self, context):
 		self.layout.prop(context.material.mitsuba_material, "use_bsdf", text="")
@@ -184,12 +182,10 @@ class MitsubaMaterial_PT_bsdf(mitsuba_material_base):
 		layout = self.layout
 		mat = context.material.mitsuba_material
 		layout.active = (mat.use_bsdf)
-		layout.prop(context.material.mitsuba_material, "type", text="")
+		self.display_property_groups = [
+			( ('material',), 'mitsuba_material' )
+		]
 		if mat.type != 'none':
-			bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
-			for p in bsdf.controls:
-				self.draw_column(p, self.layout, mat, context,
-					property_group=bsdf)
-			bsdf.draw_callback(context)
+			self.display_property_groups.append(( ('material', 'mitsuba_material'), 'mitsuba_bsdf_%s' % mat.type ))
 		
-		#return super().draw(context)
+		return super().draw(context)

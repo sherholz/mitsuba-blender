@@ -29,7 +29,7 @@ from extensions_framework import declarative_property_group
 from extensions_framework.validate import Logic_Operator, Logic_OR as LO
 
 from .. import MitsubaAddon
-from ..export import ParamSet
+from ..properties.texture import ColorTextureParameter
 
 def LampMediumParameter(attr, name):
 	return [
@@ -50,6 +50,40 @@ def LampMediumParameter(attr, name):
 			'name': name
 		}
 	]
+
+class LampColorTextureParameter(ColorTextureParameter):
+	def texture_slot_set_attr(self):
+		return lambda s,c: getattr(c, 'mitsuba_lamp_%s'%s.lamp.type.lower())
+	
+	def texture_collection_finder(self):
+		return lambda s,c: s.object.data
+	
+	def get_controls(self):
+		return [
+			#[0.375,'%s_colorlabel' % self.attr, '%s_color' % self.attr],
+			'%s_colortexture' % self.attr,
+		] + self.get_extra_controls()
+	
+	def get_visibility(self):
+		vis = {
+			#'%s_colortexture' % self.attr:	{ '%s_usecolortexture' % self.attr: True },
+		}
+		vis.update(self.get_extra_visibility())
+		return vis
+	
+	def api_output(self, mts_context, context):
+		if getattr(context, '%s_colortexturename' % self.attr):
+			return {
+				'type' : 'ref',
+				'id' : '%s-texture' % getattr(context, '%s_colortexturename' % self.attr),
+				'name' : self.attr
+			}
+		else:
+			#color = getattr(context, '%s_color' % self.attr)
+			#return mts_context.spectrum(color.r, color.g, color.b)
+			return {}
+
+TC_spotcolor = LampColorTextureParameter('texture', 'Texture', default=(1.0, 1.0, 1.0))
 
 @MitsubaAddon.addon_register_class
 class mitsuba_lamp(declarative_property_group):
@@ -103,8 +137,20 @@ class mitsuba_lamp(declarative_property_group):
 				return
 		
 		if lamp.data.type in ['POINT', 'SPOT', 'SUN', 'AREA', 'HEMI']:
-			ltype = getattr(lamp.data.mitsuba_lamp, 'mitsuba_lamp_%s' % str(lamp.data.type).lower())
-			return ltype.api_output(mts_context, lamp)
+			mlamp = lamp.data.mitsuba_lamp
+			ltype = getattr(mlamp, 'mitsuba_lamp_%s' % str(lamp.data.type).lower())
+			params = ltype.api_output(mts_context, lamp)
+			
+			if mlamp.exterior_medium != '' and lamp.data.type in ['POINT', 'SPOT', 'AREA']:
+				params.update({
+					'medium' : {
+						'type' : 'ref',
+						'id' : '%s-medium' % mlamp.exterior_medium,
+						'name' : 'exterior'
+					}
+				})
+			
+			return params
 
 @MitsubaAddon.addon_register_class	
 class mitsuba_lamp_point(declarative_property_group):
@@ -130,7 +176,7 @@ class mitsuba_lamp_point(declarative_property_group):
 		mlamp = lamp.data.mitsuba_lamp
 		mult = mlamp.intensity
 		
-		return {
+		params = {
 			'type' : 'sphere',
 			'center' : mts_context.point(lamp.location.x, lamp.location.y, lamp.location.z),
 			'radius' : mlamp.mitsuba_lamp_point.radius,
@@ -145,22 +191,24 @@ class mitsuba_lamp_point(declarative_property_group):
 				'reflectance' : mts_context.spectrum(lamp.data.color.r, lamp.data.color.g, lamp.data.color.b),
 			},
 		}
-		#if mlamp.exterior_medium != '':
-		#	self.exportMediumReference('', mlamp.exterior_medium)
+		
+		return params
 
 @MitsubaAddon.addon_register_class	
 class mitsuba_lamp_spot(declarative_property_group):
 	ef_attach_to = ['mitsuba_lamp']
 	
-	controls = []
+	controls = TC_spotcolor.controls
 	
-	properties = []
+	properties = TC_spotcolor.properties
+	
+	visibility = TC_spotcolor.visibility
 	
 	def api_output(self, mts_context, lamp):
 		mlamp = lamp.data.mitsuba_lamp
 		mult = mlamp.intensity
 		
-		return {
+		params = {
 			'type' : 'spot',
 			'id' : '%s-spotlight' % lamp.name,
 			'toWorld' : mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((-1,0,0,0),(0,1,0,0),(0,0,-1,0),(0,0,0,1)))),
@@ -169,8 +217,11 @@ class mitsuba_lamp_spot(declarative_property_group):
 			'beamWidth' : ((1-lamp.data.spot_blend) * lamp.data.spot_size * 180 / (math.pi * 2)),
 			'samplingWeight' : mlamp.samplingWeight,
 		}
-		#if mlamp.exterior_medium != '':
-		#	self.exportMediumReference('', mlamp.exterior_medium)
+		texture = TC_spotcolor.api_output(mts_context, self)
+		if len(texture) > 0:
+			params.update({'texture' : texture})
+		
+		return params
 
 @MitsubaAddon.addon_register_class	
 class mitsuba_lamp_sun(declarative_property_group):
@@ -343,7 +394,7 @@ class mitsuba_lamp_area(declarative_property_group):
 		(size_x, size_y) = (lamp.data.size/2.0, lamp.data.size/2.0)
 		if lamp.data.shape == 'RECTANGLE':
 			size_y = lamp.data.size_y/2.0
-		return {
+		params = {
 			'type' : 'rectangle',
 			'toWorld' : mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((size_x,0,0,0),(0,size_y,0,0),(0,0,-1,0),(0,0,0,1)))),
 			'emitter' : {
@@ -357,8 +408,8 @@ class mitsuba_lamp_area(declarative_property_group):
 				'reflectance' : mts_context.spectrum(lamp.data.color.r, lamp.data.color.g, lamp.data.color.b),
 			},
 		}
-		#if mlamp.exterior_medium != '':
-		#	self.exportMediumReference('', mlamp.exterior_medium)
+		
+		return params
 
 @MitsubaAddon.addon_register_class	
 class mitsuba_lamp_hemi(declarative_property_group):

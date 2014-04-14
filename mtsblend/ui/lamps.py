@@ -109,6 +109,7 @@ class MitsubaLamp_PT_spot(mts_lamps_panel):
 		wide_ui = context.region.width > narrowui
 		
 		layout.prop(lamp, "color", text="Color")
+		super().draw(context)
 		
 		if wide_ui:
 			col=layout.row()

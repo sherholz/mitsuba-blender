@@ -23,7 +23,6 @@
 #
 import bpy
 
-from ..export import ParamSet
 from ..export.geometry import GeometryExporter
 from ..export.materials import ExportedTextures
 from ..outputs import MtsLog, MtsManager
@@ -84,12 +83,21 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
 				}
 				shape.update(mesh_params)
 				if mat.mitsuba_material.use_bsdf:
-					shape.update({'ref_bsdf': {'name' : 'bsdf', 'id' : '%s-material' % mat.name}})
+					shape.update({'ref_bsdf': {'type' : 'ref', 'name' : 'bsdf', 'id' : '%s-material' % mat.name}})
 				if mat.mitsuba_mat_subsurface.use_subsurface:
 					if mat.mitsuba_mat_subsurface.type == 'dipole':
-						shape.update({'ref_subsurface': {'name' : 'subsurface', 'id' : '%s-subsurface' % mat.name}})
+						shape.update({'ref_subsurface': {'type' : 'ref', 'name' : 'subsurface', 'id' : '%s-subsurface' % mat.name}})
+					elif mat.mitsuba_mat_subsurface.type == 'participating':
+						shape.update({
+							'ref_interior': {
+								'type' : 'ref',
+								'name' : 'interior',
+								'id' : '%s-medium' % mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium
+							}
+						})
+				
 				if mat.mitsuba_mat_emitter.use_emitter:
-					shape.update({'emitter': mts_context.area_emitter(mat)})
+					shape.update({'emitter': mat.mitsuba_mat_emitter.api_output(mts_context)})
 				
 				mts_context.pmgr_create(shape)
 		else:
