@@ -253,61 +253,6 @@ def menu_func(self, context):
 	self.layout.operator("export.mitsuba", text="Export Mitsuba scene...").filename = default_path
 bpy.types.INFO_MT_file_export.append(menu_func)
 
-@MitsubaAddon.addon_register_class
-class MITSUBA_OT_material_slot_move(bpy.types.Operator):
-	''' Rearrange the material slots '''
-	bl_idname = 'mitsuba.material_slot_move'
-	bl_label = 'Move a material entry up or down'
-	type = bpy.props.StringProperty(name='type')
-	
-	def execute(self, context):
-		obj = bpy.context.active_object
-		index = obj.active_material_index
-		if self.properties.type == 'UP':
-			new_index = index-1
-		else:
-			new_index=index+1
-		size = len(obj.material_slots)
-		
-		if new_index >= 0 and new_index < size:
-			obj.active_material_index = 0
-			# Can't write to material_slots, hence the kludge
-			materials = []
-			for i in range(0, size):
-				materials += [obj.material_slots[i].name]
-			for i in range(0, size):
-				mat = obj.data.materials.pop(0)
-				del(mat)
-			temp = materials[index]
-			materials[index] = materials[new_index]
-			materials[new_index] = temp
-			#__import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
-			for i in range(0, size):
-				bpy.ops.object.material_slot_remove() #cos slots are not deleted
-				obj.data.materials.append(bpy.data.materials[materials[i]])
-			
-			obj.active_material_index = new_index
-		return {'FINISHED'}
-
-@MitsubaAddon.addon_register_class
-class MITSUBA_OT_material_add(bpy.types.Operator):
-	''' Append a new material '''
-	bl_idname = 'mitsuba.material_add'
-	bl_label = 'Append a new material'
-	type = bpy.props.StringProperty(name='type')
-	
-	def execute(self, context):
-		obj = bpy.context.active_object
-		index = obj.active_material_index
-		if len(obj.material_slots) == 0:
-			curName = 'Material'
-		else:
-			curName = obj.material_slots[index].name
-		mat = bpy.data.materials.new(name=curName)
-		obj.data.materials.append(mat)
-		obj.active_material_index = len(obj.data.materials)-1
-		return {'FINISHED'}
-	
 def material_converter_cycles(report, scene, blender_mat , obj = None):
 	''' Converting one material from Cycles to Mitsuba'''
 	try:		

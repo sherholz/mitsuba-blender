@@ -101,12 +101,9 @@ class MitsubaMaterial_PT_header(mitsuba_material_base):
 			row.template_list("MATERIAL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=4)
 			
 			col = row.column(align=True)
-			#col.operator("mitsuba.material_add", icon='ZOOMIN', text="")
+			
 			col.operator("object.material_slot_add", icon='ZOOMIN', text="")
 			col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
-			
-			col.operator("mitsuba.material_slot_move", text="", icon='TRIA_UP').type = 'UP'
-			col.operator("mitsuba.material_slot_move", text="", icon='TRIA_DOWN').type = 'DOWN'
 			
 			col.menu("MATERIAL_MT_specials", icon='DOWNARROW_HLT', text="")
 			
