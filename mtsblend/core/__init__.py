@@ -261,9 +261,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			print('no preview materials')
 			return
 		
-		tempdir = efutil.temp_directory()
-		matfile = "matpreview_materials.xml"
-		output_file = os.path.join(tempdir, "matpreview.png")
+		output_file = os.path.join(self.output_dir, "matpreview.png")
 		self.output_file = output_file
 		scene_file = os.path.join(matpreview_path(), "matpreview-alt.xml")
 		MtsLog('Scene path: %s'%scene_file)
@@ -283,12 +281,11 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		if file_based_preview:
 			# Dump to file in temp dir for debugging
 			from ..outputs.file_api import Custom_Context as mts_writer
-			mts_filename = '/'.join([
+			mts_filename = os.path.join(
 				self.output_dir,
-				'matpreview_materials'
-			])
+				'matpreview_materials.xml'
+			)
 			preview_context = mts_writer(scene.name)
-			#preview_context.set_filename(scene, 'mtsblend-preview')
 			preview_context.set_filename(scene, mts_filename)
 			MM.mts_context = preview_context
 		else:
@@ -318,7 +315,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			
 			fov = math.degrees(2.0 * math.atan((scene.camera.data.sensor_width / 2.0) / scene.camera.data.lens)) / pm.mitsuba_material.preview_zoom
 			
-			MtsLog('tempdir: %s' % tempdir)
+			MtsLog('output_dir: %s' % self.output_dir)
 			MtsLog('output_file: %s' % output_file)
 			MtsLog('scene_file: %s' % scene_file)
 			
@@ -327,7 +324,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			cmd_args.extend(['-q', 
 				'-r%i' % refresh_interval,
 				'-b16',
-				'-Dmatfile=%s' % os.path.join(tempdir, matfile),
+				'-Dmatfile=%s' % mts_filename,
 				'-Dwidth=%i' % xres, 
 				'-Dheight=%i' % yres, 
 				'-Dfov=%f' % fov, 
@@ -390,8 +387,11 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		fp = scene.render.filepath
 		output_path_split = list(os.path.split(fp))
 		if sys.platform in ('win32', 'darwin') and output_path_split[0] == '/tmp':
-			output_path_split[0] = efutil.temp_directory()
-			fp = '/'.join(output_path_split)
+			if sys.platform == 'darwin':
+				output_path_split[0] = efutil.filesystem_path( bpy.app.tempdir )
+			else:
+				output_path_split[0] = efutil.temp_directory()
+			fp = os.path.join(*output_path_split)
 		
 		scene_path = efutil.filesystem_path( fp )
 		
@@ -511,10 +511,12 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			mitsuba_path += '/'
 		
 		if sys.platform == 'darwin':
-			mitsuba_path += 'Mitsuba.app/Contents/MacOS/%s' % scene.mitsuba_engine.binary_name # Get binary from OSX bundle
+			if mitsuba_path[-27:] != 'Mitsuba.app/Contents/MacOS/' and os.path.exists('%sMitsuba.app/Contents/MacOS/' % mitsuba_path):
+				mitsuba_path += 'Mitsuba.app/Contents/MacOS/' # Looks like the configured path points to app bundle instead of binary
+			mitsuba_path += scene.mitsuba_engine.binary_name
 			if not os.path.exists(mitsuba_path):
 				MtsLog('Mitsuba not found at path: %s' % mitsuba_path, ', trying default Mitsuba location')
-				mitsuba_path = '/Applications/Mitsuba/Mitsuba.app/Contents/MacOS/%s' % scene.mitsuba_engine.binary_name # try fallback to default installation path
+				mitsuba_path = '/Applications/Mitsuba.app/Contents/MacOS/%s' % scene.mitsuba_engine.binary_name # try fallback to default installation path
 
 		elif sys.platform == 'win32':
 			mitsuba_path += '%s.exe' % scene.mitsuba_engine.binary_name

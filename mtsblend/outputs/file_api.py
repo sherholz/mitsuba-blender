@@ -416,7 +416,10 @@ class Custom_Context(object):
 		self.file_tabs = []
 		self.file_stack = []
 		
-		self.file_names.append('%s.xml' % name)
+		if name[-4:] != '.xml':
+			name += '.xml'
+		
+		self.file_names.append(name)
 		self.files.append(open(self.file_names[Files.MAIN], 'w', encoding='utf-8', newline="\n"))
 		self.file_tabs.append(0)
 		self.file_stack.append([])

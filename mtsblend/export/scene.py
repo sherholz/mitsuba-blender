@@ -84,10 +84,10 @@ class SceneExporter(object):
 			MtsManager.SetCurrentScene(scene)
 			mts_context = MtsManager.GetActive().mts_context
 			
-			mts_filename = '/'.join([
+			mts_filename = os.path.join(
 				self.properties.directory,
 				self.properties.filename
-			])
+			)
 			
 			if self.properties.directory[-1] not in ('/', '\\'):
 				self.properties.directory += '/'
