@@ -83,8 +83,18 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 			def serialize(self, fileName, name, mesh, materialID):
 				faces = mesh.tessfaces[0].as_pointer()
 				vertices = mesh.vertices[0].as_pointer()
-				texCoords = 0 if len(mesh.uv_layers) == 0 else mesh.uv_layers[0].data[0].as_pointer()
-				vertexColors = 0 if len(mesh.vertex_colors) == 0 else mesh.vertex_colors[0].data[0].as_pointer()
+				
+				uv_textures = mesh.tessface_uv_textures
+				if len(uv_textures) > 0 and mesh.uv_textures.active and uv_textures.active.data:
+					texCoords = uv_textures.active.data[0].as_pointer()
+				else:
+					texCoords = 0
+				
+				vertex_color = mesh.tessface_vertex_colors.active
+				if vertex_color:
+					vertexColors = vertex_color.data[0].as_pointer()
+				else:
+					vertexColors = 0
 				
 				trimesh = TriMesh.fromBlender(mesh.name, len(mesh.tessfaces),
 					faces, len(mesh.vertices), vertices, texCoords, vertexColors, materialID)
