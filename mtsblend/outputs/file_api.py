@@ -107,6 +107,7 @@ class Custom_Context(object):
 			'checkerboard' : 'texture',
 			'gridtexture' : 'texture',
 			'scale' : 'texture',
+			'vertexcolors' : 'texture',
 			'wireframe' : 'texture',
 			'curvature' : 'texture',
 			# Subsurface

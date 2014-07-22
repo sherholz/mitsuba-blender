@@ -449,20 +449,20 @@ class GeometryExporter(object):
 							vert_use_vno = set()		# Set of vert indices that use vert normals
 							
 							vert_index = 0				# exported vert index
-							for fidx, face in enumerate(ffaces_mats[i]):
+							for face in ffaces_mats[i]:
 								fvi = []
 								for j, vertex in enumerate(face.vertices):
 									v = mesh.vertices[vertex]
 									
 									if vertex_color_layer:
 										if j == 0:
-											vert_col = vertex_color_layer[fidx].color1
+											vert_col = vertex_color_layer[face.index].color1
 										elif j == 1:
-											vert_col = vertex_color_layer[fidx].color2
+											vert_col = vertex_color_layer[face.index].color2
 										elif j == 2:
-											vert_col = vertex_color_layer[fidx].color3
+											vert_col = vertex_color_layer[face.index].color3
 										elif j == 3:
-											vert_col = vertex_color_layer[fidx].color4
+											vert_col = vertex_color_layer[face.index].color4
 									
 									if uv_layer:
 										# Flip UV Y axis. Blender UV coord is bottom-left, Mitsuba is top-left.

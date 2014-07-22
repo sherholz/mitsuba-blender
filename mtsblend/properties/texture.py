@@ -372,6 +372,7 @@ class mitsuba_texture(declarative_property_group):
 				('bitmap', 'Bitmap', 'bitmap'),
 				('checkerboard', 'Checkerboard', 'checkerboard'),
 				('gridtexture', 'Grid Texture', 'gridtexture'),
+				('vertexcolors', 'Vertex Colors Texture', 'vertexcolors'),
 				('wireframe', 'Wireframe Texture', 'wireframe'),
 				('curvature', 'Surface Curvature', 'curvature'),
 			],
@@ -744,6 +745,19 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 			'color0' : mts_context.spectrum(self.color0.r, self.color0.g, self.color0.b),
 			'color1' : mts_context.spectrum(self.color1.r, self.color1.g, self.color1.b),
 			'lineWidth' : self.lineWidth,
+		}
+
+@MitsubaAddon.addon_register_class
+class mitsuba_tex_vertexcolors(declarative_property_group):
+	ef_attach_to = ['mitsuba_texture']
+	
+	controls = []
+	
+	properties = []
+	
+	def api_output(self, mts_context):
+		return {
+			'type' : 'vertexcolors',
 		}
 
 @MitsubaAddon.addon_register_class
