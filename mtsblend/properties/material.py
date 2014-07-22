@@ -146,23 +146,23 @@ class mitsuba_material(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-		'attr': 'preview_zoom',
-		'type': 'float',
-		'description': 'Zoom Factor of preview camera',
-		'name': 'Zoom Factor',
-		'min': 1.0,
-		'soft_min': 0.5,
-		'max': 2.0,
-		'soft_max': 2.0,
-		'step': 25,
-		'default': 1.0
+			'attr': 'preview_zoom',
+			'type': 'float',
+			'description': 'Zoom Factor of preview camera',
+			'name': 'Zoom Factor',
+			'min': 1.0,
+			'soft_min': 0.5,
+			'max': 2.0,
+			'soft_max': 2.0,
+			'step': 25,
+			'default': 1.0
 		},
 		{
-		'attr': 'nodetree',
-		'type': 'string',
-		'description': 'Node tree',
-		'name': 'Node Tree',
-		'default': ''
+			'attr': 'nodetree',
+			'type': 'string',
+			'description': 'Node tree',
+			'name': 'Node Tree',
+			'default': ''
 		},
 	]
 	
