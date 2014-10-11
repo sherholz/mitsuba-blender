@@ -23,7 +23,7 @@
 #
 
 	##########################################################################################
-	#    THE VOXEL DATA FORMAT NEEDED FOR THE MITSUBA 
+	#    THE VOXEL DATA FORMAT NEEDED FOR THE MITSUBA
 	##########################################################################################
 	#
 	#Bytes 1-3     VOL in ASCII
@@ -35,7 +35,7 @@
 	#            3. Dense uint8-based representation (The range 0..255 will be mapped to 0..1)
 	#            4. Dense quantized directions. The directions are stored in spherical coordinates
 	#                        with a total storage cost of 16 bit per entry.
-	#            
+	#
 	#Bytes 9-12     Number of cells along the X axis (32 bit integer)
 	#Bytes 13-16    Number of cells along the Y axis (32 bit integer)
 	#Bytes 17-20    Number of cells along the Z axis (32 bit integer)
@@ -48,23 +48,27 @@
 	#               data[((zpos*yres + ypos)*xres + xpos)*channels + chan]
 	#               where (xpos, ypos, zpos, chan) denotes the lookup location.
 	#
-	#Example : 
+	#Example :
 	#    56 4F 4C 33    01 00 00 00    10 00 00 00    10 00 00 00      ||  VOL3 1 3 3
 	#    10 00 00 00    01 00 00 00    FF FF FF FF    FF FF FF FF      ||  3 1 -1 -1
-	#    FF FF FF FF    01 00 00 00    01 00 00 00    01 00 00 00      ||  -1 1 1 1  
+	#    FF FF FF FF    01 00 00 00    01 00 00 00    01 00 00 00      ||  -1 1 1 1
 	#    -------------------------------------------------------------
 	#     THE REST IS THE CONTENT  3*3*3 =  27 times
 	############################################################################################
 
 # System Libs
 from ctypes import cdll, c_uint, c_float, cast, POINTER, byref, sizeof
-import os, struct, sys
+import os
+import sys
+import struct
 
 # Blender Libs
 import bpy
 
 # Mitsuba libs
+from ..export import get_output_subdir
 from ..outputs import MtsLog
+
 
 class library_loader():
 	
@@ -83,12 +87,12 @@ class library_loader():
 	platform_search = {
 		'lzo': {
 			'darwin': [
-				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/liblzo2.dylib' ),
+				bpy.utils.user_resource('SCRIPTS', 'addons/mtsblend/liblzo2.dylib'),
 				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzo2.dylib'
 			],
 			'win32': [
 				'lzo.dll',
-				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/lzo.dll'),
+				bpy.utils.user_resource('SCRIPTS', 'addons/mtsblend/lzo.dll'),
 				bpy.app.binary_path[:-11] + ver_str + '/scripts/addons/mtsblend/lzo.dll'
 			],
 			'linux': [
@@ -104,12 +108,12 @@ class library_loader():
 		},
 		'lzma': {
 			'darwin': [
-				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/liblzmadec.dylib'),
+				bpy.utils.user_resource('SCRIPTS', 'addons/mtsblend/liblzmadec.dylib'),
 				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/liblzmadec.dylib'
 			],
 			'win32': [
 				'lzma.dll',
-				bpy.utils.user_resource('SCRIPTS','addons/mtsblend/lzma.dll'),
+				bpy.utils.user_resource('SCRIPTS', 'addons/mtsblend/lzma.dll'),
 				bpy.app.binary_path[:-11] + ver_str + '/scripts/addons/mtsblend/lzma.dll'
 			],
 			'linux': [
@@ -169,83 +173,82 @@ class library_loader():
 		
 		return cls.has_lzma, cls.lzmadll
 
-	
-	
+
 class reading_cache_data():
 	
-	SZ_FLOAT    = sizeof(c_float)
-	SZ_UINT     = sizeof(c_uint)
+	SZ_FLOAT = sizeof(c_float)
+	SZ_UINT = sizeof(c_uint)
 	
 	@classmethod
 	def read_data_segment(self, cachefile, cell_count):
-		compression     = 0
-		binary_file     = None    
-		steam_file      = None
-		steam_size      = 0  
-		props_file      = None
-		props_size      = None    
-			
-		compression = struct.unpack("1B", cachefile.read(1))[0]        
+		compression = 0
+		binary_file = None
+		steam_file = None
+		steam_size = 0
+		props_file = None
+		props_size = None
+		
+		compression = struct.unpack("1B", cachefile.read(1))[0]
 		if not compression:
-			binary_file = cachefile.read(self.SZ_FLOAT *cell_count)
-			return (compression,binary_file,0,None,0)
+			binary_file = cachefile.read(self.SZ_FLOAT * cell_count)
+			return (compression, binary_file, 0, None, 0)
 		else:
-			steam_size = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]        
+			steam_size = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
 			steam_file = cachefile.read(steam_size)
 			if compression == 2:
 				props_size = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
-				props_file = cachefile.read(props_size)            
-			return (compression,steam_file, steam_size, props_file , props_size)
-		   
-	@classmethod  
+				props_file = cachefile.read(props_size)
+			return (compression, steam_file, steam_size, props_file, props_size)
+	
+	@classmethod
 	def decompressing_data(self, data, cell_count):
-		list    = []
-		outlen  = c_uint()
+		data_list = []
+		outlen = c_uint()
 		
 		if data[0] == 1:
 			has_lzo, lzodll = library_loader.load_lzo()
 			if has_lzo:
-				MtsLog('Volumes: De-compressing LZO stream of length {0:0d} bytes...'.format(data[2]))                            
-				uncomp_stream   = (c_float*cell_count*self.SZ_FLOAT)()
-				p_dens          = cast(uncomp_stream, POINTER(c_float))                                           
+				MtsLog('Volumes: De-compressing LZO stream of length {0:0d} bytes...'.format(data[2]))
+				uncomp_stream = (c_float * cell_count * self.SZ_FLOAT)()
+				p_dens = cast(uncomp_stream, POINTER(c_float))
 				#call lzo decompressor
-				lzodll.lzo1x_decompress(data[1], data[2], p_dens,byref(outlen), None)
+				lzodll.lzo1x_decompress(data[1], data[2], p_dens, byref(outlen), None)
 				MtsLog("Out length: %s" % (str(outlen)))
-				for i in range(int(outlen.value / 4) ):
+				for i in range(int(outlen.value / 4)):
 					list.append(p_dens[i])
 			else:
-				MtsLog('Volumes: Cannot read compressed LZO stream; no library loaded')                        
+				MtsLog('Volumes: Cannot read compressed LZO stream; no library loaded')
 		elif data[0] == 2:
 			has_lzma, lzmadll = library_loader.load_lzma()
 			if has_lzma:
-				MtsLog('Volumes: De-compressing LZMA stream of length {0:0d} bytes...'.format(data[2]))                            
-				uncomp_stream   = (c_float*cell_count*self.SZ_FLOAT)()
-				p_dens          = cast(uncomp_stream, POINTER(c_float))
-				outlen          = c_uint(cell_count*SZ_FLOAT)                            
-				#call lzma decompressor                            
+				MtsLog('Volumes: De-compressing LZMA stream of length {0:0d} bytes...'.format(data[2]))
+				uncomp_stream = (c_float * cell_count * self.SZ_FLOAT)()
+				p_dens = cast(uncomp_stream, POINTER(c_float))
+				outlen = c_uint(cell_count * self.SZ_FLOAT)
+				#call lzma decompressor
 				lzmadll.LzmaUncompress(p_dens, byref(outlen), data[1], byref(c_uint(data[1])), data[3], data[4])
-								
-				for i in range(int(outlen.value / 4) ):
+				
+				for i in range(int(outlen.value / 4)):
 					list.append(p_dens[i])
 			else:
 				MtsLog('Volumes: Cannot read compressed LZMA stream; no library loaded')
-		else :                          
-		   #TODO: extrect so that it will be OK            
-		   list = struct.unpack(str(int(len(data[1])/4))+"f",data[1])
-		   """
+		else:
+			#TODO: extrect so that it will be OK
+			data_list = struct.unpack(str(int(len(data[1]) / 4)) + "f", data[1])
+			"""
 						elif heat_data[0] == 0:
 							pass
 							""
 							print("Length uncompress heat: %i" % (len(heat) / 4))
 							print("Length uncompress heat: %i" % (cell_count))
 							#TODO : I don't think that it needs to be devided a^3 only if its high resolution
-							if is_high_res:                                
-								cells  = int(res_x*res_y*res_z) 
+							if is_high_res:
+								cells = int(res_x * res_y * res_z)
 							else :
-								cells = int(cell_count)                                 
+								cells = int(cell_count)
 							heat = struct.unpack(str(cells)+"f",heat_binary)
 			"""
-		return list
+		return data_list
 	
 	@classmethod
 	def read_cache(self, smokecache, is_high_res, amplifier, flowtype):
@@ -266,7 +269,7 @@ class reading_cache_data():
 		#    data_segment for vx values               ( cell_count * sizeof(float) Bytes)
 		#    data_segment for vy values               ( cell_count * sizeof(float) Bytes)
 		#    data_segment for vz values               ( cell_count * sizeof(float) Bytes)
-		#    data_segment for obstacles values        ( cell_count * sizeof(char) Bytes)    
+		#    data_segment for obstacles values        ( cell_count * sizeof(char) Bytes)
 		# if simulation is high resolution additionally:
 		#    data_segment for density values          ( big_cell_count * sizeof(float) Bytes)
 		#    data_segment for tcu values              ( cell_count * sizeof(u_int) Bytes)
@@ -293,7 +296,7 @@ class reading_cache_data():
 		###################################################################################################
 		
 		density             = []
-		fire                = []    
+		fire                = []
 		heat                = []
 		heat_old            = []
 		cell_count          = 0
@@ -305,9 +308,9 @@ class reading_cache_data():
 		#if not smokecache.is_baked:
 		if False:
 			print('Volumes: Smoke data has to be baked for export')
-		else:        
-			cachefilename = smokecache 
-			fullpath = os.path.join( cachefilepath, cachefilename )
+		else:
+			cachefilename = smokecache
+			fullpath = os.path.join(cachefilepath, cachefilename)
 			if not os.path.exists(fullpath):
 				print('Volumes: Cachefile doesn''t exist: %s' % fullpath)
 			else:
@@ -318,23 +321,23 @@ class reading_cache_data():
 				props_size  = c_uint()
 				outlen      = c_uint()
 				compressed  = 0
-							
-				for i in range(len(buffer)):
-					temp = temp + chr(buffer[i])        
 				
-				if temp == "BPHYSICS":    #valid cache file
-					data_type = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]                    
+				for i in range(len(buffer)):
+					temp = temp + chr(buffer[i])
+				
+				if temp == "BPHYSICS":  # valid cache file
+					data_type = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
 					if (data_type == 3) or (data_type == 4):
-						cell_count = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]                        
+						cell_count = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
 						struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
 						
 						last_pos    = cachefile.tell()
 						buffer      = cachefile.read(4)
-						temp        = ""             
-						new_cache   = False       
+						temp        = ""
+						new_cache   = False
 						
 						for i in range(len(buffer)):
-							temp = temp + chr(buffer[i])                    
+							temp = temp + chr(buffer[i])
 						if temp[0] >= '1' and temp[1] == '.':
 							new_cache = True
 						else:
@@ -349,28 +352,28 @@ class reading_cache_data():
 							res_y            = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
 							res_z            = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
 							dx               = struct.unpack("1I", cachefile.read(self.SZ_UINT))[0]
-							cell_count       = res_x*res_y*res_z                        
+							cell_count       = res_x * res_y * res_z
 						
 						# Shadow values
-						self.read_data_segment(cachefile, cell_count)                    
+						self.read_data_segment(cachefile, cell_count)
 						# Density values
-						density_data = self.read_data_segment(cachefile, cell_count)                    
+						density_data = self.read_data_segment(cachefile, cell_count)
 						# Density, old values
-						if not new_cache:                        
-							density_data = self.read_data_segment(cachefile, cell_count)                       
+						if not new_cache:
+							density_data = self.read_data_segment(cachefile, cell_count)
 						# Heat values
-						heat_data = self.read_data_segment(cachefile, cell_count)                                       
+						heat_data = self.read_data_segment(cachefile, cell_count)
 						# Heat, old values
-						heat_old_data = self.read_data_segment(cachefile, cell_count)                          
+						heat_old_data = self.read_data_segment(cachefile, cell_count)
 						# Fire values
 						if new_cache and flowtype >= 1:
 							# Fire values
-							fire_data = self.read_data_segment(cachefile, cell_count)                        
+							fire_data = self.read_data_segment(cachefile, cell_count)
 							# Fuel values
-							self.read_data_segment(cachefile, cell_count)                        
+							self.read_data_segment(cachefile, cell_count)
 							# React values
 							self.read_data_segment(cachefile, cell_count)
-									
+							
 #                            if new_cache and flowtype >= 1:
 #                               #active colors
 #                                # r values
@@ -379,25 +382,25 @@ class reading_cache_data():
 #                                self.read_data_segment(cachefile, cell_count)
 #                                # b values
 #                                self.read_data_segment(cachefile, cell_count)
-										
+						
 						if is_high_res:
 							# vx values
-							self.read_data_segment(cachefile, cell_count)                        
+							self.read_data_segment(cachefile, cell_count)
 							# vy values
-							self.read_data_segment(cachefile, cell_count)                        
+							self.read_data_segment(cachefile, cell_count)
 							# vz values
 							self.read_data_segment(cachefile, cell_count)
-								   
+							
 							if not new_cache:
 								# vx, old values
-								self.read_data_segment(cachefile, cell_count)                            
-								#vy,old values
-								self.read_data_segment(cachefile, cell_count)                            
+								self.read_data_segment(cachefile, cell_count)
+								# vy,old values
+								self.read_data_segment(cachefile, cell_count)
 								# vz,old values
-								self.read_data_segment(cachefile, cell_count)                            
+								self.read_data_segment(cachefile, cell_count)
 		
 							# Obstacle values
-							self.read_data_segment(cachefile, cell_count)                        
+							self.read_data_segment(cachefile, cell_count)
 							# dt value
 							cachefile.read(self.SZ_FLOAT)
 							# dx value
@@ -405,191 +408,211 @@ class reading_cache_data():
 	
 							if new_cache:
 								#p0
-								cachefile.read(3*self.SZ_FLOAT)
+								cachefile.read(3 * self.SZ_FLOAT)
 								#p1
-								cachefile.read(3*self.SZ_FLOAT)
+								cachefile.read(3 * self.SZ_FLOAT)
 								#dp0
-								cachefile.read(3*self.SZ_FLOAT)
+								cachefile.read(3 * self.SZ_FLOAT)
 								#shift
-								cachefile.read(3*self.SZ_UINT)
-								#obj_shift_f 
-								cachefile.read(3*self.SZ_FLOAT)
+								cachefile.read(3 * self.SZ_UINT)
+								#obj_shift_f
+								cachefile.read(3 * self.SZ_FLOAT)
 								#obmat
-								cachefile.read(16*self.SZ_FLOAT)
+								cachefile.read(16 * self.SZ_FLOAT)
 								#base_res
-								cachefile.read(3*self.SZ_UINT)
+								cachefile.read(3 * self.SZ_UINT)
 								#res min
-								cachefile.read(3*self.SZ_UINT)
+								cachefile.read(3 * self.SZ_UINT)
 								#res max
-								cachefile.read(3*self.SZ_UINT)
+								cachefile.read(3 * self.SZ_UINT)
 								#active color
-								cachefile.read(3*self.SZ_FLOAT)
-	
-							# High resolution                    
-							cell_count = cell_count * amplifier * amplifier * amplifier                        
-							# Density values                        
-							density_data = self.read_data_segment(cachefile, cell_count)                            
+								cachefile.read(3 * self.SZ_FLOAT)
+							
+							# High resolution
+							cell_count = cell_count * amplifier * amplifier * amplifier
+							# Density values
+							density_data = self.read_data_segment(cachefile, cell_count)
 							# Fire values
 							if new_cache and flowtype >= 1:
-								fire_data = self.read_data_segment(cachefile, cell_count)                                                               
-#                                # Fuel values                        
+								fire_data = self.read_data_segment(cachefile, cell_count)
+#                                # Fuel values
 #                                read_data_segment(cachefile, cell_count)
-						   
+						
 						### DECOMPRESSING DATA  ###
-						print ("Density compression : %s" %density_data[0])
+						print("Density compression : %s" % density_data[0])
 						density = self.decompressing_data(density_data, cell_count)
-						cell_count       = res_x*res_y*res_z
-						print ("Heat compression : %s" %heat_data[0])
-						heat    = self.decompressing_data(heat_data, cell_count)
-						print ("Heat old compression : %s" %heat_old_data[0])
-						heat_old= self.decompressing_data(heat_old_data, cell_count)
+						cell_count = res_x * res_y * res_z
+						print("Heat compression : %s" % heat_data[0])
+						heat = self.decompressing_data(heat_data, cell_count)
+						print("Heat old compression : %s" % heat_old_data[0])
+						heat_old = self.decompressing_data(heat_old_data, cell_count)
 						if new_cache and flowtype >= 1:
-							fire = self.decompressing_data(fire_data, cell_count)       
-																			
-				cachefile.close()                
-				return (res_x, res_y, res_z, density, fire, heat ,heat_old)
-		return (0,0,0,[],[],[],[])
+							fire = self.decompressing_data(fire_data, cell_count)
+				
+				cachefile.close()
+				return (res_x, res_y, res_z, density, fire, heat, heat_old)
+		return (0, 0, 0, [], [], [], [])
+
 
 class volumes(object):
- 
- 
+	
 	def get_color(self, value, c):
-		l = len(c)-1
-		color = []        
+		l = len(c) - 1
+		color = []
 		if value <= c[0][0]:
-			color =[c[0][1], c[0][2], c[0][3]]                    
+			color = [c[0][1], c[0][2], c[0][3]]
 		elif value >= c[l][0]:
-			color =[c[l][1], c[l][2], c[l][3]]            
-		else :
+			color = [c[l][1], c[l][2], c[l][3]]
+		else:
 			for i in range(l):
-				if value > c[i][0] and  value <= c[i+1][0] :
-					b = (value - c[i][0])/(c[i+1][0] - c[i][0])                
+				if value > c[i][0] and value <= c[i + 1][0]:
+					b = (value - c[i][0]) / (c[i + 1][0] - c[i][0])
 					for u in range(3):
-						color.append(c[i][u+1] * (1 - b) + c[i+1][u+1]*b)                            
-		return struct.pack("3f",color[0],color[1],color[2])
+						color.append(c[i][u + 1] * (1 - b) + c[i + 1][u + 1] * b)
+		return struct.pack("3f", color[0], color[1], color[2])
 	
-	
-	def write_to_file(self,file, data, format):
-		packed = struct.pack(format , data)
-		file.write(packed)  
+	def write_to_file(self, file, data, format):
+		packed = struct.pack(format, data)
+		file.write(packed)
 	
 	def get_scale(self):
 		t = 0.0
-		for i in bpy.data.objects :
-			try :
-				if i.modifier['Smoke'].smoke_type == "FLOW" :
+		for i in bpy.data.objects:
+			try:
+				if i.modifier['Smoke'].smoke_type == "FLOW":
 					x = abs(i.modifier['Smoke'].flow_settings.temperature)
-					if x > t :
+					if x > t:
 						t = x
-			except :
-				pass 
-		if t == 0.0 :
+			except:
+				pass
+		if t == 0.0:
 			return 5.0
-		else :
+		else:
 			return t
-		
-	def get_dimention(self,obj):    
+	
+	def get_dimention(self, obj):
 		#TODO: Change if for the adaptive domain
 		x_max, y_max, z_max = obj.matrix_world * obj.data.vertices[0].co
-		x_min, y_min, z_min = x_max, y_max, z_max 
+		x_min, y_min, z_min = x_max, y_max, z_max
 		for i in obj.data.vertices:
 			world = i.co * obj.matrix_world
-			if world[0] > x_max :
+			if world[0] > x_max:
 				x_max = world[0]
-			elif world[0] < x_min :
-				x_min = world[0] 
-			if world[1] > y_max :
+			elif world[0] < x_min:
+				x_min = world[0]
+			if world[1] > y_max:
 				y_max = world[1]
-			elif world[1] < y_min :
+			elif world[1] < y_min:
 				y_min = world[1]
-			if world[2] > z_max :
+			if world[2] > z_max:
 				z_max = world[2]
-			elif world[2] < z_min :
-				z_min = world[2]            
+			elif world[2] < z_min:
+				z_min = world[2]
 		return (x_min, y_min, z_min, x_max, y_max, z_max)
-			
-	def get_color_ramp(self,obj,scale):
-		colors  = []
-		ramp    = None
-		try : 
+	
+	def get_color_ramp(self, obj, scale):
+		colors = []
+		ramp = None
+		try:
 			for x in obj.active_material.texture_slots:
-				if x != None :
+				if x is not None:
 					t = x.texture
-					if t.type == 'VOXEL_DATA' and t.use_color_ramp and t.voxel_data.smoke_data_type=='SMOKEHEAT' :
-						ramp = t.color_ramp.elements                        
-			if ramp != None :        
-				for i in ramp :            
-					p       = float((i.position - 0.5 ) * scale)            
-					t   = (p,i.color[0],i.color[1],i.color[2])
+					if t.type == 'VOXEL_DATA' and t.use_color_ramp and t.voxel_data.smoke_data_type == 'SMOKEHEAT':
+						ramp = t.color_ramp.elements
+			if ramp is not None:
+				for i in ramp:
+					p = float((i.position - 0.5) * scale)
+					t = (p, i.color[0], i.color[1], i.color[2])
 					colors.append(t)
 				colors.sort()
-		except :
-			pass        
-		return colors  
-		
-	def smoke_convertion(self , sourceName, destination, frame, obj):
-		Amplificator     = 0
-		flowtype         = 0        
+		except:
+			pass
+		return colors
+	
+	def smoke_convertion(self, sourceName, destination, frame, obj):
+		Amplificator = 0
+		flowtype = 0
 		if not os.path.exists(sourceName):
-			MtsLog({'ERROR'}, 'File could not be found :  %s ' %str(sourceName))
+			MtsLog({'ERROR'}, 'File could not be found :  %s ' % str(sourceName))
 			return False
 		
 		if (obj.modifiers['Smoke'].type != 'SMOKE'):
 			MtsLog({'ERROR'}, 'Could not find the Smoke modifier (1)')
 			return False
-		else :
-			if(obj.modifiers['Smoke'].domain_settings.use_high_resolution):                    
+		else:
+			if(obj.modifiers['Smoke'].domain_settings.use_high_resolution):
 				Amplificator = obj.modifiers['Smoke'].domain_settings.amplify
 		
 		cache = reading_cache_data()
 		print("Amplify: %i" % Amplificator)
-		print("Source Name : %s"%sourceName)
-		res_x, res_y, res_z, den, fire, hn, heat = cache.read_cache(sourceName, Amplificator != 0, Amplificator+1, flowtype)
-		int32format     ='i'
-		float32format   ='f'
-		density_loc     = str(destination) + "/voxel_"+ str(obj.name) + "_"+ str(frame) +".vol"
-		heat_loc        = str(destination) +  '/heat_'+ str(obj.name) + '_'+ str(frame) +'.vol'
-	
-		density_file     = open(density_loc,'wb')
-		heat_file        = open(heat_loc,'wb')        
-		### WRITEING THE HEADER ###
+		print("Source Name : %s" % sourceName)
+		res_x, res_y, res_z, den, fire, hn, heat = cache.read_cache(sourceName, Amplificator != 0, Amplificator + 1, flowtype)
+		int32format = 'i'
+		float32format = 'f'
+		density_loc = str(destination) + "/voxel_" + str(obj.name) + "_" + str(frame) + ".vol"
+		heat_loc = str(destination) + '/heat_' + str(obj.name) + '_' + str(frame) + '.vol'
+		
+		density_file = open(density_loc, 'wb')
+		heat_file = open(heat_loc, 'wb')
+		### WRITING THE HEADER ###
 		density_file.write(bytes('VOL\x03', 'UTF-8'))
 		heat_file.write(bytes('VOL\x03', 'UTF-8'))
-
-		data = struct.pack(int32format , 1)
+		
+		data = struct.pack(int32format, 1)
 		density_file.write(data)
 		heat_file.write(data)
-		# dimention
+		# dimension
 		print("Dim: %ix%ix%i" % (res_x, res_y, res_z))
-		self.write_to_file(density_file, res_x*(Amplificator+1), int32format)        
-		self.write_to_file(density_file, res_y*(Amplificator+1), int32format)        
-		self.write_to_file(density_file, res_z*(Amplificator+1), int32format)
+		self.write_to_file(density_file, res_x * (Amplificator + 1), int32format)
+		self.write_to_file(density_file, res_y * (Amplificator + 1), int32format)
+		self.write_to_file(density_file, res_z * (Amplificator + 1), int32format)
 		self.write_to_file(heat_file, res_x, int32format)
 		self.write_to_file(heat_file, res_y, int32format)
-		self.write_to_file(heat_file, res_z, int32format)       
-		#chanels    
-		self.write_to_file(density_file, 1, int32format)        #one float / voxel    
-		self.write_to_file(heat_file, 3, int32format)           #  3 float / voxel
-		# Domain Size  :  Xmin, Ymin, Zmin, Xmax, Ymax, Zmax
+		self.write_to_file(heat_file, res_z, int32format)
+		# channels
+		self.write_to_file(density_file, 1, int32format)  # one float / voxel
+		self.write_to_file(heat_file, 3, int32format)  # 3 float / voxel
+		# Domain Size: Xmin, Ymin, Zmin, Xmax, Ymax, Zmax
 		dim = self.get_dimention(obj)
-		print("%s %s %s %s %s %s"%dim)        
+		print("%s %s %s %s %s %s" % dim)
 		for i in range(6):
-			  self.write_to_file(density_file, dim[i], float32format)
-			  self.write_to_file(heat_file ,   dim[i], float32format)
-			  
-		### WRITEING THE VOXEL DATA ###
-		print("Length Density: %s"%str(len(den)))
+			self.write_to_file(density_file, dim[i], float32format)
+			self.write_to_file(heat_file, dim[i], float32format)
+		
+		### WRITING THE VOXEL DATA ###
+		print("Length Density: %s" % str(len(den)))
 		for i in den:
-			self.write_to_file(density_file, i, float32format)   
+			self.write_to_file(density_file, i, float32format)
 		density_file.close()
 		
-		heat_scale  = self.get_scale()                
-		colors = self.get_color_ramp(obj,heat_scale)
-		if colors == [] :
-			colors = [[0.15 ,0.9, 0.0, 0.0],[-0.15, 0.0, 0.0, 0.9]]
-
-		print("Length Heat   : %s"%str(len(heat)))
+		heat_scale = self.get_scale()
+		colors = self.get_color_ramp(obj, heat_scale)
+		if colors == []:
+			colors = [[0.15, 0.9, 0.0, 0.0], [-0.15, 0.0, 0.0, 0.9]]
+		
+		print("Length Heat: %s" % str(len(heat)))
 		for i in heat:
 			heat_file.write(self.get_color(i, colors))
 		heat_file.close()
 		return (density_loc, heat_loc)
+	
+	def exportVoxelData(self, objName, scene):
+		obj = None
+		try:
+			obj = bpy.data.objects[objName]
+		except:
+			MtsLog("ERROR : assigning the object")
+		# path where to put the VOXEL FILES
+		sc_fr = get_output_subdir(scene)
+		# path to the .bphys file
+		dir_name = os.path.dirname(bpy.data.filepath) + "/blendcache_" + os.path.basename(bpy.data.filepath)[:-6]
+		cachname = ("/%s_%06d_00.bphys" % (obj.modifiers['Smoke'].domain_settings.point_cache.name, scene.frame_current))
+		cachFile = dir_name + cachname
+		#volume = volumes()
+		filenames = self.volume.smoke_convertion(cachFile, sc_fr, scene.frame_current, obj)
+		return filenames
+	
+	#def reexportVoxelDataCoordinates(self, file):
+	#	obj = None
+	#	# get the Boundig Box object
+	#	#updateBoundinBoxCoorinates(file , obj)

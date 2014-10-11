@@ -24,9 +24,8 @@
 bl_info = {
 	"name": "Mitsuba",
 	"author": "Wenzel Jakob, Bartosz Styperek, Francesc Juhe",
-	"version": (0, 3, 0),
-	"blender": (2, 67, 1),
-	"api": 57908,
+	"version": (0, 5, 1),
+	"blender": (2, 71, 0),
 	"category": "Render",
 	"location": "Info header, render engine menu",
 	"warning": "",

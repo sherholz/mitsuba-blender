@@ -23,17 +23,20 @@
 #
 
 from extensions_framework import declarative_property_group
-from extensions_framework import util as efutil
 from extensions_framework.validate import Logic_OR as O
 
 from .. import MitsubaAddon
 
-#------------------------------------------------------------------------------ 
+from ..export import get_export_path
+
+#------------------------------------------------------------------------------
 # Texture property group construction helpers
-#------------------------------------------------------------------------------ 
+#------------------------------------------------------------------------------
+
 
 def shorten_name(n):
 	return hashlib.md5(n.encode()).hexdigest()[:21] if len(n) > 21 else n
+
 
 class TextureParameterBase(object):
 	real_attr			= None
@@ -66,50 +69,50 @@ class TextureParameterBase(object):
 		self.properties = self.get_properties()
 	
 	def texture_collection_finder(self):
-		return lambda s,c: s.object.material_slots[s.object.active_material_index].material
+		return lambda s, c: s.object.material_slots[s.object.active_material_index].material
 	
 	def texture_slot_set_attr(self):
-		def set_attr(s,c):
+		def set_attr(s, c):
 			if type(c).__name__ == 'mitsuba_material':
-				return getattr(c, 'mitsuba_bsdf_%s'%c.type)
+				return getattr(c, 'mitsuba_bsdf_%s' % c.type)
 			else:
-				return getattr(c, 'mitsuba_tex_%s'%c.type)
+				return getattr(c, 'mitsuba_tex_%s' % c.type)
 		return set_attr
 	
 	def get_controls(self):
 		'''
 		Subclasses can override this for their own needs
-		'''	
+		'''
 		return []
 	
 	def get_visibility(self):
 		'''
 		Subclasses can override this for their own needs
-		'''	
+		'''
 		return {}
 	
 	def get_properties(self):
 		'''
 		Subclasses can override this for their own needs
-		'''	
+		'''
 		return []
 	
 	def get_extra_controls(self):
 		'''
 		Subclasses can override this for their own needs
-		'''	
+		'''
 		return []
 	
 	def get_extra_visibility(self):
 		'''
 		Subclasses can override this for their own needs
-		'''	
+		'''
 		return {}
 	
 	def get_extra_properties(self):
 		'''
 		Subclasses can override this for their own needs
-		'''	
+		'''
 		return []
 	
 	def api_output(self, mts_context, context):
@@ -118,7 +121,6 @@ class TextureParameterBase(object):
 		defined in this Texture, getting parameters
 		from property group 'context'
 		'''
-		
 		return {}
 	
 	def get_real_param_name(self):
@@ -127,23 +129,25 @@ class TextureParameterBase(object):
 		else:
 			return self.attr
 
+
 def refresh_preview(self, context):
 
-	if context.material != None:
+	if context.material is not None:
 		context.material.preview_render_type = context.material.preview_render_type
-	if context.texture != None:
+	if context.texture is not None:
 		context.texture.type = context.texture.type
+
 
 class ColorTextureParameter(TextureParameterBase):
 	def get_controls(self):
 		return [
-			[ 0.9, [0.375,'%s_colorlabel' % self.attr, '%s_color' % self.attr], '%s_usecolortexture' % self.attr ],
+			[0.9, [0.375, '%s_colorlabel' % self.attr, '%s_color' % self.attr], '%s_usecolortexture' % self.attr],
 			'%s_colortexture' % self.attr,
 		] + self.get_extra_controls()
 	
 	def get_visibility(self):
 		vis = {
-			'%s_colortexture' % self.attr: { '%s_usecolortexture' % self.attr: True },
+			'%s_colortexture' % self.attr: {'%s_usecolortexture' % self.attr: True},
 		}
 		vis.update(self.get_extra_visibility())
 		return vis
@@ -206,13 +210,14 @@ class ColorTextureParameter(TextureParameterBase):
 				getattr(context, '%s_usecolortexture' % self.attr) and \
 				getattr(context, '%s_colortexturename' % self.attr):
 			return {
-				'type' : 'ref',
-				'id' : '%s-texture' % getattr(context, '%s_colortexturename' % self.attr),
-				'name' : self.attr
+				'type': 'ref',
+				'id': '%s-texture' % getattr(context, '%s_colortexturename' % self.attr),
+				'name': self.attr
 			}
 		else:
 			color = getattr(context, '%s_color' % self.attr)
 			return mts_context.spectrum(color.r, color.g, color.b)
+
 
 class FloatTextureParameter(TextureParameterBase):
 	default				= 0.2
@@ -226,12 +231,12 @@ class FloatTextureParameter(TextureParameterBase):
 	
 	def __init__(self,
 			attr, name,
-			add_float_value = True,		# True: Show float value input, and [T] button; False: Just show texture slot
-			ignore_unassigned = False,	# Don't export this parameter if the texture slot is unassigned
-			real_attr = None,			# translate self.attr into something else at export time (overcome 31 char RNA limit)
-			subtype = 'NONE',
-			unit = 'NONE',
-			default = 0.0, min = 0.0, max = 1.0, precision=6
+			add_float_value=True,  # True: Show float value input, and [T] button; False: Just show texture slot
+			ignore_unassigned=False,  # Don't export this parameter if the texture slot is unassigned
+			real_attr=None,  # translate self.attr into something else at export time (overcome 31 char RNA limit)
+			subtype='NONE',
+			unit='NONE',
+			default=0.0, min=0.0, max=1.0, precision=6
 		):
 		self.attr = attr
 		self.name = name
@@ -252,12 +257,12 @@ class FloatTextureParameter(TextureParameterBase):
 	def load_paramset(self, property_group, ps):
 		for psi in ps:
 			if psi['name'] == self.attr:
-				if psi['type'].lower() =='texture':
-					setattr( property_group, '%s_usefloattexture' % self.attr, True )
-					setattr( property_group, '%s_floattexturename' % self.attr, shorten_name(psi['value']) )
+				if psi['type'].lower() == 'texture':
+					setattr(property_group, '%s_usefloattexture' % self.attr, True)
+					setattr(property_group, '%s_floattexturename' % self.attr, shorten_name(psi['value']))
 				else:
-					setattr( property_group, '%s_usefloattexture' % self.attr, False )
-					setattr( property_group, '%s_floatvalue' % self.attr, psi['value'] )
+					setattr(property_group, '%s_usefloattexture' % self.attr, False)
+					setattr(property_group, '%s_floatvalue' % self.attr, psi['value'])
 	
 	def get_controls(self):
 		if self.texture_only:
@@ -274,7 +279,7 @@ class FloatTextureParameter(TextureParameterBase):
 		vis = {}
 		if not self.texture_only:
 			vis = {
-				'%s_floattexture' % self.attr: { '%s_usefloattexture' % self.attr: True },
+				'%s_floattexture' % self.attr: {'%s_usefloattexture' % self.attr: True},
 			}
 		vis.update(self.get_extra_visibility())
 		return vis
@@ -342,12 +347,13 @@ class FloatTextureParameter(TextureParameterBase):
 				getattr(context, '%s_usefloattexture' % self.attr) and \
 				getattr(context, '%s_floattexturename' % self.attr):
 			return {
-				'type' : 'ref',
-				'id' : '%s-texture' % getattr(context, '%s_floattexturename' % self.attr),
-				'name' : self.attr
+				'type': 'ref',
+				'id': '%s-texture' % getattr(context, '%s_floattexturename' % self.attr),
+				'name': self.attr
 			}
 		else:
 			return getattr(context, '%s_floatvalue' % self.attr)
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_texture(declarative_property_group):
@@ -376,14 +382,14 @@ class mitsuba_texture(declarative_property_group):
 				('wireframe', 'Wireframe Texture', 'wireframe'),
 				('curvature', 'Surface Curvature', 'curvature'),
 			],
-			'default' : 'bitmap',
+			'default': 'bitmap',
 			'save_in_preset': True
 		},
 	]
 	
 	def api_output(self, mts_context):
 		if hasattr(self, 'mitsuba_tex_%s' % self.type):
-			mts_texture = getattr(self, 'mitsuba_tex_%s' % self.type) 
+			mts_texture = getattr(self, 'mitsuba_tex_%s' % self.type)
 			params = mts_texture.api_output(mts_context)
 			if self.type in ['bitmap', 'checkerboard', 'gridtexture']:
 				params = self.mitsuba_tex_mapping.api_output(mts_context, params)
@@ -392,6 +398,7 @@ class mitsuba_texture(declarative_property_group):
 			return params
 		else:
 			return {}
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_mapping(declarative_property_group):
@@ -451,13 +458,14 @@ class mitsuba_tex_mapping(declarative_property_group):
 	
 	def api_output(self, mts_context, params):
 		params.update({
-			'uscale' : self.uscale,
-			'vscale' : self.vscale,
-			'uoffset' : self.uoffset,
-			'voffset' : self.voffset,
+			'uscale': self.uscale,
+			'vscale': self.vscale,
+			'uoffset': self.uoffset,
+			'voffset': self.voffset,
 		})
 		
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_scale(declarative_property_group):
@@ -471,9 +479,9 @@ class mitsuba_tex_scale(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'scale',
-			'name' : 'Scale',
-			'description' : 'Multiply texture color by scale value',
-			'default' : 1.0,
+			'name': 'Scale',
+			'description': 'Multiply texture color by scale value',
+			'default': 1.0,
 			'min': 0.001,
 			'max': 100.0,
 			'save_in_preset': True
@@ -483,12 +491,13 @@ class mitsuba_tex_scale(declarative_property_group):
 	def api_output(self, mts_context, params):
 		if self.scale != 1.0:
 			return {
-				'type' : 'scale',
-				'scale' : self.scale,
-				'texture' : params
+				'type': 'scale',
+				'scale': self.scale,
+				'texture': params
 			}
 		else:
 			return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_bitmap(declarative_property_group):
@@ -500,15 +509,15 @@ class mitsuba_tex_bitmap(declarative_property_group):
 		'wrapModeV',
 		'gammaType',
 		'gamma',
-		'filterType', 
+		'filterType',
 		'maxAnisotropy',
 		'channel',
 		'cache',
 	]
 	
 	visibility = {
-		'gamma': { 'gammaType': 'custom' },
-		'maxAnisotropy': { 'filterType': 'ewa' },
+		'gamma': {'gammaType': 'custom'},
+		'maxAnisotropy': {'filterType': 'ewa'},
 	}
 	
 	properties = [
@@ -516,7 +525,7 @@ class mitsuba_tex_bitmap(declarative_property_group):
 			'type': 'string',
 			'subtype': 'FILE_PATH',
 			'attr': 'filename',
-			'description' : 'Path to a JPEG/PNG/OpenEXR/RGBE/TGA/BMP image file',
+			'description': 'Path to a JPEG/PNG/OpenEXR/RGBE/TGA/BMP image file',
 			'name': 'File Name',
 			'save_in_preset': True
 		},
@@ -524,7 +533,7 @@ class mitsuba_tex_bitmap(declarative_property_group):
 			'type': 'enum',
 			'attr': 'wrapModeU',
 			'name': 'Wrapping U',
-			'description' : 'What should be done when encountering U coordinates outside of the range [0,1]',
+			'description': 'What should be done when encountering U coordinates outside of the range [0,1]',
 			'items': [
 				('repeat', 'Repeat', 'repeat'),
 				('mirror', 'Mirror', 'mirror'),
@@ -532,14 +541,14 @@ class mitsuba_tex_bitmap(declarative_property_group):
 				('zero', 'Black', 'zero'),
 				('one', 'White', 'one'),
 			],
-			'default' : 'repeat',
+			'default': 'repeat',
 			'save_in_preset': True
 		},
 		{
 			'type': 'enum',
 			'attr': 'wrapModeV',
 			'name': 'Wrapping V',
-			'description' : 'What should be done when encountering V coordinates outside of the range [0,1]',
+			'description': 'What should be done when encountering V coordinates outside of the range [0,1]',
 			'items': [
 				('repeat', 'Repeat', 'repeat'),
 				('mirror', 'Mirror', 'mirror'),
@@ -547,27 +556,27 @@ class mitsuba_tex_bitmap(declarative_property_group):
 				('zero', 'Black', 'zero'),
 				('one', 'White', 'one'),
 			],
-			'default' : 'repeat',
+			'default': 'repeat',
 			'save_in_preset': True
 		},
 		{
 			'type': 'enum',
 			'attr': 'gammaType',
 			'name': 'Image Gamma',
-			'description' : 'Select Image gamma',
+			'description': 'Select Image gamma',
 			'items': [
 				('auto', 'Autodetect', 'auto'),
 				('srgb', 'sRGB', 'srgb'),
 				('custom', 'Custom', 'custom'),
 			],
-			'default' : 'auto',
+			'default': 'auto',
 			'save_in_preset': True
 		},
 		{
 			'type': 'float',
 			'attr': 'gamma',
 			'name': 'Gamma',
-			'description' : 'Specifies the texture gamma value',
+			'description': 'Specifies the texture gamma value',
 			'default': 2.2,
 			'min': 0.01,
 			'soft_min': 0.01,
@@ -579,20 +588,20 @@ class mitsuba_tex_bitmap(declarative_property_group):
 			'type': 'enum',
 			'attr': 'filterType',
 			'name': 'Filter type',
-			'description' : 'Specifies the type of texture filtering',
+			'description': 'Specifies the type of texture filtering',
 			'items': [
 				('ewa', 'Anisotropic (EWA Filtering)', 'ewa'),
 				('trilinear', 'Isotropic (Trilinear Filtering)', 'trilinear'),
 				('nearest', 'No filter (Nearest neighbor)', 'nearest'),
 			],
-			'default' : 'ewa',
+			'default': 'ewa',
 			'save_in_preset': True
 		},
 		{
 			'type': 'float',
 			'attr': 'maxAnisotropy',
 			'name': 'Max. Anisotropy',
-			'description' : 'Maximum allowed anisotropy when using the EWA filter',
+			'description': 'Maximum allowed anisotropy when using the EWA filter',
 			'default': 20,
 			'save_in_preset': True
 		},
@@ -600,7 +609,7 @@ class mitsuba_tex_bitmap(declarative_property_group):
 			'type': 'enum',
 			'attr': 'channel',
 			'name': 'Channel',
-			'description' : 'Select the channel used',
+			'description': 'Select the channel used',
 			'items': [
 				('all', 'All', 'all'),
 				('r', 'Red', 'r'),
@@ -611,31 +620,31 @@ class mitsuba_tex_bitmap(declarative_property_group):
 				('y', 'Y', 'y'),
 				('z', 'Z', 'z'),
 			],
-			'default' : 'all',
+			'default': 'all',
 			'save_in_preset': True
 		},
 		{
 			'type': 'enum',
 			'attr': 'cache',
 			'name': 'Image Cache',
-			'description' : 'Select Image cache mode',
+			'description': 'Select Image cache mode',
 			'items': [
 				('auto', 'Automatic', 'auto'),
 				('true', 'Always', 'always'),
 				('false', 'Never', 'false'),
 			],
-			'default' : 'auto',
+			'default': 'auto',
 			'save_in_preset': True
 		},
 	]
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'bitmap',
-			'filename' : efutil.path_relative_to_export(self.filename),
-			'wrapModeU' : self.wrapModeU,
-			'wrapModeV' : self.wrapModeV,
-			'filterType' : self.filterType,
+			'type': 'bitmap',
+			'filename': get_export_path(mts_context, self.filename),
+			'wrapModeU': self.wrapModeU,
+			'wrapModeV': self.wrapModeV,
+			'filterType': self.filterType,
 		}
 		if self.filterType == 'ewa':
 			params.update({'maxAnisotropy': self.maxAnisotropy})
@@ -653,6 +662,7 @@ class mitsuba_tex_bitmap(declarative_property_group):
 		
 		return params
 
+
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_checkerboard(declarative_property_group):
 	ef_attach_to = ['mitsuba_texture']
@@ -667,9 +677,9 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 			'attr': 'color0',
 			'type': 'float_vector',
 			'subtype': 'COLOR',
-			'name' : 'Dark color',
-			'description' : 'Color of the dark patches',
-			'default' : (0.2, 0.2, 0.2),
+			'name': 'Dark color',
+			'description': 'Color of the dark patches',
+			'default': (0.2, 0.2, 0.2),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -678,9 +688,9 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 			'attr': 'color1',
 			'type': 'float_vector',
 			'subtype': 'COLOR',
-			'name' : 'Bright color',
-			'description' : 'Color of the bright patches',
-			'default' : (0.4, 0.4, 0.4),
+			'name': 'Bright color',
+			'description': 'Color of the bright patches',
+			'default': (0.4, 0.4, 0.4),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -689,10 +699,11 @@ class mitsuba_tex_checkerboard(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		return {
-			'type' : 'checkerboard',
-			'color0' : mts_context.spectrum(self.color0.r, self.color0.g, self.color0.b),
-			'color1' : mts_context.spectrum(self.color1.r, self.color1.g, self.color1.b),
+			'type': 'checkerboard',
+			'color0': mts_context.spectrum(self.color0.r, self.color0.g, self.color0.b),
+			'color1': mts_context.spectrum(self.color1.r, self.color1.g, self.color1.b),
 		}
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_gridtexture(declarative_property_group):
@@ -709,9 +720,9 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'attr': 'color0',
-			'name' : 'Dark color',
-			'description' : 'Color of the dark patches',
-			'default' : (0.2, 0.2, 0.2),
+			'name': 'Dark color',
+			'description': 'Color of the dark patches',
+			'default': (0.2, 0.2, 0.2),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -720,9 +731,9 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'attr': 'color1',
-			'name' : 'Bright color',
-			'description' : 'Color of the bright patches',
-			'default' : (0.4, 0.4, 0.4),
+			'name': 'Bright color',
+			'description': 'Color of the bright patches',
+			'default': (0.4, 0.4, 0.4),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -730,9 +741,9 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'lineWidth',
-			'name' : 'Line width',
-			'description' : 'Size of the grid lines in UV space',
-			'default' : 0.01,
+			'name': 'Line width',
+			'description': 'Size of the grid lines in UV space',
+			'default': 0.01,
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -741,11 +752,12 @@ class mitsuba_tex_gridtexture(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		return {
-			'type' : 'gridtexture',
-			'color0' : mts_context.spectrum(self.color0.r, self.color0.g, self.color0.b),
-			'color1' : mts_context.spectrum(self.color1.r, self.color1.g, self.color1.b),
-			'lineWidth' : self.lineWidth,
+			'type': 'gridtexture',
+			'color0': mts_context.spectrum(self.color0.r, self.color0.g, self.color0.b),
+			'color1': mts_context.spectrum(self.color1.r, self.color1.g, self.color1.b),
+			'lineWidth': self.lineWidth,
 		}
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_vertexcolors(declarative_property_group):
@@ -757,8 +769,9 @@ class mitsuba_tex_vertexcolors(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		return {
-			'type' : 'vertexcolors',
+			'type': 'vertexcolors',
 		}
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_wireframe(declarative_property_group):
@@ -776,9 +789,9 @@ class mitsuba_tex_wireframe(declarative_property_group):
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'attr': 'interiorColor',
-			'name' : 'Polygon color',
-			'description' : 'Polygon color',
-			'default' : (0.5, 0.5, 0.5),
+			'name': 'Polygon color',
+			'description': 'Polygon color',
+			'default': (0.5, 0.5, 0.5),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -787,9 +800,9 @@ class mitsuba_tex_wireframe(declarative_property_group):
 			'type': 'float_vector',
 			'subtype': 'COLOR',
 			'attr': 'edgeColor',
-			'name' : 'Edge color',
-			'description' : 'Edge color',
-			'default' : (0.1, 0.1, 0.1),
+			'name': 'Edge color',
+			'description': 'Edge color',
+			'default': (0.1, 0.1, 0.1),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -797,9 +810,9 @@ class mitsuba_tex_wireframe(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'lineWidth',
-			'name' : 'Line width',
-			'description' : 'Size of the grid lines in UV space',
-			'default' : 0.01,
+			'name': 'Line width',
+			'description': 'Size of the grid lines in UV space',
+			'default': 0.01,
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -807,9 +820,9 @@ class mitsuba_tex_wireframe(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'stepWidth',
-			'name' : 'Step Width',
-			'description' : 'Size of the grid lines in UV space',
-			'default' : 0.5,
+			'name': 'Step Width',
+			'description': 'Size of the grid lines in UV space',
+			'default': 0.5,
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -818,12 +831,13 @@ class mitsuba_tex_wireframe(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		return {
-			'type' : 'wireframe',
-			'interiorColor' : mts_context.spectrum(self.interiorColor.r, self.interiorColor.g, self.interiorColor.b),
-			'edgeColor' : mts_context.spectrum(self.edgeColor.r, self.edgeColor.g, self.edgeColor.b),
-			'lineWidth' : self.lineWidth,
-			'stepWidth' : self.stepWidth,
+			'type': 'wireframe',
+			'interiorColor': mts_context.spectrum(self.interiorColor.r, self.interiorColor.g, self.interiorColor.b),
+			'edgeColor': mts_context.spectrum(self.edgeColor.r, self.edgeColor.g, self.edgeColor.b),
+			'lineWidth': self.lineWidth,
+			'stepWidth': self.stepWidth,
 		}
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_tex_curvature(declarative_property_group):
@@ -839,20 +853,20 @@ class mitsuba_tex_curvature(declarative_property_group):
 			'type': 'enum',
 			'attr': 'curvature',
 			'name': 'Curvature',
-			'description' : 'Specifies what should be shown',
+			'description': 'Specifies what should be shown',
 			'items': [
 				('mean', 'Mean', 'mean'),
 				('gaussian', 'Gaussian', 'gaussian'),
 			],
-			'default' : 'mean',
+			'default': 'mean',
 			'save_in_preset': True
 		},
 		{
 			'type': 'float',
 			'attr': 'scale',
-			'name' : 'Scale',
-			'description' : 'Scale factor to display curvature',
-			'default' : 1.0,
+			'name': 'Scale',
+			'description': 'Scale factor to display curvature',
+			'default': 1.0,
 			'min': -1.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -861,7 +875,7 @@ class mitsuba_tex_curvature(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		return {
-			'type' : 'curvature',
-			'curvature' : self.curvature,
-			'scale' : self.scale,
+			'type': 'curvature',
+			'curvature': self.curvature,
+			'scale': self.scale,
 		}

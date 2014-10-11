@@ -22,19 +22,23 @@
 # ***** END GPL LICENSE BLOCK *****
 #
 import os
-
-import bpy, math
+import sys
+import subprocess
+from collections import OrderedDict
 
 from bpy_extras.io_utils import axis_conversion
 
-from math import radians
-from mathutils import Matrix
-import extensions_framework.util as efutil
+# Framework libs
+from extensions_framework import util as efutil
 
-from ..export			import matrix_to_list
-from ..export.volumes	import volumes
-from ..outputs import MtsLog
+# Exporter libs
+from .. import MitsubaAddon
+
+from ..export import matrix_to_list
+from ..export import get_output_subdir
+from ..outputs import MtsLog, MtsManager
 from ..properties import ExportedVolumes
+
 
 class Files(object):
 	MAIN = 0
@@ -42,14 +46,13 @@ class Files(object):
 	GEOM = 2
 	VOLM = 3
 
-class Custom_Context(object):
+
+class Export_Context(object):
 	'''
 	File API
 	'''
 	
-	API_TYPE = 'FILE'
-	
-	
+	EXPORT_API_TYPE = 'FILE'
 	
 	context_name = ''
 	files = []
@@ -57,319 +60,326 @@ class Custom_Context(object):
 	file_tabs = []
 	file_stack = []
 	current_file = Files.MAIN
-	parse_at_worldend = True
+	scene_data = None
+	counter = 0
 	
 	def __init__(self, name):
 		self.context_name = name
-		self.exported_cameras = []
-		self.exported_materials = []
-		self.exported_textures = []
 		self.exported_media = []
 		self.exported_ids = []
 		self.hemi_lights = 0
+		self.scene_data = OrderedDict([('type', 'scene')])
+		self.counter = 0
 		
 		# Reverse translation tables for Mitsuba extension dictionary
 		self.plugins = {
+			# Scene
+			'scene': 'scene',
 			# References
-			'ref' : 'ref',
+			'ref': 'ref',
 			# Shapes
-			'sphere' : 'shape',
-			'rectangle' : 'shape',
-			'shapegroup' : 'shape',
-			'instance' : 'shape',
-			'serialized' : 'shape',
-			'ply' : 'shape',
-			'hair' : 'shape',
+			'sphere': 'shape',
+			'rectangle': 'shape',
+			'shapegroup': 'shape',
+			'instance': 'shape',
+			'serialized': 'shape',
+			'ply': 'shape',
+			'hair': 'shape',
 			# Surface scattering models
-			'diffuse' : 'bsdf',
-			'roughdiffuse' : 'bsdf',
-			'dielectric' : 'bsdf',
-			'thindielectric' : 'bsdf',
-			'roughdielectric' : 'bsdf',
-			'conductor' : 'bsdf',
-			'roughconductor' : 'bsdf',
-			'plastic' : 'bsdf',
-			'roughplastic' : 'bsdf',
-			'coating' : 'bsdf',
-			'roughcoating' : 'bsdf',
-			'bumpmap' : 'bsdf',
-			'phong' : 'bsdf',
-			'ward' : 'bsdf',
-			'mixturebsdf' : 'bsdf',
-			'blendbsdf' : 'bsdf',
-			'mask' : 'bsdf',
-			'twosided' : 'bsdf',
-			'difftrans' : 'bsdf',
-			'hk' : 'bsdf',
+			'diffuse': 'bsdf',
+			'roughdiffuse': 'bsdf',
+			'dielectric': 'bsdf',
+			'thindielectric': 'bsdf',
+			'roughdielectric': 'bsdf',
+			'conductor': 'bsdf',
+			'roughconductor': 'bsdf',
+			'plastic': 'bsdf',
+			'roughplastic': 'bsdf',
+			'coating': 'bsdf',
+			'roughcoating': 'bsdf',
+			'bumpmap': 'bsdf',
+			'phong': 'bsdf',
+			'ward': 'bsdf',
+			'mixturebsdf': 'bsdf',
+			'blendbsdf': 'bsdf',
+			'mask': 'bsdf',
+			'twosided': 'bsdf',
+			'difftrans': 'bsdf',
+			'hk': 'bsdf',
 			#'irawan' : 'bsdf',
 			# Textures
-			'bitmap' : 'texture',
-			'checkerboard' : 'texture',
-			'gridtexture' : 'texture',
-			'scale' : 'texture',
-			'vertexcolors' : 'texture',
-			'wireframe' : 'texture',
-			'curvature' : 'texture',
+			'bitmap': 'texture',
+			'checkerboard': 'texture',
+			'gridtexture': 'texture',
+			'scale': 'texture',
+			'vertexcolors': 'texture',
+			'wireframe': 'texture',
+			'curvature': 'texture',
 			# Subsurface
-			'dipole' : 'subsurface',
+			'dipole': 'subsurface',
 			# Medium
-			'homogeneous' : 'medium',
-			'heterogeneous' : 'medium',
+			'homogeneous': 'medium',
+			'heterogeneous': 'medium',
 			# Phase
-			'isotropic' : 'phase',
-			'hg' : 'phase',
+			'isotropic': 'phase',
+			'hg': 'phase',
 			# Medium
-			'constvolume' : 'volume',
-			'gridvolume' : 'volume',
+			'constvolume': 'volume',
+			'gridvolume': 'volume',
 			# Emitters
-			'area' : 'emitter',
-			'spot' : 'emitter',
-			'constant' : 'emitter',
-			'envmap' : 'emitter',
-			'sun' : 'emitter',
-			'sky' : 'emitter',
-			'sunsky' : 'emitter',
+			'area': 'emitter',
+			'spot': 'emitter',
+			'constant': 'emitter',
+			'envmap': 'emitter',
+			'sun': 'emitter',
+			'sky': 'emitter',
+			'sunsky': 'emitter',
 			# Sensors
-			'perspective' : 'sensor',
-			'thinlens' : 'sensor',
-			'orthographic' : 'sensor',
-			'telecentric' : 'sensor',
-			'spherical' : 'sensor',
+			'perspective': 'sensor',
+			'thinlens': 'sensor',
+			'orthographic': 'sensor',
+			'telecentric': 'sensor',
+			'spherical': 'sensor',
+			'perspective_rdist': 'sensor',
 			# Integrators
-			'ao' : 'integrator',
-			'direct' : 'integrator',
-			'path' : 'integrator',
-			'volpath_simple' : 'integrator',
-			'volpath' : 'integrator',
-			'bdpt' : 'integrator',
-			'photonmapper' : 'integrator',
-			'ppm' : 'integrator',
-			'sppm' : 'integrator',
-			'pssmlt' : 'integrator',
-			'mlt' : 'integrator',
-			'erpt' : 'integrator',
-			'ptracer' : 'integrator',
-			'vpl' : 'integrator',
-			'adaptive' : 'integrator',
-			'irrcache' : 'integrator',
-			'multichannel' : 'integrator',
+			'ao': 'integrator',
+			'direct': 'integrator',
+			'path': 'integrator',
+			'volpath_simple': 'integrator',
+			'volpath': 'integrator',
+			'bdpt': 'integrator',
+			'photonmapper': 'integrator',
+			'ppm': 'integrator',
+			'sppm': 'integrator',
+			'pssmlt': 'integrator',
+			'mlt': 'integrator',
+			'erpt': 'integrator',
+			'ptracer': 'integrator',
+			'vpl': 'integrator',
+			'adaptive': 'integrator',
+			'irrcache': 'integrator',
+			'multichannel': 'integrator',
 			# Sample generators
-			'independent' : 'sampler',
-			'stratified' : 'sampler',
-			'ldsampler' : 'sampler',
-			'halton' : 'sampler',
-			'hammersley' : 'sampler',
-			'sobol' : 'sampler',
+			'independent': 'sampler',
+			'stratified': 'sampler',
+			'ldsampler': 'sampler',
+			'halton': 'sampler',
+			'hammersley': 'sampler',
+			'sobol': 'sampler',
 			# Films
-			'hdrfilm' : 'film',
-			'ldrfilm' : 'film',
+			'hdrfilm': 'film',
+			'ldrfilm': 'film',
 			# Rfilters
-			'box' : 'rfilter',
-			'tent' : 'rfilter',
-			'gaussian' : 'rfilter',
-			'mitchell' : 'rfilter',
-			'catmullrom' : 'rfilter',
-			'lanczos' : 'rfilter',
+			'box': 'rfilter',
+			'tent': 'rfilter',
+			'gaussian': 'rfilter',
+			'mitchell': 'rfilter',
+			'catmullrom': 'rfilter',
+			'lanczos': 'rfilter',
 		}
 		
 		self.parameters = {
-			'shape' : {
-				'center' : self._point,
-				'radius' : self._float,
-				'filename' : self._string,
-				'toWorld' : self._transform,
-				'faceNormals' : self._bool,
+			'scene': {
+				# Scene has no parameters but it's needed here for pmgr_create to work
 			},
-			'bsdf' : {
-				'reflectance' : self._spectrum,
-				'specularReflectance' : self._spectrum,
-				'specularTransmittance' : self._spectrum,
-				'diffuseReflectance' : self._spectrum,
-				'opacity' : self._spectrum,
-				'transmittance' : self._spectrum,
-				'sigmaS' : self._spectrum,
-				'sigmaA' : self._spectrum,
-				'sigmaT' : self._spectrum,
-				'albedo' : self._spectrum,
-				'alpha' : self._float,
-				'alphaU' : self._float,
-				'alphaV' : self._float,
-				'exponent' : self._float,
-				'weight' : self._float,
-				'intIOR' : self._float, # string not supported yet
-				'extIOR' : self._float, # string not supported yet
-				'extEta' : self._float, # string not supported yet
-				'eta' : self._spectrum,
-				'k' : self._spectrum,
-				'thickness' : self._float,
-				'distribution' : self._string,
-				'material' : self._string,
-				'variant' : self._string,
-				'weights' : self._string,
-				'useFastApprox' : self._bool,
-				'nonlinear' : self._bool,
+			'shape': {
+				'toWorld': self._transform,
+				'center': self._point,
+				'radius': self._float,
+				'filename': self._string,
+				'faceNormals': self._bool,
 			},
-			'texture' : {
-				'filename' : self._string,
-				'wrapModeU' : self._string,
-				'wrapModeV' : self._string,
-				'gamma' : self._float,
-				'filterType' : self._string,
-				'maxAnisotropy' : self._float,
-				'channel' : self._string,
-				'cache' : self._bool,
-				'color0' : self._spectrum,
-				'color1' : self._spectrum,
-				'interiorColor' : self._spectrum,
-				'edgeColor' : self._spectrum,
-				'lineWidth' : self._float,
-				'stepWidth' : self._float,
-				'curvature' : self._string,
-				'scale' : self._float,
-				'uscale' : self._float,
-				'vscale' : self._float,
-				'uoffset' : self._float,
-				'voffset' : self._float,
+			'bsdf': {
+				'reflectance': self._spectrum,
+				'specularReflectance': self._spectrum,
+				'specularTransmittance': self._spectrum,
+				'diffuseReflectance': self._spectrum,
+				'opacity': self._spectrum,
+				'transmittance': self._spectrum,
+				'sigmaS': self._spectrum,
+				'sigmaA': self._spectrum,
+				'sigmaT': self._spectrum,
+				'albedo': self._spectrum,
+				'alpha': self._float,
+				'alphaU': self._float,
+				'alphaV': self._float,
+				'exponent': self._float,
+				'weight': self._float,
+				'intIOR': self._float,  # string not supported yet
+				'extIOR': self._float,  # string not supported yet
+				'extEta': self._float,  # string not supported yet
+				'eta': self._spectrum,
+				'k': self._spectrum,
+				'thickness': self._float,
+				'distribution': self._string,
+				'material': self._string,
+				'variant': self._string,
+				'weights': self._string,
+				'useFastApprox': self._bool,
+				'nonlinear': self._bool,
 			},
-			'subsurface' : {
-				'material' : self._string,
-				'sigmaA' : self._spectrum,
-				'sigmaS' : self._spectrum,
-				'sigmaT' : self._spectrum,
-				'albedo' : self._spectrum,
-				'scale' : self._float,
-				'intIOR' : self._float, # string not supported yet
-				'extIOR' : self._float, # string not supported yet
-				'irrSamples' : self._integer,
+			'texture': {
+				'filename': self._string,
+				'wrapModeU': self._string,
+				'wrapModeV': self._string,
+				'gamma': self._float,
+				'filterType': self._string,
+				'maxAnisotropy': self._float,
+				'channel': self._string,
+				'cache': self._bool,
+				'color0': self._spectrum,
+				'color1': self._spectrum,
+				'interiorColor': self._spectrum,
+				'edgeColor': self._spectrum,
+				'lineWidth': self._float,
+				'stepWidth': self._float,
+				'curvature': self._string,
+				'scale': self._float,
+				'uscale': self._float,
+				'vscale': self._float,
+				'uoffset': self._float,
+				'voffset': self._float,
 			},
-			'medium' : {
-				'sigmaA' : self._spectrum,
-				'sigmaS' : self._spectrum,
-				'sigmaT' : self._spectrum,
-				'albedo' : self._spectrum,
-				'scale' : self._float,
-				'method' : self._string,
+			'subsurface': {
+				'material': self._string,
+				'sigmaA': self._spectrum,
+				'sigmaS': self._spectrum,
+				'sigmaT': self._spectrum,
+				'albedo': self._spectrum,
+				'scale': self._float,
+				'intIOR': self._float,  # string not supported yet
+				'extIOR': self._float,  # string not supported yet
+				'irrSamples': self._integer,
 			},
-			'phase' : {
-				'g' : self._float,
+			'medium': {
+				'sigmaA': self._spectrum,
+				'sigmaS': self._spectrum,
+				'sigmaT': self._spectrum,
+				'albedo': self._spectrum,
+				'scale': self._float,
+				'method': self._string,
 			},
-			'volume' : {
-				'filename' : self._string,
-				'value' : self._spectrum, # float or vector not supported yet
-				'toWorld' : self._transform,
+			'phase': {
+				'g': self._float,
 			},
-			'emitter' : {
-				'radiance' : self._spectrum,
-				'intensity' : self._spectrum,
-				'cutoffAngle' : self._float,
-				'beamWidth' : self._float,
-				'scale' : self._float,
-				'samplingWeight' : self._float,
-				'filename' : self._string,
-				'toWorld' : self._transform,
-				'turbidity' : self._float,
-				'sunDirection' : self._vector,
-				'resolution' : self._integer,
-				'stretch' : self._float,
-				'albedo' : self._spectrum,
-				'scale' : self._float,
-				'skyScale' : self._float,
-				'sunScale' : self._float,
-				'sunRadiusScale' : self._float,
+			'volume': {
+				'toWorld': self._transform,
+				'filename': self._string,
+				'value': self._spectrum,  # float or vector not supported yet
 			},
-			'sensor' : {
-				'fov' : self._float,
-				'fovAxis' : self._string,
-				'nearClip' : self._float,
-				'farClip' : self._float,
-				'apertureRadius' : self._float,
-				'focusDistance' : self._float,
-				'shutterOpen' : self._float,
-				'shutterClose' : self._float,
-				'toWorld' : self._transform,
+			'emitter': {
+				'toWorld': self._transform,
+				'radiance': self._spectrum,
+				'intensity': self._spectrum,
+				'cutoffAngle': self._float,
+				'beamWidth': self._float,
+				'scale': self._float,
+				'samplingWeight': self._float,
+				'filename': self._string,
+				'turbidity': self._float,
+				'sunDirection': self._vector,
+				'resolution': self._integer,
+				'stretch': self._float,
+				'albedo': self._spectrum,
+				'scale': self._float,
+				'skyScale': self._float,
+				'sunScale': self._float,
+				'sunRadiusScale': self._float,
+				'extend': self._bool,
 			},
-			'integrator' : {
-				'shadingSamples' : self._integer,
-				'rayLength' : self._float,
-				'emitterSamples' : self._integer,
-				'bsdfSamples' : self._integer,
-				'strictNormals' : self._bool,
-				'hideEmitters' : self._bool,
-				'maxDepth' : self._integer,
-				'rrDepth' : self._integer,
-				'lightImage' : self._bool,
-				'sampleDirect' : self._bool,
-				'directSamples' : self._integer,
-				'glossySamples' : self._integer,
-				'globalPhotons' : self._integer,
-				'causticPhotons' : self._integer,
-				'volumePhotons' : self._integer,
-				'globalLookupRadius' : self._float,
-				'causticLookupRadius' : self._float,
-				'lookupSize' : self._integer,
-				'granularity' : self._integer,
-				'photonCount' : self._integer,
-				'initialRadius' : self._float,
-				'alpha' : self._float,
-				'bidirectional' : self._bool,
-				'luminanceSamples' : self._integer,
-				'twoStage' : self._bool,
-				'pLarge' : self._float,
-				'bidirectionalMutation' : self._bool,
-				'lensPerturbation' : self._bool,
-				'causticPerturbation' : self._bool,
-				'multiChainPerturbation' : self._bool,
-				'manifoldPerturbation' : self._bool,
-				'lambda' : self._float,
-				'numChains' : self._float,
-				'maxChains' : self._integer,
-				'chainLength' : self._integer,
-				'shadowMapResolution' : self._integer,
-				'clamping' : self._float,
-				'maxError' : self._float,
-				'pValue' : self._float,
-				'maxSampleFactor' : self._integer,
-				'clampNeighbor' : self._bool,
-				'clampScreen' : self._bool,
-				'debug' : self._bool,
-				'indirectOnly' : self._bool,
-				'gradients' : self._bool,
-				'overture' : self._bool,
-				'quality' : self._float,
-				'qualityAdjustment' : self._float,
-				'resolution' : self._integer,
+			'sensor': {
+				'toWorld': self._transform,
+				'fov': self._float,
+				'fovAxis': self._string,
+				'nearClip': self._float,
+				'farClip': self._float,
+				'apertureRadius': self._float,
+				'focusDistance': self._float,
+				'shutterOpen': self._float,
+				'shutterClose': self._float,
+				'kc': self._string,
 			},
-			'sampler' : {
-				'sampleCount' : self._integer,
-				'scramble' : self._integer,
+			'integrator': {
+				'shadingSamples': self._integer,
+				'rayLength': self._float,
+				'emitterSamples': self._integer,
+				'bsdfSamples': self._integer,
+				'strictNormals': self._bool,
+				'hideEmitters': self._bool,
+				'maxDepth': self._integer,
+				'rrDepth': self._integer,
+				'lightImage': self._bool,
+				'sampleDirect': self._bool,
+				'directSamples': self._integer,
+				'glossySamples': self._integer,
+				'globalPhotons': self._integer,
+				'causticPhotons': self._integer,
+				'volumePhotons': self._integer,
+				'globalLookupRadius': self._float,
+				'causticLookupRadius': self._float,
+				'lookupSize': self._integer,
+				'granularity': self._integer,
+				'photonCount': self._integer,
+				'initialRadius': self._float,
+				'alpha': self._float,
+				'bidirectional': self._bool,
+				'luminanceSamples': self._integer,
+				'twoStage': self._bool,
+				'pLarge': self._float,
+				'bidirectionalMutation': self._bool,
+				'lensPerturbation': self._bool,
+				'causticPerturbation': self._bool,
+				'multiChainPerturbation': self._bool,
+				'manifoldPerturbation': self._bool,
+				'lambda': self._float,
+				'numChains': self._float,
+				'maxChains': self._integer,
+				'chainLength': self._integer,
+				'shadowMapResolution': self._integer,
+				'clamping': self._float,
+				'maxError': self._float,
+				'pValue': self._float,
+				'maxSampleFactor': self._integer,
+				'clampNeighbor': self._bool,
+				'clampScreen': self._bool,
+				'debug': self._bool,
+				'indirectOnly': self._bool,
+				'gradients': self._bool,
+				'overture': self._bool,
+				'quality': self._float,
+				'qualityAdjustment': self._float,
+				'resolution': self._integer,
 			},
-			'film' : {
+			'sampler': {
+				'sampleCount': self._integer,
+				'scramble': self._integer,
+			},
+			'film': {
 				# common
-				'width' : self._integer,
-				'height' : self._integer,
-				'fileFormat' : self._string,
-				'pixelFormat' : self._string,
-				'banner' : self._bool,
-				'highQualityEdges' : self._bool,
-				'label[10,10]' : self._string,
+				'width': self._integer,
+				'height': self._integer,
+				'fileFormat': self._string,
+				'pixelFormat': self._string,
+				'banner': self._bool,
+				'highQualityEdges': self._bool,
+				'label[10,10]': self._string,
 				# hdrfilm
-				'componentFormat' : self._string,
-				'attachLog' : self._bool,
+				'componentFormat': self._string,
+				'attachLog': self._bool,
 				# ldrfilm
-				'tonemapMethod' : self._string,
-				'gamma' : self._float,
-				'exposure' : self._float,
-				'key' : self._float,
-				'burn' : self._float,
+				'tonemapMethod': self._string,
+				'gamma': self._float,
+				'exposure': self._float,
+				'key': self._float,
+				'burn': self._float,
 			},
-			'rfilter' : {
-				'stddev' : self._float,
-				'B' : self._float,
-				'C' : self._float,
-				'lobes' : self._integer,
+			'rfilter': {
+				'stddev': self._float,
+				'B': self._float,
+				'C': self._float,
+				'lobes': self._integer,
 			},
 		}
-		
 	
 	def wf(self, ind, st, tabs=0):
 		'''
@@ -390,10 +400,10 @@ class Custom_Context(object):
 			self.set_filename(scene, 'default')
 		
 		# Prevent trying to write to a file that isn't open
-		if self.files[ind] == None:
+		if self.files[ind] is None:
 			ind = 0
 		
-		self.files[ind].write('%s%s' % ('\t'*tabs, st))
+		self.files[ind].write('%s%s' % ('\t' * tabs, st))
 		self.files[ind].flush()
 	
 	def set_filename(self, scene, name, split_files=False):
@@ -428,10 +438,7 @@ class Custom_Context(object):
 		MtsLog('Scene File: %s' % self.file_names[Files.MAIN])
 		
 		if split_files:
-			subdir = '%s%s/%s/%05d' % (efutil.export_path, efutil.scene_filename(), bpy.path.clean_name(scene.name), scene.frame_current)
-			
-			if not os.path.exists(subdir):
-				os.makedirs(subdir)
+			subdir = get_output_subdir(scene)
 			
 			self.file_names.append('%s/Mitsuba-Materials.xml' % subdir)
 			self.files.append(open(self.file_names[Files.MATS], 'w', encoding='utf-8', newline="\n"))
@@ -465,24 +472,20 @@ class Custom_Context(object):
 		self.current_file = file
 	
 	def writeHeader(self, file, comment):
-		self.wf(file, '<?xml version="1.0" encoding="utf-8"?>\n');
-		self.wf(file, '<!-- %s -->\n' % comment);
-		self.openElement('scene',{'version' : '0.5.0'}, file)
+		self.wf(file, '<?xml version="1.0" encoding="utf-8"?>\n')
+		self.wf(file, '<!-- %s -->\n' % comment)
 	
-	def writeFooter(self, file):
-		self.closeElement(file)
-	
-	def openElement(self, name, attributes = {}, file=None):
+	def openElement(self, name, attributes={}, file=None):
 		if file is not None:
 			self.set_output_file(file)
 		
 		self.wf(self.current_file, '<%s' % name, self.file_tabs[self.current_file])
 		for (k, v) in attributes.items():
-			self.wf(self.current_file, ' %s=\"%s\"' % (k, v.replace('"','')))
+			self.wf(self.current_file, ' %s=\"%s\"' % (k, v.replace('"', '')))
 		self.wf(self.current_file, '>\n')
 		
 		# Indent
-		self.file_tabs[self.current_file] = self.file_tabs[self.current_file]+1
+		self.file_tabs[self.current_file] = self.file_tabs[self.current_file] + 1
 		self.file_stack[self.current_file].append(name)
 	
 	def closeElement(self, file=None):
@@ -490,12 +493,12 @@ class Custom_Context(object):
 			self.set_output_file(file)
 		
 		# Un-indent
-		self.file_tabs[self.current_file] = self.file_tabs[self.current_file]-1
+		self.file_tabs[self.current_file] = self.file_tabs[self.current_file] - 1
 		name = self.file_stack[self.current_file].pop()
 		
 		self.wf(self.current_file, '</%s>\n' % name, self.file_tabs[self.current_file])
 	
-	def element(self, name, attributes = {}, file=None):
+	def element(self, name, attributes={}, file=None):
 		if file is not None:
 			self.set_output_file(file)
 		
@@ -504,7 +507,7 @@ class Custom_Context(object):
 			self.wf(self.current_file, ' %s=\"%s\"' % (k, v))
 		self.wf(self.current_file, '/>\n')
 	
-	def parameter(self, paramType, paramName, attributes = {}, file=None):
+	def parameter(self, paramType, paramName, attributes={}, file=None):
 		if file is not None:
 			self.set_output_file(file)
 		
@@ -516,16 +519,16 @@ class Custom_Context(object):
 	# Callback functions
 	
 	def _string(self, name, value):
-		self.parameter('string', name, {'value' : str(value)})
+		self.parameter('string', name, {'value': str(value)})
 	
 	def _bool(self, name, value):
-		self.parameter('boolean', name, {'value' : str(value).lower()})
+		self.parameter('boolean', name, {'value': str(value).lower()})
 	
 	def _integer(self, name, value):
-		self.parameter('integer', name, {'value' : '%d' % value})
+		self.parameter('integer', name, {'value': '%d' % value})
 	
 	def _float(self, name, value):
-		self.parameter('float', name, {'value' : '%f' % value})
+		self.parameter('float', name, {'value': '%f' % value})
 	
 	def _spectrum(self, name, value):
 		self.parameter('spectrum', name, value)
@@ -537,16 +540,13 @@ class Custom_Context(object):
 		self.parameter('point', name, value)
 	
 	def _transform(self, plugin, params):
-		self.openElement('transform', {'name' : 'toWorld'})
+		self.openElement('transform', {'name': 'toWorld'})
 		for param in params:
 			self.element(param, params[param])
 		self.closeElement()
 	
 	def _ref(self, name, value):
 		self.element('ref', value)
-	
-	def _addChild(self, plugin, param_dict):
-		self.pmgr_create(param_dict)
 	
 	# Funtions to emulate Mitsuba extension API
 	
@@ -562,8 +562,11 @@ class Custom_Context(object):
 		
 		plugin_type = param_dict.pop('type')
 		
-		if plugin_type != 'ref':
+		if plugin_type not in ['scene', 'ref']:
 			args['type'] = plugin_type
+		
+		if plugin_type == 'scene':
+			args['version'] = '0.5.0'
 		
 		if 'id' in param_dict:
 			args['id'] = param_dict.pop('id')
@@ -601,30 +604,30 @@ class Custom_Context(object):
 			MtsLog(param_dict)
 	
 	def spectrum(self, r, g, b):
-		return {'value' : "%f %f %f" % (r, g, b)}
+		return {'value': "%f %f %f" % (r, g, b)}
 	
 	def vector(self, x, y, z):
 		# Blender is Z up but Mitsuba is Y up, convert the vector
-		return {'x' : '%f' % x, 'y' : '%f' % z, 'z' : '%f' % -y}
+		return {'x': '%f' % x, 'y': '%f' % z, 'z': '%f' % -y}
 	
 	def point(self, x, y, z):
 		# Blender is Z up but Mitsuba is Y up, convert the point
-		return {'x' : '%f' % x, 'y' : '%f' % z, 'z' : '%f' % -y}
+		return {'x': '%f' % x, 'y': '%f' % z, 'z': '%f' % -y}
 	
-	def transform_lookAt(self, origin, target, up, scale = False):
+	def transform_lookAt(self, origin, target, up, scale=False):
 		# Blender is Z up but Mitsuba is Y up, convert the lookAt
 		params = {
-			'lookat' : {
-				'origin' : '%f, %f, %f' % (origin[0],origin[2],-origin[1]),
-				'target' : '%f, %f, %f' % (target[0],target[2],-target[1]),
-				'up' : '%f, %f, %f' % (up[0],up[2],-up[1])
+			'lookat': {
+				'origin': '%f, %f, %f' % (origin[0], origin[2], -origin[1]),
+				'target': '%f, %f, %f' % (target[0], target[2], -target[1]),
+				'up': '%f, %f, %f' % (up[0], up[2], -up[1])
 			}
 		}
 		if scale:
 			params.update({
-				'scale' : {
-					'x' : scale,
-					'y' : scale
+				'scale': {
+					'x': scale,
+					'y': scale
 				}
 			})
 		return params
@@ -632,32 +635,9 @@ class Custom_Context(object):
 	def transform_matrix(self, matrix):
 		# Blender is Z up but Mitsuba is Y up, convert the matrix
 		global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
-		l = matrix_to_list( global_matrix * matrix)
-		value = " ".join(["%f" % f for f in  l])
-		return {'matrix' : {'value' : value}}
-	
-	def exportVoxelData(self,objName , scene):
-		obj = None		
-		try :
-			obj = bpy.data.objects[objName]
-		except :
-			MtsLog("ERROR : assigning the object")
-		# path where to put the VOXEL FILES	
-		sc_fr = '%s/%s/%s/%05d' % (efutil.export_path, efutil.scene_filename(), bpy.path.clean_name(scene.name), scene.frame_current)
-		if not os.path.exists(sc_fr):
-			os.makedirs(sc_fr)
-		# path to the .bphys file
-		dir_name = os.path.dirname(bpy.data.filepath) + "/blendcache_" + os.path.basename(bpy.data.filepath)[:-6]
-		cachname = ("/%s_%06d_00.bphys"%(obj.modifiers['Smoke'].domain_settings.point_cache.name ,scene.frame_current) )
-		cachFile = dir_name + cachname
-		volume = volumes()
-		filenames = volume.smoke_convertion( cachFile, sc_fr, scene.frame_current, obj)
-		return filenames
-	
-	def reexportVoxelDataCoordinates(self, file):
-		obj = None
-		# get the Boundig Box object
-		#updateBoundinBoxCoorinates(file , obj)
+		l = matrix_to_list(global_matrix * matrix)
+		value = " ".join(["%f" % f for f in l])
+		return {'matrix': {'value': value}}
 	
 	def exportMedium(self, scene, medium):
 		if medium.name in self.exported_media:
@@ -666,71 +646,21 @@ class Custom_Context(object):
 		
 		params = medium.api_output(self, scene)
 		
-		self.pmgr_create(params)
+		self.data_add(params)
 	
-	def findReferences(self, params):
-		if isinstance(params, dict):
-			for p in params.values():
-				if isinstance(p, dict):
-					if 'type' in p and p['type'] == 'ref' and p['id'] != '':
-						yield p
-					else:
-						for r in self.findReferences(p):
-							yield r
-	
-	def findTexture(self, name):
-		if name in bpy.data.textures:
-			return bpy.data.textures[name]
-		else:
-			raise Exception('Failed to find texture "%s"' % name)
-	
-	def findMaterial(self, name):
-		if name in bpy.data.materials:
-			return bpy.data.materials[name]
-		else:
-			raise Exception('Failed to find material "%s" in "%s"' % (name,
-				str(bpy.data.materials)))
-	
-	def exportTexture(self, tex):
-		if tex.name in self.exported_textures:
-			return
-		self.exported_textures += [tex.name]
-		
-		params = {'id' : '%s-texture' % tex.name}
-		params.update(tex.mitsuba_texture.api_output(self))
-		
-		self.pmgr_create(params)
-	
-	def exportMaterial(self, mat):
-		if not hasattr(mat, 'name') or mat.name in self.exported_materials:
-			return
-		self.exported_materials += [mat.name]
-		mmat = mat.mitsuba_material
-		if mmat.type == 'none':
-			self.element('null', {'id' : '%s-material' % mat.name})
+	def data_add(self, mts_dict):
+		if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
 			return
 		
-		mat_params = mmat.api_output(self, mat)
-		
-		for p in self.findReferences(mat_params):
-			if p['id'].endswith('-material'):
-				self.exportMaterial(self.findMaterial(p['id'][:len(p['id'])-9]))
-			elif p['id'].endswith('-texture'):
-				self.exportTexture(self.findTexture(p['id'][:len(p['id'])-8]))
-		
-		# Export Surface BSDF
-		if mat.mitsuba_material.use_bsdf:
-			self.pmgr_create(mat_params)
-		
-		if mat.mitsuba_mat_subsurface.use_subsurface:
-			sss_params = mat.mitsuba_mat_subsurface.api_output(self, mat)
-			self.pmgr_create(sss_params)
+		self.scene_data.update([('elm%i' % self.counter, mts_dict)])
+		self.counter += 1
 	
-	def worldEnd(self):
+	def configure(self):
 		'''
-		Special handling of worldEnd API.
-		See inline comments for further info
+		Special handling of configure API.
 		'''
+		
+		self.pmgr_create(self.scene_data)
 		
 		#if self.files[Files.MAIN] is not None:
 			# End of the world as we know it
@@ -755,12 +685,103 @@ class Custom_Context(object):
 			if f is not None:
 				f.close()
 	
-	def wait(self):
-		pass
+	#def wait(self):
+	#	pass
 	
-	def parse(self, filename, async):
-		'''
-		In a deviation from the API, this function returns a new context,
-		which must be passed back to MtsManager so that it can control the
-		rendering process.
-		'''
+	#def parse(self, filename, async):
+	#	'''
+	#	In a deviation from the API, this function returns a new context,
+	#	which must be passed back to MtsManager so that it can control the
+	#	rendering process.
+	#	'''
+
+
+class Render_Context(object):
+	'''
+	Mitsuba External Render
+	'''
+	
+	RENDER_API_TYPE = 'EXT'
+	
+	context_name = ''
+	binary_name = 'mitsuba'
+	render_engine = None
+	render_scene = None
+	mitsuba_process = None
+	cmd_args = []
+	verbosity_modes = {
+		'verbose': '-v',
+		'quiet': '-q'
+	}
+	
+	def __init__(self, name):
+		self.context_name = name
+		self.render_engine = MtsManager.RenderEngine
+		self.render_scene = MtsManager.CurrentScene
+		
+		if self.render_engine.is_preview:
+			self.binary_name = 'mitsuba'
+			verbosity = 'quiet'
+		else:
+			self.binary_name = self.render_scene.mitsuba_engine.binary_name
+			verbosity = self.render_scene.mitsuba_engine.log_verbosity
+		
+		addon_prefs = MitsubaAddon.get_prefs()
+		mitsuba_path = efutil.filesystem_path(addon_prefs.install_path)
+		
+		if mitsuba_path == '':
+			return ['']
+		
+		if mitsuba_path[-1] != '/':
+			mitsuba_path += '/'
+		
+		if sys.platform == 'darwin':
+			if mitsuba_path[-27:] != 'Mitsuba.app/Contents/MacOS/' and os.path.exists('%sMitsuba.app/Contents/MacOS/' % mitsuba_path):
+				mitsuba_path += 'Mitsuba.app/Contents/MacOS/'  # Looks like the configured path points to app bundle instead of binary
+			mitsuba_path += self.binary_name
+			if not os.path.exists(mitsuba_path):
+				MtsLog('Mitsuba not found at path: %s' % mitsuba_path, ', trying default Mitsuba location')
+				mitsuba_path = '/Applications/Mitsuba.app/Contents/MacOS/%s' % self.binary_name  # try fallback to default installation path
+		elif sys.platform == 'win32':
+			mitsuba_path += '%s.exe' % self.binary_name
+		else:
+			mitsuba_path += self.binary_name
+		
+		if not os.path.exists(mitsuba_path):
+			raise Exception('Mitsuba not found at path: %s' % mitsuba_path)
+		
+		self.cmd_args = [mitsuba_path]
+		
+		# set log verbosity
+		if verbosity != 'default':
+			self.cmd_args.append(self.verbosity_modes[verbosity])
+		
+		# Set number of threads for external processes
+		if not self.render_scene.mitsuba_engine.threads_auto:
+			self.cmd_args.extend(['-p', '%i' % self.render_scene.mitsuba_engine.threads])
+	
+	def set_scene(self, export_context):
+		if export_context.EXPORT_API_TYPE == 'FILE':
+			self.filename = export_context.file_names[0]
+		else:
+			raise Exception('Unknown exporter type')
+	
+	def render_start(self, dest_file):
+		output_dir, output_file = os.path.split(dest_file)
+		self.cmd_args.extend(['-o', dest_file])
+		self.cmd_args.append(self.filename)
+		MtsLog('Launching: %s' % self.cmd_args)
+		self.mitsuba_process = subprocess.Popen(self.cmd_args, cwd=output_dir)
+	
+	def render_stop(self):
+		# Use SIGTERM because that's the only one supported on Windows
+		self.mitsuba_process.send_signal(subprocess.signal.SIGTERM)
+	
+	def is_running(self):
+		return self.mitsuba_process.poll() is None
+	
+	def returncode(self):
+		return self.mitsuba_process.returncode
+	
+	def get_bitmap(self):
+		return self.bitmap

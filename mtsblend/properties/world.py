@@ -34,11 +34,13 @@ TC_sigmaA = ColorTextureParameter('sigmaA', 'Absorption Coefficient', default=(0
 TC_sigmaT = ColorTextureParameter('sigmaT', 'Extinction Coefficient', default=(0.8, 0.8, 0.8))
 TC_albedo = ColorTextureParameter('albedo', 'Albedo', default=(0.01, 0.01, 0.01))
 
+
 def dict_merge(*args):
 	vis = {}
 	for vis_dict in args:
 		vis.update(deepcopy(vis_dict))
 	return vis
+
 
 def texture_append_visibility(vis_main, textureparam_object, vis_append):
 	for prop in textureparam_object.properties:
@@ -48,6 +50,7 @@ def texture_append_visibility(vis_main, textureparam_object, vis_append):
 			for vk, vi in vis_append.items():
 				vis_main[prop['attr']][vk] = vi
 	return vis_main
+
 
 def WorldMediumParameter(attr, name):
 	return [
@@ -61,13 +64,14 @@ def WorldMediumParameter(attr, name):
 		{
 			'type': 'prop_search',
 			'attr': attr,
-			'src': lambda s,c: s.scene.mitsuba_media,
+			'src': lambda s, c: s.scene.mitsuba_media,
 			'src_attr': 'media',
-			'trg': lambda s,c: c.mitsuba_world,
+			'trg': lambda s, c: c.mitsuba_world,
 			'trg_attr': '%s_medium' % attr,
 			'name': name
 		}
 	]
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_world(declarative_property_group):
@@ -79,23 +83,24 @@ class mitsuba_world(declarative_property_group):
 	]
 	
 	properties = [
-				  {
-				  'attr': 'preview_object_size',
-				  'type': 'float',
-				  'name': 'Preview Object Size',
-				  'description': 'Real Size of the Preview Objects Edges or Sphere-Diameter',
-				  'min': 0.01,
-				  'soft_min': 0.01,
-				  'max': 100.0,
-				  'soft_max': 100.0,
-				  'step': 100,
-				  'default': 2.0,
-				  'subtype': 'DISTANCE',
-				  'unit': 'LENGTH',
-				  }
-				  ] + \
+		{
+			'attr': 'preview_object_size',
+			'type': 'float',
+			'name': 'Preview Object Size',
+			'description': 'Real Size of the Preview Objects Edges or Sphere-Diameter',
+			'min': 0.01,
+			'soft_min': 0.01,
+			'max': 100.0,
+			'soft_max': 100.0,
+			'step': 100,
+			'default': 2.0,
+			'subtype': 'DISTANCE',
+			'unit': 'LENGTH',
+		}
+	] + \
 		WorldMediumParameter('default_interior', 'Default Interior') + \
 		WorldMediumParameter('default_exterior', 'Default Exterior')
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_medium_data(declarative_property_group):
@@ -105,7 +110,7 @@ class mitsuba_medium_data(declarative_property_group):
 	these in its CollectionProperty 'media'.
 	'''
 	
-	ef_attach_to = []	# not attached
+	ef_attach_to = []  # not attached
 	
 	controls = [
 		'type',
@@ -123,7 +128,7 @@ class mitsuba_medium_data(declarative_property_group):
 		'externalDensity',
 		'density',
 		'object_pop',
-		[ 0.9, [0.375,'albado_colorlabel', 'albado_color'], 'albedo_usegridvolume'],
+		[0.9, [0.375, 'albado_colorlabel', 'albado_color'], 'albedo_usegridvolume'],
 		'albedo_gridVolumeType',
 		'convert',
 	]
@@ -143,7 +148,7 @@ class mitsuba_medium_data(declarative_property_group):
 			'type': 'string',
 			'attr': 'material',
 			'name': 'Preset name',
-			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
+			'description': 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
 			'default': '',
 			'save_in_preset': True
 		},
@@ -165,19 +170,19 @@ class mitsuba_medium_data(declarative_property_group):
 			'description': 'Path to a grid volume density file (.vol)'
 		},
 		{
-			'attr': 'object' ,
+			'attr': 'object',
 			'type': 'string',
 			'name': 'object',
-			'description': 'Object of Domain type ' ,
+			'description': 'Object of Domain type ',
 			'save_in_preset': True
 		},
 		{
 			'type': 'prop_search',
 			'attr': 'object_pop',
-			'src': lambda s,c: s.scene,
+			'src': lambda s, c: s.scene,
 			'src_attr': 'objects',
-			'trg': lambda s,c: c,
-			'trg_attr': 'object' ,
+			'trg': lambda s, c: c,
+			'trg_attr': 'object',
 			'name': 'Objects'
 		},
 		{
@@ -195,13 +200,13 @@ class mitsuba_medium_data(declarative_property_group):
 		},
 		{
 			'type': 'text',
-			'attr': 'albado_colorlabel' ,
+			'attr': 'albado_colorlabel',
 			'name': 'Albado'
 		},
 		{
 			'type': 'float_vector',
-			'attr': 'albado_color' ,
-			'name': '', #self.name,
+			'attr': 'albado_color',
+			'name': '',  # self.name,
 			'description': 'The color for the albado ',
 			'default': (0.01, 0.01, 0.01),
 			'min': 0.0,
@@ -222,9 +227,9 @@ class mitsuba_medium_data(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'scale',
-			'name' : 'Scale',
-			'description' : 'Density scale',
-			'default' : 1.0,
+			'name': 'Scale',
+			'description': 'Density scale',
+			'default': 1.0,
 			'min': 0.1,
 			'max': 50000.0,
 			'save_in_preset': True
@@ -250,8 +255,8 @@ class mitsuba_medium_data(declarative_property_group):
 		{
 			'type': 'bool',
 			'attr': 'externalDensity',
-			'name' : 'External Density',
-			'default' : False,
+			'name': 'External Density',
+			'default': False,
 			'save_in_preset': True
 		},
 	] + \
@@ -262,16 +267,16 @@ class mitsuba_medium_data(declarative_property_group):
 	
 	visibility = dict_merge(
 		{
-			'useAlbSigmaT': { 'material': '' , 'type' : 'homogeneous'},
-			'material' : {'type' : 'homogeneous'},
-			'method' : {'type' : 'heterogeneous'},
-			'density' : {'type' : 'heterogeneous' , 'externalDensity' : True},
-			'albado_color' : {'type' : 'heterogeneous'},
-			'externalDensity' : {'type' : 'heterogeneous'},
-			'albado_colorlabel' : {'type' : 'heterogeneous'},
-			'albedo_usegridvolume' : {'type' : 'heterogeneous'},
-			'object_pop' : {'type' : 'heterogeneous' , 'externalDensity' : False },
-			'albedo_gridVolumeType' : {'type' : 'heterogeneous', 'albedo_usegridvolume' : True}
+			'useAlbSigmaT': {'material': '', 'type': 'homogeneous'},
+			'material': {'type': 'homogeneous'},
+			'method': {'type': 'heterogeneous'},
+			'density': {'type': 'heterogeneous', 'externalDensity': True},
+			'albado_color': {'type': 'heterogeneous'},
+			'externalDensity': {'type': 'heterogeneous'},
+			'albado_colorlabel': {'type': 'heterogeneous'},
+			'albedo_usegridvolume': {'type': 'heterogeneous'},
+			'object_pop': {'type': 'heterogeneous', 'externalDensity': False},
+			'albedo_gridVolumeType': {'type': 'heterogeneous', 'albedo_usegridvolume': True}
 		},
 		TC_sigmaA.visibility,
 		TC_sigmaS.visibility,
@@ -279,82 +284,83 @@ class mitsuba_medium_data(declarative_property_group):
 		TC_albedo.visibility
 	)
 	
-	visibility = texture_append_visibility(visibility, TC_sigmaT, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
-	visibility = texture_append_visibility(visibility, TC_albedo, { 'material': '', 'useAlbSigmaT': True , 'type' : 'homogeneous'})
-	visibility = texture_append_visibility(visibility, TC_sigmaS, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
-	visibility = texture_append_visibility(visibility, TC_sigmaA, { 'material': '', 'useAlbSigmaT': False , 'type' : 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_sigmaT, {'material': '', 'useAlbSigmaT': True, 'type': 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_albedo, {'material': '', 'useAlbSigmaT': True, 'type': 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_sigmaS, {'material': '', 'useAlbSigmaT': False, 'type': 'homogeneous'})
+	visibility = texture_append_visibility(visibility, TC_sigmaA, {'material': '', 'useAlbSigmaT': False, 'type': 'homogeneous'})
 	
 	def api_output(self, mts_context, scene):
-		voxels = ['','']
+		voxels = ['', '']
 		
 		params = {
-			'id' : '%s-medium' % self.name,
-			'type' : self.type
+			'id': '%s-medium' % self.name,
+			'type': self.type
 		}
 		if self.type == 'homogeneous':
-			if self.material=='':
-				if self.useAlbSigmaT != True:
+			if self.material == '':
+				if self.useAlbSigmaT is not True:
 					params.update({
-						'sigmaA' : TC_sigmaA.api_output(mts_context, self),
-						'sigmaS' : TC_sigmaS.api_output(mts_context, self)
+						'sigmaA': TC_sigmaA.api_output(mts_context, self),
+						'sigmaS': TC_sigmaS.api_output(mts_context, self)
 					})
 				else:
 					params.update({
-						'sigmaT' : TC_sigmaT.api_output(mts_context, self),
-						'albedo' : TC_albedo.api_output(mts_context, self)
+						'sigmaT': TC_sigmaT.api_output(mts_context, self),
+						'albedo': TC_albedo.api_output(mts_context, self)
 					})
 			else:
-				params.update({'material' : self.material})
-			params.update({'scale' : self.scale})
+				params.update({'material': self.material})
+			params.update({'scale': self.scale})
 		elif self.type == 'heterogeneous':
 			matrix = mts_context.transform_matrix(Matrix())
 			
 			density_params = {
-				'type' : 'gridvolume',
-				'name' : 'density',
-				'toWorld' : matrix,
+				'type': 'gridvolume',
+				'name': 'density',
+				'toWorld': matrix,
 			}
-			if self.externalDensity :
-				density_params.update({'filename' : self.density})
+			if self.externalDensity:
+				density_params.update({'filename': self.density})
 				# if self.rewrite :
 				#	reexportVoxelDataCoordinates(self.density)
-			else :	
-				voxels = mts_context.exportVoxelData(self.object,scene)
-				density_params.update({'filename' : voxels[0]})
+			else:
+				voxels = mts_context.exportVoxelData(self.object, scene)
+				density_params.update({'filename': voxels[0]})
 			
 			albedo_params = {
-				'name' : 'albedo',
-				'toWorld' : matrix,
+				'name': 'albedo',
+				'toWorld': matrix,
 			}
-			if not self.albedo_usegridvolume :
+			if not self.albedo_usegridvolume:
 				albedo_params.update({
-					'type' : 'constvolume',
-					'value' : mts_context.spectrum(self.albado_color.r ,self.albado_color.g, self.albado_color.b)
+					'type': 'constvolume',
+					'value': mts_context.spectrum(self.albado_color.r, self.albado_color.g, self.albado_color.b)
 				})
-			else :
+			else:
 				albedo_params.update({
-					'type' : 'gridvolume',
-					'filename' : voxels[1]
+					'type': 'gridvolume',
+					'filename': voxels[1]
 				})
 			
 			params.update({
-				'method' : self.method,
-				'scale' : self.scale,
-				'density' : density_params,
-				'albedo' : albedo_params,
+				'method': self.method,
+				'scale': self.scale,
+				'density': density_params,
+				'albedo': albedo_params,
 			})
 		
 		if self.g == 0:
-			params.update({'phase' : {'type' : 'isotropic'}})
+			params.update({'phase': {'type': 'isotropic'}})
 		else:
 			params.update({
-				'phase' : {
-					'type' : 'hg',
-					'g' : self.g,
+				'phase': {
+					'type': 'hg',
+					'g': self.g,
 				}
 			})
 		
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_media(declarative_property_group):
@@ -390,9 +396,9 @@ class mitsuba_media(declarative_property_group):
 			'type': 'template_list',
 			'name': 'media_select',
 			'attr': 'media_select',
-			'trg': lambda sc,c: c.mitsuba_media,
+			'trg': lambda sc, c: c.mitsuba_media,
 			'trg_attr': 'media_index',
-			'src': lambda sc,c: c.mitsuba_media,
+			'src': lambda sc, c: c.mitsuba_media,
 			'src_attr': 'media',
 		},
 		{
