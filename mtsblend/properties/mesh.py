@@ -45,7 +45,7 @@ class mitsuba_mesh(declarative_property_group):
 			'name': 'Export as',
 			'items': [
 				('global', 'Use default setting', 'global'),
-				('native', 'Serialized mesh', 'native'),
+				('serialized', 'Serialized Mesh', 'serialized'),
 				('binary_ply', 'Binary PLY', 'binary_ply')
 			],
 			'default': 'global'

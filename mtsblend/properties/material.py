@@ -22,18 +22,24 @@
 # ***** END GPL LICENSE BLOCK *****
 #
 
-import bpy, math
+import bpy
 from copy import deepcopy
 from collections import OrderedDict
 
+from extensions_framework import declarative_property_group
+from extensions_framework.validate import Logic_OR as O, Logic_Operator as LO
+
 from .. import MitsubaAddon
 
-from extensions_framework import declarative_property_group
-from extensions_framework import util as efutil
-from extensions_framework.validate import Logic_OR as O, Logic_Operator as LO
-from ..properties.texture import (ColorTextureParameter, FloatTextureParameter)
-from ..export import ParamSet
+from ..export import get_references
+from ..export.materials import (
+	MaterialCounter, ExportedMaterials, ExportedTextures, get_material, get_texture
+)
+from ..properties.texture import (
+	ColorTextureParameter, FloatTextureParameter
+)
 from ..outputs import MtsLog
+
 
 def MaterialMediumParameter(attr, name):
 	return [
@@ -47,19 +53,21 @@ def MaterialMediumParameter(attr, name):
 		{
 			'type': 'prop_search',
 			'attr': attr,
-			'src': lambda s,c: s.scene.mitsuba_media,
+			'src': lambda s, c: s.scene.mitsuba_media,
 			'src_attr': 'media',
-			'trg': lambda s,c: c.mitsuba_mat_medium,
+			'trg': lambda s, c: c.mitsuba_mat_medium,
 			'trg_attr': '%s_medium' % attr,
 			'name': name
 		}
 	]
+
 
 def dict_merge(*args):
 	vis = {}
 	for vis_dict in args:
 		vis.update(deepcopy(vis_dict))
 	return vis
+
 
 def texture_append_visibility(vis_main, textureparam_object, vis_append):
 	for prop in textureparam_object.properties:
@@ -82,7 +90,7 @@ TF_bumpmap = FloatTextureParameter('bumpmap', 'Bumpmap Texture', add_float_value
 TC_reflectance = ColorTextureParameter('reflectance', 'Reflectance Color', default=(0.5, 0.5, 0.5))
 TC_diffuseReflectance = ColorTextureParameter('diffuseReflectance', 'Diffuse Reflectance Color', default=(0.5, 0.5, 0.5))
 TC_specularReflectance = ColorTextureParameter('specularReflectance', 'Specular Reflectance Color', default=(1.0, 1.0, 1.0))
-TC_specularTransmittance = ColorTextureParameter('specularTransmittance', 'Specular Transmittance Color', default=(1.0, 1.0, 1.0)) 
+TC_specularTransmittance = ColorTextureParameter('specularTransmittance', 'Specular Transmittance Color', default=(1.0, 1.0, 1.0))
 TC_transmittance = ColorTextureParameter('transmittance', 'Transmittance Color', default=(0.5, 0.5, 0.5))
 TC_opacityMask = ColorTextureParameter('opacity', 'Opacity Mask', default=(0.5, 0.5, 0.5))
 
@@ -90,6 +98,7 @@ TC_sigmaS = ColorTextureParameter('sigmaS', 'Scattering Coefficient', default=(0
 TC_sigmaA = ColorTextureParameter('sigmaA', 'Absorption Coefficient', default=(0.0, 0.0, 0.0), max=10.0)
 TC_sigmaT = ColorTextureParameter('sigmaT', 'Extinction Coefficient', default=(0.8, 0.8, 0.8), max=10.0)
 TC_albedo = ColorTextureParameter('albedo', 'Albedo', default=(0.01, 0.01, 0.01), max=10.0)
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_material(declarative_property_group):
@@ -131,7 +140,7 @@ class mitsuba_material(declarative_property_group):
 				('plastic', 'Plastic', 'plastic'),
 				('coating', 'Dielectric coating', 'coating'),
 				('bumpmap', 'Bumpmap map modifier', 'bumpmap'),
-				('phong','Modified Phong BRDF', 'phong'),
+				('phong', 'Modified Phong BRDF', 'phong'),
 				('ward', 'Anisotropic Ward BRDF', 'ward'),
 				('mixturebsdf', 'Mixture material', 'mixturebsdf'),
 				('blendbsdf', 'Blended material', 'blendbsdf'),
@@ -166,6 +175,31 @@ class mitsuba_material(declarative_property_group):
 		},
 	]
 	
+	def export(self, mts_context, mat):
+		with MaterialCounter(mat.name):
+			if mat.name not in ExportedMaterials.exported_material_names:
+				ExportedMaterials.addExportedMaterial(mat.name)
+				mmat = mat.mitsuba_material
+				if mmat.type == 'none':
+					mts_context.element('null', {'id': '%s-material' % mat.name})
+					return
+				
+				mat_params = mmat.api_output(mts_context, mat)
+				
+				for p in get_references(mat_params):
+					if p['id'].endswith('-material'):
+						self.export(mts_context, get_material(p['id'][:len(p['id']) - 9]))
+					elif p['id'].endswith('-texture'):
+						ExportedTextures.texture(mts_context, get_texture(p['id'][:len(p['id']) - 8]))
+				
+				# Export Surface BSDF
+				if mat.mitsuba_material.use_bsdf:
+					mts_context.data_add(mat_params)
+				
+				if mat.mitsuba_mat_subsurface.use_subsurface:
+					sss_params = mat.mitsuba_mat_subsurface.api_output(mts_context, mat)
+					mts_context.data_add(sss_params)
+	
 	def api_output(self, mts_context, mat):
 		params = OrderedDict([
 			('id', '%s-material' % mat.name)
@@ -174,8 +208,9 @@ class mitsuba_material(declarative_property_group):
 		params.update(sub_type.api_output(mts_context))
 		return params
 
+
 @MitsubaAddon.addon_register_class
-class mitsuba_bsdf_diffuse(declarative_property_group):	
+class mitsuba_bsdf_diffuse(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	
 	controls = TC_reflectance.controls + \
@@ -189,7 +224,7 @@ class mitsuba_bsdf_diffuse(declarative_property_group):
 			'type': 'bool',
 			'attr': 'useFastApprox',
 			'name': 'Use Fast Approximation',
-			'description' : 'This parameter selects between the full version of the model or a fast approximation',
+			'description': 'This parameter selects between the full version of the model or a fast approximation',
 			'default': False,
 			'save_in_preset': True
 		}
@@ -204,16 +239,17 @@ class mitsuba_bsdf_diffuse(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'diffuse',
-			'reflectance' : TC_reflectance.api_output(mts_context, self),
+			'type': 'diffuse',
+			'reflectance': TC_reflectance.api_output(mts_context, self),
 		}
 		if self.alpha_floatvalue > 0 or (self.alpha_usefloattexture and self.alpha_floattexturename != ''):
 			params.update({
-				'alpha' : TF_alphaRoughness.api_output(mts_context, self),
-				'useFastApprox' : self.useFastApprox,
-				'type' : 'roughdiffuse',
+				'alpha': TF_alphaRoughness.api_output(mts_context, self),
+				'useFastApprox': self.useFastApprox,
+				'type': 'roughdiffuse',
 			})
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_dielectric(declarative_property_group):
@@ -251,9 +287,9 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'intIOR',
-			'name' : 'Int. IOR',
-			'description' : 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1.5,
+			'name': 'Int. IOR',
+			'description': 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1.5,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -261,9 +297,9 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'extIOR',
-			'name' : 'Ext. IOR',
-			'description' : 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1,
+			'name': 'Ext. IOR',
+			'description': 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -285,7 +321,7 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 	
 	visibility = dict_merge(
 		{
-			'distribution' : {'thin' : False}
+			'distribution': {'thin': False}
 		},
 		TC_specularReflectance.visibility,
 		TC_specularTransmittance.visibility,
@@ -293,33 +329,34 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 		TF_alphaRoughnessU.visibility,
 		TF_alphaRoughnessV.visibility
 	)
-	visibility = texture_append_visibility(visibility, TF_alphaRoughness, { 'thin' : False, 'distribution' : O(['beckmann','ggx','phong'])})
-	visibility = texture_append_visibility(visibility, TF_alphaRoughnessU, { 'thin' : False, 'distribution' : 'as'})
-	visibility = texture_append_visibility(visibility, TF_alphaRoughnessV, { 'thin' : False, 'distribution' : 'as'})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughness, {'thin': False, 'distribution': O(['beckmann', 'ggx', 'phong'])})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughnessU, {'thin': False, 'distribution': 'as'})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughnessV, {'thin': False, 'distribution': 'as'})
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'dielectric',
-			'intIOR' : self.intIOR,
-			'extIOR' : self.extIOR,
-			'specularReflectance' : TC_specularReflectance.api_output(mts_context, self),
-			'specularTransmittance' : TC_specularTransmittance.api_output(mts_context, self),
+			'type': 'dielectric',
+			'intIOR': self.intIOR,
+			'extIOR': self.extIOR,
+			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
+			'specularTransmittance': TC_specularTransmittance.api_output(mts_context, self),
 		}
 		if self.thin:
-			params.update({'type' : 'thindielectric'})
+			params.update({'type': 'thindielectric'})
 		elif self.distribution != 'none':
 			if (self.distribution == 'as'):
 				params.update({
-					'alphaU' : TF_alphaRoughnessU.api_output(mts_context, self),
-					'alphaV' : TF_alphaRoughnessV.api_output(mts_context, self),
+					'alphaU': TF_alphaRoughnessU.api_output(mts_context, self),
+					'alphaV': TF_alphaRoughnessV.api_output(mts_context, self),
 				})
 			else:
-				params.update({'alpha' : TF_alphaRoughness.api_output(mts_context, self)})
+				params.update({'alpha': TF_alphaRoughness.api_output(mts_context, self)})
 			params.update({
-				'distribution' : self.distribution,
-				'type' : 'roughdielectric',
+				'distribution': self.distribution,
+				'type': 'roughdielectric',
 			})
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_conductor(declarative_property_group):
@@ -358,27 +395,27 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 			'type': 'string',
 			'attr': 'material',
 			'name': 'Material Name',
-			'description' : 'Name of a material preset (Cu=copper)',
+			'description': 'Name of a material preset (Cu=copper)',
 			'default': '',
 			'save_in_preset': True
 		},
 		{
 			'type': 'float_vector',
 			'attr': 'eta',
-			'name' : 'IOR',
-			'description' : 'Per-channel index of refraction of the conductor (real part)',
-			'default' : (0.370, 0.370, 0.370),
+			'name': 'IOR',
+			'description': 'Per-channel index of refraction of the conductor (real part)',
+			'default': (0.370, 0.370, 0.370),
 			'min': 0.1,
 			'max': 10.0,
-			'expand' : False,
+			'expand': False,
 			'save_in_preset': True
 		},
 		{
 			'type': 'float_vector',
 			'attr': 'k',
-			'name' : 'Absorption Coefficient',
-			'description' : 'Per-channel absorption coefficient of the conductor (imaginary part)',
-			'default' : (2.820, 2.820, 2.820),
+			'name': 'Absorption Coefficient',
+			'description': 'Per-channel absorption coefficient of the conductor (imaginary part)',
+			'default': (2.820, 2.820, 2.820),
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -386,9 +423,9 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'extEta',
-			'name' : 'Ext. Eta',
-			'description' : 'Index of refraction of the surrounding dielectric (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1,
+			'name': 'Ext. Eta',
+			'description': 'Index of refraction of the surrounding dielectric (e.g. air=1, glass=1.5 approximately)',
+			'default': 1,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -401,44 +438,45 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 	
 	visibility = dict_merge(
 		{
-			'eta' : { 'material' : '' },
-			'k' : { 'material' : '' }
+			'eta': {'material': ''},
+			'k': {'material': ''}
 		},
 		TC_specularReflectance.visibility,
 		TF_alphaRoughness.visibility,
 		TF_alphaRoughnessU.visibility,
 		TF_alphaRoughnessV.visibility
 	)
-	visibility = texture_append_visibility(visibility, TF_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
-	visibility = texture_append_visibility(visibility, TF_alphaRoughnessU, { 'distribution' : 'as'})
-	visibility = texture_append_visibility(visibility, TF_alphaRoughnessV, { 'distribution' : 'as'})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughness, {'distribution': O(['beckmann', 'ggx', 'phong'])})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughnessU, {'distribution': 'as'})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughnessV, {'distribution': 'as'})
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'conductor',
-			'extEta' : self.extEta,
-			'specularReflectance' : TC_specularReflectance.api_output(mts_context, self),
+			'type': 'conductor',
+			'extEta': self.extEta,
+			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
 		}
-		if self.material=='':
+		if self.material == '':
 			params.update({
-				'eta' : mts_context.spectrum(self.eta[0], self.eta[1], self.eta[2]),
-				'k' : mts_context.spectrum(self.k[0], self.k[1], self.k[2]),
+				'eta': mts_context.spectrum(self.eta[0], self.eta[1], self.eta[2]),
+				'k': mts_context.spectrum(self.k[0], self.k[1], self.k[2]),
 			})
 		else:
-			params.update({'material' : self.material})
+			params.update({'material': self.material})
 		if self.distribution != 'none':
 			if (self.distribution == 'as'):
 				params.update({
-					'alphaU' : TF_alphaRoughnessU.api_output(mts_context, self),
-					'alphaV' : TF_alphaRoughnessV.api_output(mts_context, self),
+					'alphaU': TF_alphaRoughnessU.api_output(mts_context, self),
+					'alphaV': TF_alphaRoughnessV.api_output(mts_context, self),
 				})
 			else:
-				params.update({'alpha' : TF_alphaRoughness.api_output(mts_context, self)})
+				params.update({'alpha': TF_alphaRoughness.api_output(mts_context, self)})
 			params.update({
-				'distribution' : self.distribution,
-				'type' : 'roughconductor',
+				'distribution': self.distribution,
+				'type': 'roughconductor',
 			})
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_plastic(declarative_property_group):
@@ -473,9 +511,9 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'intIOR',
-			'name' : 'Int. IOR',
-			'description' : 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1.5,
+			'name': 'Int. IOR',
+			'description': 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1.5,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -483,14 +521,14 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'extIOR',
-			'name' : 'Ext. IOR',
-			'description' : 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1,
+			'name': 'Ext. IOR',
+			'description': 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
 		},
-		{			
+		{
 			'type': 'bool',
 			'attr': 'nonlinear',
 			'name': 'Use Internal Scattering',
@@ -508,24 +546,25 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 		TC_specularReflectance.visibility,
 		TF_alphaRoughness.visibility
 	)
-	visibility = texture_append_visibility(visibility, TF_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughness, {'distribution': O(['beckmann', 'ggx', 'phong'])})
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'plastic',
-			'intIOR' : self.intIOR,
-			'extIOR' : self.extIOR,
-			'nonlinear' : self.nonlinear,
-			'diffuseReflectance' : TC_diffuseReflectance.api_output(mts_context, self),
-			'specularReflectance' : TC_specularReflectance.api_output(mts_context, self),
+			'type': 'plastic',
+			'intIOR': self.intIOR,
+			'extIOR': self.extIOR,
+			'nonlinear': self.nonlinear,
+			'diffuseReflectance': TC_diffuseReflectance.api_output(mts_context, self),
+			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
 		}
 		if self.distribution != 'none':
 			params.update({
-				'alpha' : TF_alphaRoughness.api_output(mts_context, self),
-				'distribution' : self.distribution,
-				'type' : 'roughplastic',
+				'alpha': TF_alphaRoughness.api_output(mts_context, self),
+				'distribution': self.distribution,
+				'type': 'roughplastic',
 			})
 		return params
+
 
 def CoatingProperty():
 	return [
@@ -539,13 +578,14 @@ def CoatingProperty():
 		{
 			'type': 'prop_search',
 			'attr': 'mat_list',
-			'src': lambda s,c: s.object,
+			'src': lambda s, c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_coating,
+			'trg': lambda s, c: c.mitsuba_bsdf_coating,
 			'trg_attr': 'ref_name',
 			'name': 'Coated Material'
 		}
 	]
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_coating(declarative_property_group):
@@ -581,9 +621,9 @@ class mitsuba_bsdf_coating(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'thickness',
-			'name' : 'Thickness',
-			'description' : 'Denotes the thickness of the coating layer',
-			'default' : 1.0,
+			'name': 'Thickness',
+			'description': 'Denotes the thickness of the coating layer',
+			'default': 1.0,
 			'min': 0.0,
 			'max': 15.0,
 			'save_in_preset': True
@@ -591,9 +631,9 @@ class mitsuba_bsdf_coating(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'extIOR',
-			'name' : 'Ext. IOR',
-			'description' : 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1,
+			'name': 'Ext. IOR',
+			'description': 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -601,9 +641,9 @@ class mitsuba_bsdf_coating(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'intIOR',
-			'name' : 'Int. IOR',
-			'description' : 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1.5,
+			'name': 'Int. IOR',
+			'description': 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1.5,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -619,29 +659,30 @@ class mitsuba_bsdf_coating(declarative_property_group):
 		TC_specularReflectance.visibility,
 		TF_alphaRoughness.visibility
 	)
-	visibility = texture_append_visibility(visibility, TF_alphaRoughness, { 'distribution' : O(['beckmann','ggx','phong'])})
+	visibility = texture_append_visibility(visibility, TF_alphaRoughness, {'distribution': O(['beckmann', 'ggx', 'phong'])})
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'coating',
-			'intIOR' : self.intIOR,
-			'extIOR' : self.extIOR,
-			'thickness' : self.thickness,
-			'sigmaA' : TC_sigmaA.api_output(mts_context, self),
-			'specularReflectance' : TC_specularReflectance.api_output(mts_context, self),
-			'material' : { # params.add_reference('material', "bsdf", getattr(self, "ref_name"))
-				'type' : 'ref',
-				'name' : 'bsdf',
-				'id' : '%s-material' % getattr(self, "ref_name")
+			'type': 'coating',
+			'intIOR': self.intIOR,
+			'extIOR': self.extIOR,
+			'thickness': self.thickness,
+			'sigmaA': TC_sigmaA.api_output(mts_context, self),
+			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
+			'material': {
+				'type': 'ref',
+				'name': 'bsdf',
+				'id': '%s-material' % getattr(self, "ref_name")
 			}
 		}
 		if self.distribution != 'none':
 			params.update({
-				'alpha' : TF_alphaRoughness.api_output(mts_context, self),
-				'distribution' : self.distribution,
-				'type' : 'roughcoating',
+				'alpha': TF_alphaRoughness.api_output(mts_context, self),
+				'distribution': self.distribution,
+				'type': 'roughcoating',
 			})
 		return params
+
 
 def BumpmapProperty():
 	return [
@@ -655,13 +696,14 @@ def BumpmapProperty():
 		{
 			'type': 'prop_search',
 			'attr': 'mat_list',
-			'src': lambda s,c: s.object,
+			'src': lambda s, c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_bumpmap,
+			'trg': lambda s, c: c.mitsuba_bsdf_bumpmap,
 			'trg_attr': 'ref_name',
 			'name': 'Bumpmap Material'
 		}
 	]
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_bumpmap(declarative_property_group):
@@ -679,9 +721,9 @@ class mitsuba_bsdf_bumpmap(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'scale',
-			'name' : 'Strength',
-			'description' : 'Bumpmap strength multiplier',
-			'default' : 1.0,
+			'name': 'Strength',
+			'description': 'Bumpmap strength multiplier',
+			'default': 1.0,
 			'min': 0.001,
 			'max': 100.0,
 			'save_in_preset': True
@@ -690,23 +732,24 @@ class mitsuba_bsdf_bumpmap(declarative_property_group):
 		TF_bumpmap.properties + \
 		BumpmapProperty()
 	
-	visibility = TF_bumpmap.visibility 
+	visibility = TF_bumpmap.visibility
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'bumpmap',
-			'texture' : {
-				'type' : 'scale',
-				'scale' : self.scale,
-				'bumpmap' : TF_bumpmap.api_output(mts_context, self),
+			'type': 'bumpmap',
+			'texture': {
+				'type': 'scale',
+				'scale': self.scale,
+				'bumpmap': TF_bumpmap.api_output(mts_context, self),
 			},
-			'material' : { # params.add_reference('material', "bsdf", getattr(self, "ref_name"))
-				'type' : 'ref',
-				'name' : 'bsdf',
-				'id' : '%s-material' % getattr(self, "ref_name")
+			'material': {
+				'type': 'ref',
+				'name': 'bsdf',
+				'id': '%s-material' % getattr(self, "ref_name")
 			}
 		}
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_phong(declarative_property_group):
@@ -721,19 +764,20 @@ class mitsuba_bsdf_phong(declarative_property_group):
 		TC_specularReflectance.properties
 	
 	visibility = dict_merge(
-		TF_exponent.visibility, 
-		TC_diffuseReflectance.visibility, 
+		TF_exponent.visibility,
+		TC_diffuseReflectance.visibility,
 		TC_specularReflectance.visibility
 	)
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'phong',
-			'exponent' : TF_exponent.api_output(mts_context, self),
-			'diffuseReflectance' : TC_diffuseReflectance.api_output(mts_context, self),
-			'specularReflectance' : TC_specularReflectance.api_output(mts_context, self),
+			'type': 'phong',
+			'exponent': TF_exponent.api_output(mts_context, self),
+			'diffuseReflectance': TC_diffuseReflectance.api_output(mts_context, self),
+			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
 		}
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_ward(declarative_property_group):
@@ -776,14 +820,15 @@ class mitsuba_bsdf_ward(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'ward',
-			'variant' : self.variant,
-			'diffuseReflectance' : TC_diffuseReflectance.api_output(mts_context, self),
-			'specularReflectance' : TC_specularReflectance.api_output(mts_context, self),
-			'alphaU' : TF_alphaRoughnessU.api_output(mts_context, self),
-			'alphaV' : TF_alphaRoughnessV.api_output(mts_context, self),
+			'type': 'ward',
+			'variant': self.variant,
+			'diffuseReflectance': TC_diffuseReflectance.api_output(mts_context, self),
+			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
+			'alphaU': TF_alphaRoughnessU.api_output(mts_context, self),
+			'alphaV': TF_alphaRoughnessV.api_output(mts_context, self),
 		}
 		return params
+
 
 class WeightedMaterialParameter:
 	def __init__(self, name, readableName, propertyGroup):
@@ -792,7 +837,7 @@ class WeightedMaterialParameter:
 		self.propertyGroup = propertyGroup
 	
 	def get_controls(self):
-		return [ ['%s_material' % self.name, .7, '%s_weight' % self.name ]]
+		return [['%s_material' % self.name, .7, '%s_weight' % self.name]]
 	
 	def get_properties(self):
 		return [
@@ -808,7 +853,7 @@ class WeightedMaterialParameter:
 				'name': 'Weight',
 				'min': 0.0,
 				'max': 1.0,
-				'default' : 0.0,
+				'default': 0.0,
 				'save_in_preset': True
 			},
 			{
@@ -816,7 +861,7 @@ class WeightedMaterialParameter:
 				'attr': '%s_material' % self.name,
 				'src': lambda s, c: s.object,
 				'src_attr': 'material_slots',
-				'trg': lambda s,c: getattr(c, self.propertyGroup),
+				'trg': lambda s, c: getattr(c, self.propertyGroup),
 				'trg_attr': '%s_name' % self.name,
 				'name': '%s:' % self.readableName
 			}
@@ -824,14 +869,16 @@ class WeightedMaterialParameter:
 
 param_mat = []
 for i in range(1, 6):
-	param_mat.append(WeightedMaterialParameter("mat%i" % i, "Material %i" % i, "mitsuba_bsdf_mixturebsdf"));
+	param_mat.append(WeightedMaterialParameter("mat%i" % i, "Material %i" % i, "mitsuba_bsdf_mixturebsdf"))
+
 
 def mitsuba_bsdf_mixturebsdf_visibility():
 	result = {}
 	for i in range(2, 6):
-		result["mat%i_material" % i] = {'nElements' : LO({'gte' : i})}
-		result["mat%i_weight" % i] = {'nElements' : LO({'gte' : i})}
+		result["mat%i_material" % i] = {'nElements': LO({'gte': i})}
+		result["mat%i_weight" % i] = {'nElements': LO({'gte': i})}
 	return result
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_mixturebsdf(declarative_property_group):
@@ -845,9 +892,9 @@ class mitsuba_bsdf_mixturebsdf(declarative_property_group):
 		{
 			'type': 'int',
 			'attr': 'nElements',
-			'name' : 'Components',
-			'description' : 'Number of mixture components',
-			'default' : 2,
+			'name': 'Components',
+			'description': 'Number of mixture components',
+			'default': 2,
 			'min': 2,
 			'max': 5,
 			'save_in_preset': True
@@ -861,15 +908,15 @@ class mitsuba_bsdf_mixturebsdf(declarative_property_group):
 			('type', 'mixturebsdf')
 		])
 		weights = ""
-		for i in range(1,self.nElements+1):
+		for i in range(1, self.nElements + 1):
 			weights += str(getattr(self, "mat%i_weight" % i)) + " "
-			# params.add_reference('material', "mat%i" % i, getattr(self, "mat%i_name" % i))
 			params.update([("mat%i" % i, {
-				'type' : 'ref',
-				'id' : '%s-material' % getattr(self, "mat%i_name" % i)
+				'type': 'ref',
+				'id': '%s-material' % getattr(self, "mat%i_name" % i)
 			})])
 		params.update([('weights', weights)])
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_blendbsdf(declarative_property_group):
@@ -887,7 +934,7 @@ class mitsuba_bsdf_blendbsdf(declarative_property_group):
 			'name': 'Blend factor',
 			'min': 0.0,
 			'max': 1.0,
-			'default' : 0.0,
+			'default': 0.0,
 			'save_in_preset': True
 		},
 		{
@@ -905,18 +952,18 @@ class mitsuba_bsdf_blendbsdf(declarative_property_group):
 		{
 			'type': 'prop_search',
 			'attr': 'mat_list1',
-			'src': lambda s,c: s.object,
+			'src': lambda s, c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_blendbsdf,
+			'trg': lambda s, c: c.mitsuba_bsdf_blendbsdf,
 			'trg_attr': 'mat1_name',
 			'name': 'Material 1 reference'
 		},
 		{
 			'type': 'prop_search',
 			'attr': 'mat_list2',
-			'src': lambda s,c: s.object,
+			'src': lambda s, c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_blendbsdf,
+			'trg': lambda s, c: c.mitsuba_bsdf_blendbsdf,
 			'trg_attr': 'mat2_name',
 			'name': 'Material 2 reference'
 		}
@@ -928,18 +975,19 @@ class mitsuba_bsdf_blendbsdf(declarative_property_group):
 		params = OrderedDict([
 			('type', 'blendbsdf'),
 			('weight', TF_weightBlend.api_output(mts_context, self)),
-			('bsdf1', { # params.add_reference('material', "bsdf1", self.mat1_name)
-				'type' : 'ref',
-				'name' : 'bsdf1',
-				'id' : '%s-material' % self.mat1_name
+			('bsdf1', {
+				'type': 'ref',
+				'name': 'bsdf1',
+				'id': '%s-material' % self.mat1_name
 			}),
-			('bsdf2', { # params.add_reference('material', "bsdf2", self.mat2_name)
-				'type' : 'ref',
-				'name' : 'bsdf2',
-				'id' : '%s-material' % self.mat2_name
+			('bsdf2', {
+				'type': 'ref',
+				'name': 'bsdf2',
+				'id': '%s-material' % self.mat2_name
 			}),
 		])
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_mask(declarative_property_group):
@@ -961,28 +1009,29 @@ class mitsuba_bsdf_mask(declarative_property_group):
 		{
 			'type': 'prop_search',
 			'attr': 'mat_list',
-			'src': lambda s,c: s.object,
+			'src': lambda s, c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_mask,
+			'trg': lambda s, c: c.mitsuba_bsdf_mask,
 			'trg_attr': 'ref_name',
 			'name': 'Opacity Material'
 		}
 	] + \
-		TC_opacityMask.properties 
+		TC_opacityMask.properties
 	
-	visibility = TC_opacityMask.visibility 
+	visibility = TC_opacityMask.visibility
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'mask',
-			'material' : { # params.add_reference('material', "bsdf", getattr(self, "ref_name"))
-				'type' : 'ref',
-				'name' : 'bsdf',
-				'id' : '%s-material' % getattr(self, "ref_name")
+			'type': 'mask',
+			'material': {
+				'type': 'ref',
+				'name': 'bsdf',
+				'id': '%s-material' % getattr(self, "ref_name")
 			},
-			'opacity' : TC_opacityMask.api_output(mts_context, self),
+			'opacity': TC_opacityMask.api_output(mts_context, self),
 		}
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_twosided(declarative_property_group):
@@ -1009,18 +1058,18 @@ class mitsuba_bsdf_twosided(declarative_property_group):
 		{
 			'type': 'prop_search',
 			'attr': 'mat_list1',
-			'src': lambda s,c: s.object,
+			'src': lambda s, c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_twosided,
+			'trg': lambda s, c: c.mitsuba_bsdf_twosided,
 			'trg_attr': 'mat1_name',
 			'name': 'Material 1 reference'
 		},
 		{
 			'type': 'prop_search',
 			'attr': 'mat_list2',
-			'src': lambda s,c: s.object,
+			'src': lambda s, c: s.object,
 			'src_attr': 'material_slots',
-			'trg': lambda s,c: c.mitsuba_bsdf_twosided,
+			'trg': lambda s, c: c.mitsuba_bsdf_twosided,
 			'trg_attr': 'mat2_name',
 			'name': 'Material 2 reference'
 		}
@@ -1029,21 +1078,22 @@ class mitsuba_bsdf_twosided(declarative_property_group):
 	def api_output(self, mts_context):
 		params = OrderedDict([
 			('type', 'twosided'),
-			('bsdf1', { # params.add_reference('material', "bsdf1", self.mat1_name)
-				'type' : 'ref',
-				'name' : 'bsdf1',
-				'id' : '%s-material' % self.mat1_name
+			('bsdf1', {
+				'type': 'ref',
+				'name': 'bsdf1',
+				'id': '%s-material' % self.mat1_name
 			}),
 		])
 		if self.mat2_name != '':
 			params.update([
-				('bsdf2', { # params.add_reference('material', "bsdf2", self.mat2_name)
-					'type' : 'ref',
-					'name' : 'bsdf2',
-					'id' : '%s-material' % self.mat2_name
+				('bsdf2', {
+					'type': 'ref',
+					'name': 'bsdf2',
+					'id': '%s-material' % self.mat2_name
 				}),
 			])
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_difftrans(declarative_property_group):
@@ -1057,10 +1107,11 @@ class mitsuba_bsdf_difftrans(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'difftrans',
-			'transmittance' : TC_transmittance.api_output(mts_context, self),
+			'type': 'difftrans',
+			'transmittance': TC_transmittance.api_output(mts_context, self),
 		}
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_hk(declarative_property_group):
@@ -1084,11 +1135,11 @@ class mitsuba_bsdf_hk(declarative_property_group):
 			'type': 'string',
 			'attr': 'material',
 			'name': 'Material Name',
-			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
+			'description': 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
 			'default': '',
 			'save_in_preset': True
 		},
-		{			
+		{
 			'type': 'bool',
 			'attr': 'useAlbSigmaT',
 			'name': 'Use Albedo&SigmaT',
@@ -1099,9 +1150,9 @@ class mitsuba_bsdf_hk(declarative_property_group):
 		{
 			'attr': 'thickness',
 			'type': 'float',
-			'name' : 'Thickness',
-			'description' : 'Denotes the thickness of the layer',
-			'default' : 1,
+			'name': 'Thickness',
+			'description': 'Denotes the thickness of the layer',
+			'default': 1,
 			'min': 0.0,
 			'max': 20.0,
 			'save_in_preset': True
@@ -1109,9 +1160,9 @@ class mitsuba_bsdf_hk(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'g',
-			'name' : 'Phase Function',
-			'description' : 'Phase function',
-			'default' : 0.0,
+			'name': 'Phase Function',
+			'description': 'Phase function',
+			'default': 0.0,
 			'min': -0.999999,
 			'max': 0.999999,
 			'save_in_preset': True
@@ -1124,7 +1175,7 @@ class mitsuba_bsdf_hk(declarative_property_group):
 	
 	visibility = dict_merge(
 		{
-			'useAlbSigmaT': { 'material': '' }
+			'useAlbSigmaT': {'material': ''}
 		},
 		TC_sigmaA.visibility,
 		TC_sigmaS.visibility,
@@ -1132,41 +1183,42 @@ class mitsuba_bsdf_hk(declarative_property_group):
 		TC_albedo.visibility
 	)
 	
-	visibility = texture_append_visibility(visibility, TC_sigmaA, { 'material': '', 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, TC_sigmaS, { 'material': '', 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, TC_sigmaT, { 'material': '', 'useAlbSigmaT': True })
-	visibility = texture_append_visibility(visibility, TC_albedo, { 'material': '', 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, TC_sigmaA, {'material': '', 'useAlbSigmaT': False})
+	visibility = texture_append_visibility(visibility, TC_sigmaS, {'material': '', 'useAlbSigmaT': False})
+	visibility = texture_append_visibility(visibility, TC_sigmaT, {'material': '', 'useAlbSigmaT': True})
+	visibility = texture_append_visibility(visibility, TC_albedo, {'material': '', 'useAlbSigmaT': True})
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'hk',
-			'thickness' : self.thickness,
+			'type': 'hk',
+			'thickness': self.thickness,
 		}
-		if self.material=='':
-			if self.useAlbSigmaT != True:
+		if self.material == '':
+			if self.useAlbSigmaT is not True:
 				params.update({
-					'sigmaA' : TC_sigmaA.api_output(mts_context, self),
-					'sigmaS' : TC_sigmaS.api_output(mts_context, self),
+					'sigmaA': TC_sigmaA.api_output(mts_context, self),
+					'sigmaS': TC_sigmaS.api_output(mts_context, self),
 				})
 			else:
 				params.update({
-					'sigmaT' : TC_sigmaT.api_output(mts_context, self),
-					'albedo' : TC_albedo.api_output(mts_context, self),
+					'sigmaT': TC_sigmaT.api_output(mts_context, self),
+					'albedo': TC_albedo.api_output(mts_context, self),
 				})
 		else:
-			params.update({'material' : self.material})
+			params.update({'material': self.material})
 		
 		if self.g == 0:
-			params.update({'phase' : {'type' : 'isotropic'}})
+			params.update({'phase': {'type': 'isotropic'}})
 		else:
 			params.update({
-				'phase' : {
-					'type' : 'hg',
-					'g' : self.g,
+				'phase': {
+					'type': 'hg',
+					'g': self.g,
 				}
 			})
 		
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_bsdf_irawan(declarative_property_group):
@@ -1218,9 +1270,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'ksMultiplier',
-			'description' : 'Multiplicative factor of the specular component',
-			'name' : 'ksMultiplier',
-			'default' : 4.34,
+			'description': 'Multiplicative factor of the specular component',
+			'name': 'ksMultiplier',
+			'default': 4.34,
 			'min': 0.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -1228,9 +1280,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'kdMultiplier',
-			'description' : 'Multiplicative factor of the diffuse component',
-			'name' : 'kdMultiplier',
-			'default' : 0.00553,
+			'description': 'Multiplicative factor of the diffuse component',
+			'name': 'kdMultiplier',
+			'default': 0.00553,
 			'min': 0.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -1239,9 +1291,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 			'type': 'float_vector',
 			'attr': 'kd',
 			'subtype': 'COLOR',
-			'description' : 'Diffuse color',
-			'name' : 'Diffuse color',
-			'default' : (0.5, 0.5, 0.5),
+			'description': 'Diffuse color',
+			'name': 'Diffuse color',
+			'default': (0.5, 0.5, 0.5),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -1250,9 +1302,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 			'type': 'float_vector',
 			'attr': 'ks',
 			'subtype': 'COLOR',
-			'description' : 'Specular color',
-			'name' : 'Specular color',
-			'default' : (0.5, 0.5, 0.5),
+			'description': 'Specular color',
+			'name': 'Specular color',
+			'default': (0.5, 0.5, 0.5),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -1261,9 +1313,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 			'type': 'float_vector',
 			'attr': 'warp_kd',
 			'subtype': 'COLOR',
-			'description' : 'Diffuse color',
-			'name' : 'warp_kd',
-			'default' : (0.5, 0.5, 0.5),
+			'description': 'Diffuse color',
+			'name': 'warp_kd',
+			'default': (0.5, 0.5, 0.5),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -1272,9 +1324,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 			'type': 'float_vector',
 			'attr': 'warp_ks',
 			'subtype': 'COLOR',
-			'description' : 'Specular color',
-			'name' : 'warp_ks',
-			'default' : (0.5, 0.5, 0.5),
+			'description': 'Specular color',
+			'name': 'warp_ks',
+			'default': (0.5, 0.5, 0.5),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -1283,9 +1335,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 			'type': 'float_vector',
 			'attr': 'weft_kd',
 			'subtype': 'COLOR',
-			'description' : 'Diffuse color',
-			'name' : 'weft_kd',
-			'default' : (0.5, 0.5, 0.5),
+			'description': 'Diffuse color',
+			'name': 'weft_kd',
+			'default': (0.5, 0.5, 0.5),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -1294,9 +1346,9 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 			'type': 'float_vector',
 			'attr': 'weft_ks',
 			'subtype': 'COLOR',
-			'description' : 'Specular color',
-			'name' : 'weft_ks',
-			'default' : (0.5, 0.5, 0.5),
+			'description': 'Specular color',
+			'name': 'weft_ks',
+			'default': (0.5, 0.5, 0.5),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -1322,13 +1374,14 @@ class mitsuba_bsdf_irawan(declarative_property_group):
 	def api_output(self, mts_context):
 		return {}
 
+
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_subsurface(declarative_property_group):
 	ef_attach_to = ['Material']
 	
 	controls = [
 		'type'
-	] 
+	]
 	
 	properties = [
 		{
@@ -1358,8 +1411,9 @@ class mitsuba_mat_subsurface(declarative_property_group):
 		sub_type = getattr(self, 'mitsuba_sss_%s' % self.type)
 		params = sub_type.api_output(mts_context)
 		if self.type == 'dipole':
-			params.update({'id' : '%s-subsurface' % mat.name})
+			params.update({'id': '%s-subsurface' % mat.name})
 		return params
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_sss_dipole(declarative_property_group):
@@ -1378,18 +1432,18 @@ class mitsuba_sss_dipole(declarative_property_group):
 		'intIOR',
 		'extIOR',
 		'irrSamples'
-	] 
+	]
 	
 	properties = [
 		{
 			'type': 'string',
 			'attr': 'material',
 			'name': 'Preset name',
-			'description' : 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
+			'description': 'Name of a material preset (def Ketchup; skin1, marble, potato, chicken1, apple)',
 			'default': '',
 			'save_in_preset': True
 		},
-		{			
+		{
 			'type': 'bool',
 			'attr': 'useAlbSigmaT',
 			'name': 'Use Albedo&SigmaT',
@@ -1400,9 +1454,9 @@ class mitsuba_sss_dipole(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'scale',
-			'name' : 'Scale',
-			'description' : 'Density scale',
-			'default' : 1.0,
+			'name': 'Scale',
+			'description': 'Density scale',
+			'default': 1.0,
 			'min': 0.0001,
 			'max': 50000.0,
 			'save_in_preset': True
@@ -1410,9 +1464,9 @@ class mitsuba_sss_dipole(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'intIOR',
-			'name' : 'Int. IOR',
-			'description' : 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1.5,
+			'name': 'Int. IOR',
+			'description': 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1.5,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -1420,9 +1474,9 @@ class mitsuba_sss_dipole(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'extIOR',
-			'name' : 'Ext. IOR',
-			'description' : 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default' : 1,
+			'name': 'Ext. IOR',
+			'description': 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
+			'default': 1,
 			'min': 1.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -1430,9 +1484,9 @@ class mitsuba_sss_dipole(declarative_property_group):
 		{
 			'type': 'int',
 			'attr': 'irrSamples',
-			'name' : 'irrSamples',
-			'description' : 'Number of samples',
-			'default' : 16,
+			'name': 'irrSamples',
+			'description': 'Number of samples',
+			'default': 16,
 			'min': 2,
 			'max': 128,
 			'save_in_preset': True
@@ -1445,7 +1499,7 @@ class mitsuba_sss_dipole(declarative_property_group):
 	
 	visibility = dict_merge(
 		{
-			'useAlbSigmaT': { 'material': '' }
+			'useAlbSigmaT': {'material': ''}
 		},
 		TC_sigmaA.visibility,
 		TC_sigmaS.visibility,
@@ -1453,38 +1507,40 @@ class mitsuba_sss_dipole(declarative_property_group):
 		TC_albedo.visibility
 	)
 	
-	visibility = texture_append_visibility(visibility, TC_sigmaA, { 'material': '', 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, TC_sigmaS, { 'material': '', 'useAlbSigmaT': False })
-	visibility = texture_append_visibility(visibility, TC_sigmaT, { 'material': '', 'useAlbSigmaT': True })
-	visibility = texture_append_visibility(visibility, TC_albedo, { 'material': '', 'useAlbSigmaT': True })
+	visibility = texture_append_visibility(visibility, TC_sigmaA, {'material': '', 'useAlbSigmaT': False})
+	visibility = texture_append_visibility(visibility, TC_sigmaS, {'material': '', 'useAlbSigmaT': False})
+	visibility = texture_append_visibility(visibility, TC_sigmaT, {'material': '', 'useAlbSigmaT': True})
+	visibility = texture_append_visibility(visibility, TC_albedo, {'material': '', 'useAlbSigmaT': True})
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'dipole',
-			'scale' : self.scale,
-			'irrSamples' : self.irrSamples
+			'type': 'dipole',
+			'scale': self.scale,
+			'irrSamples': self.irrSamples
 		}
-		if self.material=='':
+		if self.material == '':
 			params.update({
-				'intIOR' : self.intIOR,
-				'extIOR' : self.extIOR
+				'intIOR': self.intIOR,
+				'extIOR': self.extIOR
 			})
-			if self.useAlbSigmaT != True:
+			if self.useAlbSigmaT is not True:
 				params.update({
-					'sigmaA' : TC_sigmaA.api_output(mts_context, self),
-					'sigmaS' : TC_sigmaS.api_output(mts_context, self)
+					'sigmaA': TC_sigmaA.api_output(mts_context, self),
+					'sigmaS': TC_sigmaS.api_output(mts_context, self)
 				})
 			else:
 				params.update({
-					'sigmaT' : TC_sigmaT.api_output(mts_context, self),
-					'albedo' : TC_albedo.api_output(mts_context, self)
+					'sigmaT': TC_sigmaT.api_output(mts_context, self),
+					'albedo': TC_albedo.api_output(mts_context, self)
 				})
 		else:
-			params.update({'material' : self.material})
+			params.update({'material': self.material})
 		return params
+
 
 def update_interior_scene(self, context):
 	self.interior_scene = context.scene.name
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_sss_participating(declarative_property_group):
@@ -1511,9 +1567,9 @@ class mitsuba_sss_participating(declarative_property_group):
 		{
 			'type': 'prop_search',
 			'attr': 'interior',
-			'src': lambda s,c: s.scene.mitsuba_media,
+			'src': lambda s, c: s.scene.mitsuba_media,
 			'src_attr': 'media',
-			'trg': lambda s,c: c.mitsuba_sss_participating,
+			'trg': lambda s, c: c.mitsuba_sss_participating,
 			'trg_attr': 'interior_medium',
 			'name': 'Interior medium'
 		}
@@ -1522,6 +1578,7 @@ class mitsuba_sss_participating(declarative_property_group):
 	def api_output(self, mts_context):
 		if self.interior_scene in bpy.data.scenes and self.interior_medium in bpy.data.scenes[self.interior_scene].mitsuba_media.media:
 			return bpy.data.scenes[self.interior_scene].mitsuba_media.media[self.interior_medium].api_output(mts_context, bpy.data.scenes[self.interior_scene])
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_medium(declarative_property_group):
@@ -1547,6 +1604,7 @@ class mitsuba_mat_medium(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + MaterialMediumParameter('exterior', 'Exterior')
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_mat_emitter(declarative_property_group):
@@ -1600,9 +1658,9 @@ class mitsuba_mat_emitter(declarative_property_group):
 			'attr': 'color',
 			'type': 'float_vector',
 			'subtype': 'COLOR',
-			'description' : 'Color of the emitted light',
-			'name' : 'Color',
-			'default' : (1.0, 1.0, 1.0),
+			'description': 'Color of the emitted light',
+			'name': 'Color',
+			'default': (1.0, 1.0, 1.0),
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -1611,8 +1669,8 @@ class mitsuba_mat_emitter(declarative_property_group):
 	
 	def api_output(self, mts_context):
 		params = {
-			'type' : 'area',
-			'radiance' : mts_context.spectrum(self.color.r * self.intensity, self.color.g * self.intensity, self.color.b * self.intensity),
-			'samplingWeight' : self.samplingWeight,
+			'type': 'area',
+			'radiance': mts_context.spectrum(self.color.r * self.intensity, self.color.g * self.intensity, self.color.b * self.intensity),
+			'samplingWeight': self.samplingWeight,
 		}
 		return params

@@ -39,7 +39,7 @@ from ..properties.texture import (
 
 from ..export import ParamSet
 from ..export.materials import (
-	MaterialCounter, TextureCounter, ExportedMaterials, ExportedTextures, get_texture_from_scene
+	MaterialCounter, ExportedMaterials, ExportedTextures, get_texture_from_scene
 )
 
 from ..outputs import MtsManager, MtsLog

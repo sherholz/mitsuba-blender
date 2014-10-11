@@ -167,17 +167,30 @@ class ParamSet(list):
 		for item in self:
 			item.export_ref(exporter)
 
+
+def get_references(params):
+	if isinstance(params, dict):
+		for p in params.values():
+			if isinstance(p, dict):
+				if 'type' in p and p['type'] == 'ref' and p['id'] != '':
+					yield p
+				else:
+					for r in get_references(p):
+						yield r
+
+
 def is_obj_visible(scene, obj, is_dupli=False):
 	ov = False
-	for lv in [ol and sl and rl for ol,sl,rl in zip(obj.layers, scene.layers, scene.render.layers.active.layers)]:
+	for lv in [ol and sl and rl for ol, sl, rl in zip(obj.layers, scene.layers, scene.render.layers.active.layers)]:
 		ov |= lv
 	return (ov or is_dupli) and not obj.hide_render
+
 
 def get_worldscale(as_scalematrix=True):
 	# For usability, previev_scale is not an own property but calculated from the object dimensions
 	# A user can directly judge mappings on an adjustable object_size, we simply scale the whole preview
 	preview_scale = bpy.context.scene.mitsuba_world.preview_object_size / 2
-	ws = 1 / preview_scale if MtsManager.CurrentScene.name == "preview" else 1 # this is a safety net to prevent previewscale affecting render
+	ws = 1 / preview_scale if MtsManager.CurrentScene.name == "preview" else 1  # this is a safety net to prevent previewscale affecting render
 
 	scn_us = MtsManager.CurrentScene.unit_settings
 	
@@ -191,12 +204,13 @@ def get_worldscale(as_scalematrix=True):
 	else:
 		return ws
 
+
 def object_anim_matrices(scene, obj, steps=1):
 	'''
 	steps		Number of interpolation steps per frame
 	
-	Returns a list of animated matrices for the object, with the given number of 
-	per-frame interpolation steps. 
+	Returns a list of animated matrices for the object, with the given number of
+	per-frame interpolation steps.
 	The number of matrices returned is at most steps+1.
 	'''
 	old_sf = scene.frame_subframe
@@ -206,12 +220,12 @@ def object_anim_matrices(scene, obj, steps=1):
 	animated = False
 	
 	next_matrices = []
-	for i in range(0, steps+1):
-		scene.frame_set(cur_frame, subframe=i/float(steps))
+	for i in range(0, steps + 1):
+		scene.frame_set(cur_frame, subframe=i / float(steps))
 		
 		sub_matrix = obj.matrix_world.copy()
 		
-		if ref_matrix == None:
+		if ref_matrix is None:
 			ref_matrix = sub_matrix
 		animated |= sub_matrix != ref_matrix
 		
@@ -219,10 +233,11 @@ def object_anim_matrices(scene, obj, steps=1):
 	
 	if not animated:
 		next_matrices = []
-		
+	
 	# restore subframe value
 	scene.frame_set(cur_frame, old_sf)
 	return next_matrices
+
 
 def matrix_to_list(matrix, apply_worldscale=False):
 	'''
@@ -237,17 +252,35 @@ def matrix_to_list(matrix, apply_worldscale=False):
 		matrix = matrix.copy()
 		sm = get_worldscale()
 		matrix *= sm
-		sm = get_worldscale(as_scalematrix = False)
+		sm = get_worldscale(as_scalematrix=False)
 		matrix[0][3] *= sm
 		matrix[1][3] *= sm
 		matrix[2][3] *= sm
 	
-	l = [	matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],\
-		matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],\
-		matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3],\
-		matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3] ]
+	l = [matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],
+		matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],
+		matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3],
+		matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3]]
 	
 	return [float(i) for i in l]
+
+
+def get_export_path(mts_context, path):
+	if mts_context.EXPORT_API_TYPE == 'FILE':
+		return efutil.path_relative_to_export(path)
+	else:
+		return efutil.filesystem_path(path)
+
+
+def get_output_subdir(scene, frame=None):
+	if frame is None:
+		frame = scene.frame_current
+	subdir = os.path.join(efutil.export_path, efutil.scene_filename(), bpy.path.clean_name(scene.name), '{:0>5d}'.format(frame))
+	if not os.path.exists(subdir):
+		os.makedirs(subdir)
+	
+	return subdir
+
 
 def get_output_filename(scene):
 	return '%s.%s.%05d' % (efutil.scene_filename(), bpy.path.clean_name(scene.name), scene.frame_current)

@@ -23,38 +23,28 @@
 #
 
 import os
+
 import bpy
+
 from extensions_framework import log
 from extensions_framework.util import TimerThread
+
 
 def MtsLog(*args, popup=False):
 	'''
 	Send string to AF log, marked as belonging to Mitsuba module.
-	Accepts variable args 
+	Accepts variable args
 	'''
 	if len(args) > 0:
-		log(' '.join(['%s'%a for a in args]), module_name='Mitsuba', popup=popup)
+		log(' '.join(['%s' % a for a in args]), module_name='Mitsuba', popup=popup)
+
 
 class MtsFilmDisplay(TimerThread):
 	'''
-	Periodically update render result with Mituba's framebuffer
+	Periodically update render result with Mitsuba's framebuffer
 	'''
 	
-	STARTUP_DELAY = 2	# Add additional time to first KICK PERIOD
-	
-	def begin(self, renderer, output_file, resolution, preview = False):
-		(self.xres, self.yres) = (int(resolution[0]), int(resolution[1]))
-		self.renderer = renderer
-		self.output_file = output_file
-		self.resolution = resolution
-		self.preview = preview
-		if not self.preview:
-			self.result = self.renderer.begin_result(0, 0, self.xres, self.yres)
-		self.start()
-	
-	def shutdown(self):
-		if not self.preview:
-			self.renderer.end_result(self.result, 0)
+	STARTUP_DELAY = 2  # Add additional time to first KICK PERIOD
 	
 	def kick(self, render_end=False):
 		if 'RE' in self.LocalStorage.keys():
@@ -67,20 +57,20 @@ class MtsFilmDisplay(TimerThread):
 				if 'resolution' in self.LocalStorage.keys():
 					xres, yres = self.LocalStorage['resolution']
 				
-				if xres==-1 or yres==-1:
+				if xres == -1 or yres == -1:
 					err_msg = 'ERROR: Cannot not load render result: resolution unknown. MtsFilmThread will terminate'
 					MtsLog(err_msg)
 					self.stop()
 					return
 				
 				if render_end:
-					MtsLog('Final render result (%ix%i)' % (xres,yres))
+					MtsLog('Final render result (%ix%i)' % (xres, yres))
 				else:
-					MtsLog('Updating render result (%ix%i)' % (xres,yres))
+					MtsLog('Updating render result (%ix%i)' % (xres, yres))
 				
 				result = self.LocalStorage['RE'].begin_result(0, 0, xres, yres)
 				
-				if result == None:
+				if result is None:
 					err_msg = 'ERROR: Cannot not load render result: begin_result() returned None. MtsFilmThread will terminate'
 					MtsLog(err_msg)
 					self.stop()
@@ -88,18 +78,12 @@ class MtsFilmDisplay(TimerThread):
 				
 				lay = result.layers[0]
 				
-				if direct_transfer:
-					pass
+				if self.LocalStorage['render_ctx'].RENDER_API_TYPE == 'INT':
+					ctx = self.LocalStorage['render_ctx']
+					bitmap = ctx.get_bitmap()
+					result.layers.foreach_set('rect', bitmap)
 				elif os.path.exists(self.LocalStorage['RE'].output_file):
 					lay.load_from_file(self.LocalStorage['RE'].output_file)
-					#try:
-						#if self.preview:
-						#	self.renderer.end_result(self.result, 0)
-						#else:
-						#	lay.load_from_file(self.LocalStorage['RE'].output_file)
-						#	self.renderer.update_result(self.result)
-					#except:
-					#	pass
 				else:
 					err_msg = 'ERROR: Could not load render result from %s' % self.LocalStorage['RE'].output_file
 					MtsLog(err_msg)
@@ -109,6 +93,7 @@ class MtsFilmDisplay(TimerThread):
 			MtsLog(err_msg)
 			self.stop()
 			return
+
 
 class MtsManager(object):
 	'''
@@ -123,25 +108,41 @@ class MtsManager(object):
 	'''
 	
 	ActiveManager = None
+	
 	@staticmethod
 	def SetActive(MM):
 		MtsManager.ActiveManager = MM
+	
 	@staticmethod
 	def GetActive():
 		return MtsManager.ActiveManager
+	
 	@staticmethod
 	def ClearActive():
 		MtsManager.ActiveManager = None
 	
+	RenderEngine = None
+	
+	@staticmethod
+	def SetRenderEngine(engine):
+		MtsManager.RenderEngine = engine
+	
+	@staticmethod
+	def ClearRenderEngine():
+		MtsManager.RenderEngine = None
+	
 	CurrentScene = None
+	
 	@staticmethod
 	def SetCurrentScene(scene):
 		MtsManager.CurrentScene = scene
+	
 	@staticmethod
 	def ClearCurrentScene():
 		MtsManager.CurrentScene = None
 	
 	context_count = 0
+	
 	@staticmethod
 	def get_context_number():
 		'''
@@ -152,31 +153,50 @@ class MtsManager(object):
 		MtsManager.context_count += 1
 		return MtsManager.context_count
 	
+	manager_name	= ''
+	render_engine	= None
 	mts_context		= None
+	render_ctx		= None
 	fb_thread		= None
 	started			= True  # unintuitive, but reset() is called in the constructor !
 	
-	def __init__(self, manager_name = '', api_type='FILE'):
+	def __init__(self, manager_name='', api_type='FILE'):
 		'''
 		Initialise the MtsManager by setting its name.
 		
 		Returns MtsManager object
 		'''
+		if MtsManager.RenderEngine is None:
+			raise Exception('Error creating MtsManager: Render Engine is not set.')
+		self.render_engine = MtsManager.RenderEngine
 		
-		if api_type == 'FILE':
-			Context = file_api.Custom_Context
+		if api_type == 'API' and self.render_engine.pymts_api.PYMTS_AVAILABLE:
+			Exporter = self.render_engine.pymts_api.Export_Context
+		elif api_type == 'FILE' or (api_type == 'API' and not self.render_engine.pymts_api.PYMTS_AVAILABLE):
+			Exporter = self.render_engine.fback_api.Export_Context
 		else:
 			raise Exception('Unknown exporter API type "%s"' % api_type)
 		
-		if manager_name is not '': manager_name = ' (%s)' % manager_name
-		self.mts_context = Context('MtsContext %04i%s' % (MtsManager.get_context_number(), manager_name))
+		if manager_name is not '':
+			self.manager_name = manager_name
+			manager_name = ' (%s)' % manager_name
+		self.mts_context = Exporter('MtsContext %04i%s' % (MtsManager.get_context_number(), manager_name))
 		
 		self.reset()
 	
+	def create_render_context(self, render_type='INT'):
+		if render_type == 'INT' and self.render_engine.pymts_api.PYMTS_AVAILABLE:
+			Renderer = self.render_engine.pymts_api.Render_Context
+		elif render_type == 'EXT' or (render_type == 'INT' and not self.render_engine.pymts_api.PYMTS_AVAILABLE):
+			Renderer = self.render_engine.fback_api.Render_Context
+		else:
+			raise Exception('Unknown render API type "%s"' % api_type)
+		
+		self.render_ctx = Renderer(self.manager_name)
+	
 	def start(self):
 		'''
-		Start the Context object rendering. This is achieved
-		by calling its worldEnd() method.
+		Start the Context object rendering.
 		
 		Returns None
 		'''
@@ -187,14 +207,27 @@ class MtsManager(object):
 		
 		self.started = True
 	
-	def null_wait(self):
-		pass
+	def stop(self):
+		# If we exit the wait loop (user cancelled) and mitsuba is still running, then send SIGINT
+		if self.render_ctx.is_running():
+			MtsLog("MtsBlend: Stopping..")
+			self.render_ctx.render_stop()
 	
-	def start_worker_threads(self, RE):
+	#def null_wait(self):
+	#	pass
+	
+	def start_framebuffer_thread(self):
 		'''
 		Here we start the timer thread for framebuffer updates.
 		'''
-		self.fb_thread.LocalStorage['RE'] = RE
+		scene = MtsManager.CurrentScene
+		self.fb_thread.LocalStorage['resolution'] = scene.camera.data.mitsuba_camera.mitsuba_film.resolution(scene)
+		self.fb_thread.LocalStorage['RE'] = self.render_engine
+		self.fb_thread.LocalStorage['render_ctx'] = self.render_ctx
+		if self.render_engine.is_preview:
+			self.fb_thread.set_kick_period(2)
+		else:
+			self.fb_thread.set_kick_period(scene.mitsuba_engine.refresh_interval)
 		self.fb_thread.start()
 	
 	def reset(self):
@@ -208,9 +241,9 @@ class MtsManager(object):
 		# Firstly stop the renderer
 		if self.mts_context is not None:
 			self.mts_context.exit()
-			self.mts_context.wait()
 		
-		if not self.started: return
+		if not self.started:
+			return
 		self.started = False
 		
 		# Stop the framebuffer update thread
@@ -225,9 +258,7 @@ class MtsManager(object):
 			# cleanup() destroys the Context
 			self.mts_context.cleanup()
 		
-		self.fb_thread  = MtsFilmDisplay(
-			{ 'mts_context': self.mts_context }
-		)
+		self.fb_thread = MtsFilmDisplay()
 		
 		self.ClearActive()
 		self.ClearCurrentScene()

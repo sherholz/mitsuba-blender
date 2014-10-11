@@ -38,7 +38,7 @@ from ..properties.texture import (
 )
 from ..export import ParamSet
 from ..export.materials import (
-	MaterialCounter, TextureCounter, ExportedMaterials, ExportedTextures, get_texture_from_scene
+	MaterialCounter, ExportedMaterials, ExportedTextures, get_texture_from_scene
 )
 
 from ..outputs import MtsManager, MtsLog
@@ -51,14 +51,6 @@ class mitsuba_texture_maker:
 		def _impl(tex_variant, tex_type, tex_name, tex_params):
 			nonlocal mts_context
 			texture_name = '%s::%s' % (root_name, tex_name)
-			with TextureCounter(texture_name):
-				
-				print('Exporting texture, variant: "%s", type: "%s", name: "%s"' % (tex_variant, tex_type, tex_name))
-				
-				ExportedTextures.texture(mts_context, texture_name, tex_variant, tex_type, tex_params)
-				ExportedTextures.export_new(mts_context)
-				
-				return texture_name
 		
 		self.make_texture = _impl
 

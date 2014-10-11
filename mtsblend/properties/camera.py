@@ -27,6 +27,8 @@ from extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
 from ..export import get_worldscale
+from ..outputs import MtsLog
+
 
 def CameraMediumParameter(attr, name):
 	return [
@@ -40,48 +42,72 @@ def CameraMediumParameter(attr, name):
 		{
 			'type': 'prop_search',
 			'attr': attr,
-			'src': lambda s,c: s.scene.mitsuba_media,
+			'src': lambda s, c: s.scene.mitsuba_media,
 			'src_attr': 'media',
-			'trg': lambda s,c: c.mitsuba_camera,
+			'trg': lambda s, c: c.mitsuba_camera,
 			'trg_attr': '%s_medium' % attr,
 			'name': name
 		}
 	]
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_camera(declarative_property_group):
 	ef_attach_to = ['Camera']
 	
 	controls = [
-		'exterior'
+		'exterior',
+		'usemblur',
+		'motion_blur_samples',
+		['cammblur', 'objectmblur']
 	]
 	
 	properties = [
 		{
 			'type': 'bool',
-			'attr': 'use_dof',
-			'name': 'Use camera DOF',
-			'description': 'Camera DOF',
+			'attr': 'use_rdist',
+			'name': 'Use Radial Distortion',
+			'description': 'Enable lens radial distortion',
 			'default': False,
-			'save_in_preset': True
+		},
+		{
+			'attr': 'kc0',
+			'type': 'float',
+			'name': 'kc0',
+			'default': 0.0,
+			'min': -10.0,
+			'max': 10.0,
+		},
+		{
+			'attr': 'kc1',
+			'type': 'float',
+			'name': 'kc1',
+			'default': 0.0,
+			'min': -10.0,
+			'max': 10.0,
+		},
+		{
+			'type': 'bool',
+			'attr': 'use_dof',
+			'name': 'Depth of Field',
+			'description': 'Use depth of field',
+			'default': False,
 		},
 		{
 			'attr': 'apertureRadius',
 			'type': 'float',
-			'description' : 'DOF Aperture Radius',
-			'name' : 'Aperture Radius',
-			'default' : 0.03,
+			'description': 'DOF Aperture Radius',
+			'name': 'Aperture Radius',
+			'default': 0.03,
 			'min': 0.01,
 			'max': 1.0,
-			'save_in_preset': True
 		},
 		{
 			'type': 'bool',
 			'attr': 'motionBlur',
 			'name': 'Motion Blur',
 			'description': 'Should motion blur be enabled?',
-			'default' : False,
-			'save_in_preset': True
+			'default': False,
 		},
 		{
 			'type': 'float',
@@ -95,24 +121,41 @@ class mitsuba_camera(declarative_property_group):
 		},
 		{
 			'type': 'int',
-			'attr': 'motionSamples',
+			'attr': 'motion_blur_samples',
 			'name': 'Motion Samples',
-			'description': 'Number of samples taken from animation used in motion blur while shutter is open',
-			'save_in_preset': True,
-			'min': 2,
-			'max': 3600,
-			'default': 3
-		}
+			'description': 'Number of motion steps per frame. Increase for non-linear motion blur or high velocity rotations',
+			'default': 1,
+			'min': 1,
+			'soft_min': 1,
+			'max': 100,
+			'soft_max': 100
+		},
+		{
+			'type': 'bool',
+			'attr': 'usemblur',
+			'name': 'Motion Blur',
+			'default': False
+		},
+		{
+			'type': 'bool',
+			'attr': 'cammblur',
+			'name': 'Camera Motion Blur',
+			'default': True
+		},
+		{
+			'type': 'bool',
+			'attr': 'objectmblur',
+			'name': 'Object Motion Blur',
+			'default': True
+		},
 	] + CameraMediumParameter('exterior', 'Exterior medium')
 	
-	def lookAt(self, scene, camera = None, matrix = None):
+	def lookAt(self, scene, camera, matrix=None):
 		'''
 		Derive a list describing 3 points for a Mitsuba LookAt statement
 		
-		Returns		tuple(9) (floats)
+		Returns		3 tuple(3) (floats)
 		'''
-		#if camera is None:
-		#	camera = scene.objects[self.id_data.name]
 		if matrix is None:
 			matrix = camera.matrix_world.copy()
 		ws = get_worldscale()
@@ -123,16 +166,16 @@ class mitsuba_camera(declarative_property_group):
 		matrix[2][3] *= ws
 		# transpose to extract columns
 		# TODO - update to matrix.col when available
-		matrix = matrix.transposed() 
+		matrix = matrix.transposed()
 		pos = matrix[3]
 		forwards = -matrix[2]
 		target = (pos + forwards)
 		up = matrix[1]
 		return (pos, target, up)
 	
-	def api_output(self, mts_context, scene, camera = None):
+	def api_output(self, mts_context, scene, camera=None):
 		'''
-		mts_context		Custom_Context
+		mts_context		Export_Context
 		scene			bpy.types.scene
 		camera			bpy.types.camera
 		
@@ -140,13 +183,10 @@ class mitsuba_camera(declarative_property_group):
 		
 		Returns dict
 		'''
-		#if camera.name in mts_context.exported_cameras:
-		#	return
-		#mts_context.exported_cameras += [camera.name]
 		
 		if camera is None:
 			camera = next(cam for cam in scene.objects if cam.type == 'CAMERA' and cam.data.name == self.id_data.name)
-			if camera is  None:
+			if camera is None:
 				MtsLog("Error: Camera not found!")
 				return
 		
@@ -159,12 +199,14 @@ class mitsuba_camera(declarative_property_group):
 		
 		# detect sensor type
 		cam_dict['type'] = 'orthographic' if cam.type == 'ORTHO' else 'spherical' if cam.type == 'PANO' else 'perspective'
-		if mcam.use_dof == True:
+		if mcam.use_dof is True:
 			cam_dict['type'] = 'telecentric' if cam.type == 'ORTHO' else 'thinlens'
+		elif mcam.use_rdist is True and cam.type == 'PERSP':
+			cam_dict['type'] = 'perspective_rdist'
 		
 		# Get camera position, target and up vector
 		origin, target, up = mcam.lookAt(scene, camera)
-		scale = cam.ortho_scale / 2.0 if cam.type == 'ORTHO' else False
+		scale = cam.ortho_scale / 2.0 if cam.type == 'ORTHO' else None
 		cam_dict['toWorld'] = mts_context.transform_lookAt(origin, target, up, scale)
 		
 		if cam.type == 'PERSP':
@@ -179,17 +221,19 @@ class mitsuba_camera(declarative_property_group):
 		cam_dict['nearClip'] = cam.clip_start
 		cam_dict['farClip'] = cam.clip_end
 		
-		if mcam.use_dof == True:
+		if mcam.use_dof is True:
 			cam_dict['apertureRadius'] = mcam.apertureRadius
 			cam_dict['focusDistance'] = cam.dof_distance
+		elif mcam.use_rdist is True and cam.type == 'PERSP':
+			cam_dict['kc'] = '%d, %d' % (mcam.kc0, mcam.kc1)
 		
 		#if scene.mitsuba_integrator.motionBlur:
 		if mcam.motionBlur:
-			frameTime = 1.0/scene.render.fps
+			frameTime = 1.0 / scene.render.fps
 			#shutterTime = scene.mitsuba_integrator.shutterTime
 			shutterTime = mcam.shutterTime
-			shutterOpen = (scene.frame_current - shutterTime/2.0) * frameTime
-			shutterClose = (scene.frame_current + shutterTime/2.0) * frameTime
+			shutterOpen = (scene.frame_current - shutterTime / 2.0) * frameTime
+			shutterClose = (scene.frame_current + shutterTime / 2.0) * frameTime
 			cam_dict['shutterOpen'] = shutterOpen
 			cam_dict['shutterClose'] = shutterClose
 		
@@ -198,11 +242,12 @@ class mitsuba_camera(declarative_property_group):
 		
 		if mcam.exterior_medium != '':
 			cam_dict['exterior'] = {
-				'type' : 'ref',
-				'id' : '%s-medium' % mcam.exterior_medium,
+				'type': 'ref',
+				'id': '%s-medium' % mcam.exterior_medium,
 			}
 		
 		return cam_dict
+
 
 @MitsubaAddon.addon_register_class
 class mitsuba_film(declarative_property_group):
@@ -259,17 +304,17 @@ class mitsuba_film(declarative_property_group):
 	]
 	
 	visibility = {
-		'componentFormat': { 'fileFormat': 'openexr' },
-		'tonemapMethod': { 'type': 'ldrfilm' },
-		'gamma': { 'type': 'ldrfilm' },
-		'exposure': { 'type': 'ldrfilm', 'tonemapMethod': 'gamma' },
-		'key': { 'type': 'ldrfilm', 'tonemapMethod': 'reinhard' },
-		'burn': { 'type': 'ldrfilm', 'tonemapMethod': 'reinhard' },
-		'stddev': { 'rfilter': 'gaussian' },
-		'B': { 'rfilter': 'mitchell' },
-		'C': { 'rfilter': 'mitchell' },
-		'lobes': { 'rfilter': 'lanczos' },
-		'attachLog': { 'fileFormat': 'openexr' },
+		'componentFormat': {'fileFormat': 'openexr'},
+		'tonemapMethod': {'type': 'ldrfilm'},
+		'gamma': {'type': 'ldrfilm'},
+		'exposure': {'type': 'ldrfilm', 'tonemapMethod': 'gamma'},
+		'key': {'type': 'ldrfilm', 'tonemapMethod': 'reinhard'},
+		'burn': {'type': 'ldrfilm', 'tonemapMethod': 'reinhard'},
+		'stddev': {'rfilter': 'gaussian'},
+		'B': {'rfilter': 'mitchell'},
+		'C': {'rfilter': 'mitchell'},
+		'lobes': {'rfilter': 'lanczos'},
+		'attachLog': {'fileFormat': 'openexr'},
 	}
 	
 	properties = [
@@ -338,9 +383,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'gamma',
-			'name' : 'Gamma',
-			'description' : 'The gamma curve applied to correct the output image, where the special value -1 indicates sRGB. (Default: -1)',
-			'default' : -1.0,
+			'name': 'Gamma',
+			'description': 'The gamma curve applied to correct the output image, where the special value -1 indicates sRGB. (Default: -1)',
+			'default': -1.0,
 			'min': -10.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -348,9 +393,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'exposure',
-			'name' : 'Exposure',
-			'description' : 'specifies an exposure factor in f-stops that is applied to the image before gamma correction (scaling the radiance values by 2^exposure ). (Default: 0, i.e. do not change the exposure)',
-			'default' : 0.0,
+			'name': 'Exposure',
+			'description': 'specifies an exposure factor in f-stops that is applied to the image before gamma correction (scaling the radiance values by 2^exposure ). (Default: 0, i.e. do not change the exposure)',
+			'default': 0.0,
 			'min': -10.0,
 			'max': 10.0,
 			'save_in_preset': True
@@ -358,9 +403,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'key',
-			'name' : 'Key',
-			'description' : 'Specifies whether a low-key or high-key image is desired. (Default: 0.18, corresponding to a middle-grey)',
-			'default' : 0.18,
+			'name': 'Key',
+			'description': 'Specifies whether a low-key or high-key image is desired. (Default: 0.18, corresponding to a middle-grey)',
+			'default': 0.18,
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -368,9 +413,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'burn',
-			'name' : 'Burn',
-			'description' : 'Specifies how much highlights can burn out. (Default: 0, i.e. map all luminance values into the displayable range)',
-			'default' : 0.0,
+			'name': 'Burn',
+			'description': 'Specifies how much highlights can burn out. (Default: 0, i.e. map all luminance values into the displayable range)',
+			'default': 0.0,
 			'min': 0.0,
 			'max': 1.0,
 			'save_in_preset': True
@@ -394,9 +439,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'stddev',
-			'name' : 'Standard Deviation',
-			'description' : 'Standard Deviation. (Default: 0.5)',
-			'default' : 0.5,
+			'name': 'Standard Deviation',
+			'description': 'Standard Deviation. (Default: 0.5)',
+			'default': 0.5,
 			'min': 0.1,
 			'max': 10,
 			'save_in_preset': True
@@ -404,9 +449,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'B',
-			'name' : 'B Parameter',
-			'description' : 'B parameter. (Default: 0.33)',
-			'default' : 0.333333,
+			'name': 'B Parameter',
+			'description': 'B parameter. (Default: 0.33)',
+			'default': 0.333333,
 			'min': 0,
 			'max': 10,
 			'save_in_preset': True
@@ -414,9 +459,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'float',
 			'attr': 'C',
-			'name' : 'C Parameter',
-			'description' : 'C parameter. (Default: 0.33)',
-			'default' : 0.333333,
+			'name': 'C Parameter',
+			'description': 'C parameter. (Default: 0.33)',
+			'default': 0.333333,
 			'min': 0,
 			'max': 10,
 			'save_in_preset': True
@@ -424,9 +469,9 @@ class mitsuba_film(declarative_property_group):
 		{
 			'type': 'int',
 			'attr': 'lobes',
-			'name' : 'Lobes',
-			'description' : 'Specifies the amount of filter side-lobes. (Default: 3)',
-			'default' : 3,
+			'name': 'Lobes',
+			'description': 'Specifies the amount of filter side-lobes. (Default: 3)',
+			'default': 3,
 			'min': 1,
 			'max': 10,
 			'save_in_preset': True
@@ -485,7 +530,7 @@ class mitsuba_film(declarative_property_group):
 		
 		film_dict['type'] = self.type
 		
-		[ film_dict['width'], film_dict['height'] ] = self.resolution(scene)
+		[film_dict['width'], film_dict['height']] = self.resolution(scene)
 		
 		film_dict['fileFormat'] = self.fileFormat
 		film_dict['pixelFormat'] = self.pixelFormat

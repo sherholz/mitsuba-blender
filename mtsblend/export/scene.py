@@ -23,26 +23,27 @@
 #
 # System Libs
 import os
-import bpy
 
 # Extensions_Framework Libs
 from extensions_framework import util as efutil
 
 # Mitsuba libs
-from .. import MitsubaAddon
+from ..export import materials as export_materials
+from ..export import geometry as export_geometry
+from ..export import get_references
+from ..export import is_obj_visible
+#from ..export.materials import ExportedTextures, get_texture
+from ..outputs import MtsManager, MtsLog
 
-from ..export			import geometry		as export_geometry
-from ..export			import is_obj_visible
-from ..outputs			import MtsManager, MtsLog
-from ..outputs.file_api	import Files
 
 class SceneExporterProperties(object):
 	"""
 	Mimics the properties member contained within EXPORT_OT_Mitsuba operator
 	"""
 	
-	filename		= ''
-	directory		= ''
+	filename = ''
+	directory = ''
+
 
 class SceneExporter(object):
 	
@@ -61,14 +62,14 @@ class SceneExporter(object):
 		return self
 	
 	def report(self, type, message):
-		MtsLog('%s: %s' % ('|'.join([('%s'%i).upper() for i in type]), message))
+		MtsLog('%s: %s' % ('|'.join([('%s' % i).upper() for i in type]), message))
 	
 	def export(self):
 		scene = self.scene
 		
 		try:
 			if scene is None:
-				raise Exception('Scene is not valid for export to %s'%self.properties.filename)
+				raise Exception('Scene is not valid for export to %s' % self.properties.filename)
 			
 			# Set up the rendering context
 			self.report({'INFO'}, 'Creating Mitsuba context')
@@ -76,7 +77,7 @@ class SceneExporter(object):
 			if MtsManager.GetActive() is None:
 				MM = MtsManager(
 					scene.name,
-					api_type = self.properties.api_type,
+					api_type=self.properties.api_type,
 				)
 				MtsManager.SetActive(MM)
 				created_mts_manager = True
@@ -100,33 +101,34 @@ class SceneExporter(object):
 					scene,
 					mts_filename,
 				)
-				
-			mts_context.pmgr_create(scene.mitsuba_integrator.api_output())
+			
+			export_materials.ExportedMaterials.clear()
+			export_materials.ExportedTextures.clear()
+			
+			mts_context.data_add(scene.mitsuba_integrator.api_output())
 			
 			# Export all the Participating media
 			for media in scene.mitsuba_media.media:
-				mts_context.exportMedium(scene,media)
+				mts_context.exportMedium(scene, media)
 			
 			# Always export all Cameras, active camera last
 			allCameras = [cam for cam in scene.objects if cam.type == 'CAMERA' and cam.name != scene.camera.name]
 			for camera in allCameras:
-				mts_context.pmgr_create(camera.data.mitsuba_camera.api_output(mts_context, scene))
-			mts_context.pmgr_create(scene.camera.data.mitsuba_camera.api_output(mts_context, scene))
+				mts_context.data_add(camera.data.mitsuba_camera.api_output(mts_context, scene))
+			mts_context.data_add(scene.camera.data.mitsuba_camera.api_output(mts_context, scene))
 			
 			# Get all renderable LAMPS
 			renderableLamps = [lmp for lmp in scene.objects if is_obj_visible(scene, lmp) and lmp.type == 'LAMP']
 			for lamp in renderableLamps:
 				params = lamp.data.mitsuba_lamp.api_output(mts_context, scene)
-				for p in mts_context.findReferences(params):
+				for p in get_references(params):
 					if p['id'].endswith('-texture'):
-						mts_context.exportTexture(mts_context.findTexture(p['id'][:len(p['id'])-8]))
-				mts_context.pmgr_create(params)
+						export_materials.ExportedTextures.texture(mts_context, export_materials.get_texture(p['id'][:len(p['id']) - 8]))
+				mts_context.data_add(params)
 			
 			# Export geometry
 			GE = export_geometry.GeometryExporter(mts_context, scene)
 			GE.iterateScene(scene)
-			
-			mts_context.writeFooter(0)
 			
 			if created_mts_manager:
 				MM.reset()
@@ -138,5 +140,6 @@ class SceneExporter(object):
 			self.report({'ERROR'}, 'Export aborted: %s' % err)
 			import traceback
 			traceback.print_exc()
-			if scene.mitsuba_testing.re_raise: raise err
+			if scene.mitsuba_testing.re_raise:
+				raise err
 			return {'CANCELLED'}

@@ -21,64 +21,304 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
-import os, sys
+import os
+import sys
+from collections import OrderedDict
+
+import bpy
+
+from bpy_extras.io_utils import axis_conversion
 
 from extensions_framework import util as efutil
 
 # Mitsuba libs
 from .. import MitsubaAddon
-from ..outputs import MtsLog
+
+from ..export import matrix_to_list
+from ..properties import ExportedVolumes
+
+from ..outputs import MtsLog, MtsManager
 
 addon_prefs = MitsubaAddon.get_prefs()
 
 if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 	try:
+		ver_str = '%d.%d' % bpy.app.version[0:2]
+		mitsuba_path = efutil.filesystem_path(addon_prefs.install_path)
+		
 		if sys.platform == 'win32':
-			if addon_prefs is not None:
-				mitsuba_path = efutil.filesystem_path( addon_prefs.install_path )
-				os.environ['PATH'] = mitsuba_path + os.pathsep + os.environ['PATH']
+			os.environ['PATH'] = mitsuba_path + os.pathsep + os.environ['PATH']
+		elif sys.platform == 'darwin':
+			mitsuba_path = mitsuba_path[:mitsuba_path.index('Mitsuba.app') + 11]
+			os.environ['PATH'] = os.path.join(mitsuba_path, 'Contents', 'Frameworks') + os.pathsep + os.environ['PATH']
+			os.environ['PATH'] = os.path.join(mitsuba_path, 'plugins') + os.pathsep + os.environ['PATH']
+		
+		mts_python_path = {
+			'darwin': [
+				bpy.utils.user_resource('SCRIPTS', 'addons/mtsblend/mitsuba.so'),
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/mitsuba.so',
+				os.path.join(mitsuba_path, 'python', '3.4', 'mitsuba.so'),
+			],
+			'win32': [
+				bpy.utils.user_resource('SCRIPTS', 'addons/mtsblend/mitsuba.pyd'),
+				bpy.app.binary_path[:-11] + ver_str + '/scripts/addons/mtsblend/mitsuba.pyd',
+				os.path.join(mitsuba_path, 'python', '3.4', 'mitsuba.pyd'),
+			],
+			'linux': [
+				bpy.app.binary_path[:-7] + ver_str + '/scripts/addons/mtsblend/mitsuba.so',
+				'/usr/lib/python3.4/dist-packages/mitsuba.so',
+				'/usr/lib/python3.4/lib-dynload/mitsuba.so',
+				'/usr/lib64/python3.4/lib-dynload/mitsuba.so',
+			]
+		}
+		
+		for sp in mts_python_path[sys.platform]:
+			if os.path.exists(sp):
+				MtsLog('Mitsuba python extension found at: %s' % sp)
+				sys.path.append(os.path.dirname(sp))
+				break
+			#else:
+			#	MtsLog('Mitsuba python extension NOT found at: %s' % sp)
+		
+		if sys.platform == 'linux':
+			RTLD_LAZY = 2
+			RTLD_DEEPBIND = 8
+			oldflags = sys.getdlopenflags()
+			sys.setdlopenflags(RTLD_DEEPBIND | RTLD_LAZY)
+		import mitsuba
+		if sys.platform == 'linux':
+			sys.setdlopenflags(oldflags)
+		
+		from mitsuba.core import (
+			Scheduler, LocalWorker, Thread, Bitmap, Point2i, FileStream,
+			PluginManager, Spectrum, Vector, Point, Matrix4x4, Transform,
+			Appender, EInfo, EWarn, EError,
+		)
+		from mitsuba.render import (
+			RenderQueue, RenderJob, Scene, SceneHandler, TriMesh
+		)
 		
 		import multiprocessing
-		from .. import mitsuba
-		from mitsuba.core import Scheduler, LocalWorker, Thread
-		from mitsuba.core import FileStream
-		from mitsuba.render import TriMesh
 		
-		'''
-		Helper Class for fast mesh export in File API
-		'''
 		mainThread = Thread.getThread()
 		fresolver = mainThread.getFileResolver()
 		logger = mainThread.getLogger()
 		
-		class Custom_Context(object):
+		class Custom_Appender(Appender):
+			def append(self2, logLevel, message):
+				MtsLog(message)
+			
+			def logProgress(self2, progress, name, formatted, eta):
+				render_engine = MtsManager.RenderEngine
+				if not render_engine.is_preview:
+					percent = progress / 100
+					render_engine.update_progress(percent)
+					render_engine.update_stats('', 'Progress: %s - ETA: %s' % ('{:.2%}'.format(percent), eta))
+				else:
+					MtsLog('Progress message: %s' % formatted)
+		
+		logger.clearAppenders()
+		logger.addAppender(Custom_Appender())
+		logger.setLogLevel(EWarn)
+		
+		scheduler = Scheduler.getInstance()
+		# Start up the scheduling system with one worker per local core
+		for i in range(0, multiprocessing.cpu_count()):
+			scheduler.registerWorker(LocalWorker(i, 'wrk%i' % i))
+		scheduler.start()
+		
+		class Export_Context(object):
 			'''
-			Mitsuba Python API
+			Python API
 			'''
 			
-			PYMTS = mitsuba
-			API_TYPE = 'PURE'
+			EXPORT_API_TYPE = 'PURE'
 			
 			context_name = ''
+			thread = None
 			scheduler = None
 			fresolver = None
 			logger = None
+			pmgr = None
+			scene = None
+			scene_data = None
+			counter = 0
 			
 			def __init__(self, name):
-				self.context_name = name
 				global fresolver
 				global logger
-				newThread = Thread.registerUnmanagedThread(name)
-				newThread.setFileResolver(self.fresolver)
-				newThread.setLogger(self.logger)
+				self.fresolver = fresolver
+				self.logger = logger
+				self.thread = Thread.registerUnmanagedThread(self.context_name)
+				self.thread.setFileResolver(self.fresolver)
+				self.thread.setLogger(self.logger)
+				self.context_name = name
+				self.exported_media = []
+				self.exported_ids = []
+				self.hemi_lights = 0
+				self.pmgr = PluginManager.getInstance()
+				self.scene = Scene()
+				self.scene_data = OrderedDict([('type', 'scene')])
+				self.counter = 0
+			
+			# Funtions binding to Mitsuba extension API
+			
+			def spectrum(self, r, g, b):
+				spec = Spectrum()
+				spec.fromLinearRGB(r, g, b)
+				return spec
+			
+			def vector(self, x, y, z):
+				# Blender is Z up but Mitsuba is Y up, convert the vector
+				return Vector(x, z, -y)
+			
+			def point(self, x, y, z):
+				# Blender is Z up but Mitsuba is Y up, convert the point
+				return Point(x, z, -y)
+			
+			def transform_lookAt(self, origin, target, up, scale=None):
+				# Blender is Z up but Mitsuba is Y up, convert the lookAt
+				transform = Transform.lookAt(
+					Point(origin[0], origin[2], -origin[1]),
+					Point(target[0], target[2], -target[1]),
+					Vector(up[0], up[2], -up[1])
+				)
+				if scale is not None:
+					transform *= Transform.scale(Vector(scale, scale, 1))
+				return transform
+			
+			def transform_matrix(self, matrix):
+				# Blender is Z up but Mitsuba is Y up, convert the matrix
+				global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
+				l = matrix_to_list(global_matrix * matrix)
+				mat = Matrix4x4(l)
+				transform = Transform(mat)
+				return transform
+			
+			def exportMedium(self, scene, medium):
+				if medium.name in self.exported_media:
+					return
+				self.exported_media += [medium.name]
 				
-				#self.scheduler = Scheduler.getInstance()
+				params = medium.api_output(self, scene)
 				
-				# Start up the scheduling system with one worker per local core
-				#for i in range(0, multiprocessing.cpu_count()):
-				#	scheduler.registerWorker(LocalWorker(i, 'wrk%i' % i))
-				#scheduler.start()
+				self.data_add(params)
+			
+			def data_add(self, mts_dict):
+				if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
+					return
 				
+				self.scene_data.update([('elm%i' % self.counter, mts_dict)])
+				self.counter += 1
+			
+			def configure(self):
+				'''
+				Call Scene configure
+				'''
+				
+				self.scene.addChild(self.pmgr.create(self.scene_data))
+				self.scene.configure()
+				
+				# Reset the volume redundancy check
+				ExportedVolumes.reset_vol_list()
+			
+			def cleanup(self):
+				self.exit()
+			
+			def exit(self):
+				# Do nothing
+				pass
+		
+		class Render_Context(object):
+			'''
+			Mitsuba Internal Python API Render
+			'''
+			
+			RENDER_API_TYPE = 'INT'
+			
+			context_name = ''
+			thread = None
+			scheduler = None
+			fresolver = None
+			logger = None
+			log_level = {
+				'default': EWarn,
+				'verbose': EInfo,
+				'quiet': EError,
+			}
+			
+			def __init__(self, name):
+				global fresolver
+				global logger
+				self.fresolver = fresolver
+				self.logger = logger
+				self.thread = Thread.registerUnmanagedThread(self.context_name)
+				self.thread.setFileResolver(self.fresolver)
+				self.thread.setLogger(self.logger)
+				self.context_name = name
+				
+				self.render_engine = MtsManager.RenderEngine
+				self.render_scene = MtsManager.CurrentScene
+				
+				if self.render_engine.is_preview:
+					verbosity = 'quiet'
+				else:
+					verbosity = self.render_scene.mitsuba_engine.log_verbosity
+				
+				self.logger.setLogLevel(self.log_level[verbosity])
+			
+			def set_scene(self, export_context):
+				self.fresolver.appendPath('/tmp')
+				if export_context.EXPORT_API_TYPE == 'FILE':
+					scene_path, scene_file = os.path.split(export_context.file_names[0])
+					self.fresolver.appendPath(scene_path)
+					self.scene = SceneHandler.loadScene(self.fresolver.resolve(scene_file))
+				elif export_context.EXPORT_API_TYPE == 'PURE':
+					self.scene = export_context.scene
+				else:
+					raise Exception('Unknown exporter type')
+			
+			def render_start(self, dest_file):
+				self.queue = RenderQueue()
+				self.job = RenderJob('mtsblend_render', self.scene, self.queue)
+				self.job.start()
+				
+				self.film = self.scene.getFilm()
+				self.size = self.film.getSize()
+				self.bitmap = Bitmap(Bitmap.ERGBA, Bitmap.EFloat32, self.size)
+				
+				#out_file = FileStream(dest_file, FileStream.ETruncReadWrite)
+				#self.bitmap.write(Bitmap.EPNG, out_file)
+				#out_file.close()
+			
+			def render_stop(self):
+				self.job.cancel()
+				self.queue.join()
+			
+			def is_running(self):
+				return self.job.isRunning()
+			
+			def returncode(self):
+				return 0
+			
+			def get_bitmap(self):
+				self.film.develop(Point2i(0, 0), self.size, Point2i(0, 0), self.bitmap)
+				self.bitmap.flipVertically()
+				return self.bitmap.buffer()
+		
+		class Serializer(object):
+			'''
+			Helper Class for fast mesh export in File API
+			'''
+			
+			def __init__(self):
+				global fresolver
+				global logger
+				self.fresolver = fresolver
+				self.logger = logger
+				self.thread = Thread.registerUnmanagedThread('serializer')
+				self.thread.setFileResolver(self.fresolver)
+				self.thread.setLogger(self.logger)
 			
 			def serialize(self, fileName, name, mesh, materialID):
 				faces = mesh.tessfaces[0].as_pointer()
