@@ -736,8 +736,10 @@ class Render_Context(object):
 			mitsuba_path += '/'
 		
 		if sys.platform == 'darwin':
-			if mitsuba_path[-27:] != 'Mitsuba.app/Contents/MacOS/' and os.path.exists('%sMitsuba.app/Contents/MacOS/' % mitsuba_path):
-				mitsuba_path += 'Mitsuba.app/Contents/MacOS/'  # Looks like the configured path points to app bundle instead of binary
+			if os.path.exists(os.path.join(mitsuba_path, 'Mitsuba.app/Contents/MacOS/')):
+				mitsuba_path = os.path.join(mitsuba_path, 'Mitsuba.app/Contents/MacOS/')
+			elif os.path.exists(os.path.join(mitsuba_path, 'Contents/MacOS/')):
+				mitsuba_path = os.path.join(mitsuba_path, 'Contents/MacOS/')
 			mitsuba_path += self.binary_name
 			if not os.path.exists(mitsuba_path):
 				MtsLog('Mitsuba not found at path: %s' % mitsuba_path, ', trying default Mitsuba location')
