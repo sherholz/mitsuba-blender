@@ -520,8 +520,8 @@ class mitsuba_film(declarative_property_group):
 		xr = scene.render.resolution_x * scene.render.resolution_percentage / 100.0
 		yr = scene.render.resolution_y * scene.render.resolution_percentage / 100.0
 		
-		xr = round(xr)
-		yr = round(yr)
+		xr = math.trunc(xr)
+		yr = math.trunc(yr)
 		
 		return xr, yr
 	
