@@ -23,6 +23,7 @@
 #
 import os
 import sys
+import time
 from collections import OrderedDict
 
 import bpy
@@ -40,6 +41,7 @@ from ..properties import ExportedVolumes
 from ..outputs import MtsLog, MtsManager
 
 addon_prefs = MitsubaAddon.get_prefs()
+oldflags = None
 
 if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 	try:
@@ -95,7 +97,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 			Appender, EInfo, EWarn, EError,
 		)
 		from mitsuba.render import (
-			RenderQueue, RenderJob, Scene, SceneHandler, TriMesh
+			RenderQueue, RenderJob, RenderListener, Scene, SceneHandler, TriMesh
 		)
 		
 		import multiprocessing
@@ -105,10 +107,10 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 		logger = mainThread.getLogger()
 		
 		class Custom_Appender(Appender):
-			def append(self2, logLevel, message):
+			def append(self, logLevel, message):
 				MtsLog(message)
 			
-			def logProgress(self2, progress, name, formatted, eta):
+			def logProgress(self, progress, name, formatted, eta):
 				render_engine = MtsManager.RenderEngine
 				if not render_engine.is_preview:
 					percent = progress / 100
@@ -250,6 +252,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 			def __init__(self, name):
 				global fresolver
 				global logger
+				
 				self.fresolver = fresolver
 				self.logger = logger
 				self.thread = Thread.registerUnmanagedThread(self.context_name)
@@ -268,9 +271,8 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 				self.logger.setLogLevel(self.log_level[verbosity])
 			
 			def set_scene(self, export_context):
-				self.fresolver.appendPath('/tmp')
 				if export_context.EXPORT_API_TYPE == 'FILE':
-					scene_path, scene_file = os.path.split(export_context.file_names[0])
+					scene_path, scene_file = os.path.split(efutil.filesystem_path(export_context.file_names[0]))
 					self.fresolver.appendPath(scene_path)
 					self.scene = SceneHandler.loadScene(self.fresolver.resolve(scene_file))
 				elif export_context.EXPORT_API_TYPE == 'PURE':
@@ -279,13 +281,44 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 					raise Exception('Unknown exporter type')
 			
 			def render_start(self, dest_file):
-				self.queue = RenderQueue()
-				self.job = RenderJob('mtsblend_render', self.scene, self.queue)
-				self.job.start()
-				
 				self.film = self.scene.getFilm()
 				self.size = self.film.getSize()
 				self.bitmap = Bitmap(Bitmap.ERGBA, Bitmap.EFloat32, self.size)
+				self.bitmap.clear()
+				
+				class Custom_Listener(RenderListener):
+					
+					def __init__(self2):
+						super(Custom_Listener, self2).__init__()
+						self2.time = 0
+					
+					def workBeginEvent(self2, job, wu, thr):
+						self.bitmap.drawRect(wu.getOffset(), wu.getSize(), Spectrum(1.0))
+						now = time.time()
+						if now - self2.time > 0.5:
+							self.update_result()
+							self2.time = now
+					
+					def workEndEvent(self2, job, wr, cancelled):
+						self.film.develop(wr.getOffset(), wr.getSize(), wr.getOffset(), self.bitmap)
+						now = time.time()
+						if now - self2.time > 0.5:
+							self.update_result()
+							self2.time = now
+					
+					def refreshEvent(self2, job):
+						self.film.develop(Point2i(0, 0), self.size, Point2i(0, 0), self.bitmap)
+						self.update_result()
+					
+					def finishJobEvent(self2, job, cancelled):
+						MtsLog('Render Job Finished')
+						self.film.develop(Point2i(0, 0), self.size, Point2i(0, 0), self.bitmap)
+						self.update_result()
+				
+				self.queue = RenderQueue()
+				self.job = RenderJob('mtsblend_render', self.scene, self.queue)
+				self.queue.registerListener(Custom_Listener())
+				self.job.start()
 				
 				#out_file = FileStream(dest_file, FileStream.ETruncReadWrite)
 				#self.bitmap.write(Bitmap.EPNG, out_file)
@@ -301,10 +334,24 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 			def returncode(self):
 				return 0
 			
-			def get_bitmap(self):
-				self.film.develop(Point2i(0, 0), self.size, Point2i(0, 0), self.bitmap)
-				self.bitmap.flipVertically()
-				return self.bitmap.buffer()
+			def get_bitmap_buffer(self):
+				bitmap_clone = self.bitmap.clone()
+				bitmap_clone.flipVertically()
+				return bitmap_clone.buffer()
+			
+			def update_result(self):
+				render_result = self.render_engine.begin_result(0, 0, self.size[0], self.size[1])
+				
+				if render_result is None:
+					err_msg = 'ERROR: Cannot not load render result: begin_result() returned None. Render will terminate'
+					MtsLog(err_msg)
+					self.render_stop()
+					return
+				
+				bitmap_buffer = self.get_bitmap_buffer()
+				render_result.layers.foreach_set('rect', bitmap_buffer)
+				
+				self.render_engine.end_result(render_result, 0)
 		
 		class Serializer(object):
 			'''
@@ -352,3 +399,6 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 		MtsLog('WARNING: Binary mitsuba module not available! Visit http://www.mitsuba-renderer.org/ to obtain one for your system.')
 		MtsLog(' (ImportError was: %s)' % err)
 		PYMTS_AVAILABLE = False
+		
+		if sys.platform == 'linux' and oldflags is not None:
+			sys.setdlopenflags(oldflags)

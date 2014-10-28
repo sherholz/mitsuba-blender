@@ -337,7 +337,8 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			MM.render_ctx.render_start(output_file)
 			
 			MM.start()
-			MM.start_framebuffer_thread()
+			if MM.render_ctx.RENDER_API_TYPE == 'EXT':
+				MM.start_framebuffer_thread()
 			
 			while MM.render_ctx.is_running() and not self.test_break():
 				self.render_update_timer = threading.Timer(1, self.process_wait_timer)
@@ -490,7 +491,8 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 			self.MtsManager.start()
 			
 			if internal or scene.mitsuba_engine.binary_name != 'mtsgui':
-				self.MtsManager.start_framebuffer_thread()
+				if render_ctx.RENDER_API_TYPE == 'EXT':
+					self.MtsManager.start_framebuffer_thread()
 				
 				while render_ctx.is_running() and not self.test_break():
 					self.render_update_timer = threading.Timer(1, self.process_wait_timer)

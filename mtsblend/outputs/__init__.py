@@ -65,7 +65,7 @@ class MtsFilmDisplay(TimerThread):
 				
 				if render_end:
 					MtsLog('Final render result (%ix%i)' % (xres, yres))
-				else:
+				elif self.LocalStorage['render_ctx'].RENDER_API_TYPE == 'EXT':
 					MtsLog('Updating render result (%ix%i)' % (xres, yres))
 				
 				result = self.LocalStorage['RE'].begin_result(0, 0, xres, yres)
@@ -79,9 +79,8 @@ class MtsFilmDisplay(TimerThread):
 				lay = result.layers[0]
 				
 				if self.LocalStorage['render_ctx'].RENDER_API_TYPE == 'INT':
-					ctx = self.LocalStorage['render_ctx']
-					bitmap = ctx.get_bitmap()
-					result.layers.foreach_set('rect', bitmap)
+					bitmap_buffer = self.LocalStorage['render_ctx'].get_bitmap_buffer()
+					result.layers.foreach_set('rect', bitmap_buffer)
 				elif os.path.exists(self.LocalStorage['RE'].output_file):
 					lay.load_from_file(self.LocalStorage['RE'].output_file)
 				else:

@@ -784,6 +784,3 @@ class Render_Context(object):
 	
 	def returncode(self):
 		return self.mitsuba_process.returncode
-	
-	def get_bitmap(self):
-		return self.bitmap
