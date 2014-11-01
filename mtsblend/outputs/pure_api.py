@@ -24,6 +24,7 @@
 import os
 import sys
 import time
+import threading
 from collections import OrderedDict
 
 import bpy
@@ -231,6 +232,71 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 				# Do nothing
 				pass
 		
+		class MtsBufferDisplay(RenderListener):
+			'''
+			Class to monitor rendering and update blender render result
+			'''
+			def __init__(self, render_ctx):
+				super(MtsBufferDisplay, self).__init__()
+				self.ctx = render_ctx
+				self.film = self.ctx.scene.getFilm()
+				self.size = self.film.getSize()
+				self.bitmap = Bitmap(Bitmap.ERGBA, Bitmap.EFloat32, self.size)
+				self.bitmap.clear()
+				self.time = 0
+				self.started = False
+				self.ctx.queue.registerListener(self)
+			
+			def workBeginEvent(self, job, wu, thr):
+				if not self.started:
+					self.started = True
+				self.bitmap.drawWorkUnit(wu.getOffset(), wu.getSize(), thr)
+				self.timed_update_result()
+			
+			def workEndEvent(self, job, wr, cancelled):
+				self.film.develop(wr.getOffset(), wr.getSize(), wr.getOffset(), self.bitmap)
+				self.timed_update_result()
+			
+			def refreshEvent(self, job):
+				self.film.develop(Point2i(0), self.size, Point2i(0), self.bitmap)
+				self.update_result()
+			
+			def finishJobEvent(self, job, cancelled):
+				MtsLog('Render Job Finished')
+				self.film.develop(Point2i(0), self.size, Point2i(0), self.bitmap)
+				self.update_result(render_end=True)
+			
+			def get_bitmap_buffer(self):
+				bitmap_clone = self.bitmap.clone()
+				bitmap_clone.flipVertically()
+				return bitmap_clone.buffer()
+			
+			def timed_update_result(self):
+				now = time.time()
+				if now - self.time > 0.5:
+					self.time = now
+					self.update_result()
+			
+			def update_result(self, render_end=False):
+				try:
+					render_result = self.ctx.render_engine.begin_result(0, 0, self.size[0], self.size[1])
+					
+					if render_result is None:
+						err_msg = 'ERROR: Cannot not load render result: begin_result() returned None. Render will terminate'
+						raise Exception(err_msg)
+					
+					bitmap_buffer = self.get_bitmap_buffer()
+					render_result.layers.foreach_set('rect', bitmap_buffer)
+					
+					self.ctx.render_engine.end_result(render_result, 0)
+					
+					if render_end:
+						self.started = False
+				except Exception as err:
+					MtsLog('%s' % err)
+					self.started = False
+					self.ctx.render_stop()
+		
 		class Render_Context(object):
 			'''
 			Mitsuba Internal Python API Render
@@ -281,43 +347,9 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 					raise Exception('Unknown exporter type')
 			
 			def render_start(self, dest_file):
-				self.film = self.scene.getFilm()
-				self.size = self.film.getSize()
-				self.bitmap = Bitmap(Bitmap.ERGBA, Bitmap.EFloat32, self.size)
-				self.bitmap.clear()
-				
-				class Custom_Listener(RenderListener):
-					
-					def __init__(self2):
-						super(Custom_Listener, self2).__init__()
-						self2.time = 0
-					
-					def workBeginEvent(self2, job, wu, thr):
-						self.bitmap.drawRect(wu.getOffset(), wu.getSize(), Spectrum(1.0))
-						now = time.time()
-						if now - self2.time > 0.5:
-							self.update_result()
-							self2.time = now
-					
-					def workEndEvent(self2, job, wr, cancelled):
-						self.film.develop(wr.getOffset(), wr.getSize(), wr.getOffset(), self.bitmap)
-						now = time.time()
-						if now - self2.time > 0.5:
-							self.update_result()
-							self2.time = now
-					
-					def refreshEvent(self2, job):
-						self.film.develop(Point2i(0, 0), self.size, Point2i(0, 0), self.bitmap)
-						self.update_result()
-					
-					def finishJobEvent(self2, job, cancelled):
-						MtsLog('Render Job Finished')
-						self.film.develop(Point2i(0, 0), self.size, Point2i(0, 0), self.bitmap)
-						self.update_result()
-				
 				self.queue = RenderQueue()
+				self.buffer = MtsBufferDisplay(self)
 				self.job = RenderJob('mtsblend_render', self.scene, self.queue)
-				self.queue.registerListener(Custom_Listener())
 				self.job.start()
 				
 				#out_file = FileStream(dest_file, FileStream.ETruncReadWrite)
@@ -327,6 +359,13 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 			def render_stop(self):
 				self.job.cancel()
 				self.queue.join()
+				
+				# Wait for RenderListener to finish
+				while self.buffer.started:
+					buffer_wait_timer = threading.Timer(1, self.wait_timer)
+					buffer_wait_timer.start()
+					if buffer_wait_timer.isAlive():
+						buffer_wait_timer.join()
 			
 			def is_running(self):
 				return self.job.isRunning()
@@ -334,24 +373,8 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 			def returncode(self):
 				return 0
 			
-			def get_bitmap_buffer(self):
-				bitmap_clone = self.bitmap.clone()
-				bitmap_clone.flipVertically()
-				return bitmap_clone.buffer()
-			
-			def update_result(self):
-				render_result = self.render_engine.begin_result(0, 0, self.size[0], self.size[1])
-				
-				if render_result is None:
-					err_msg = 'ERROR: Cannot not load render result: begin_result() returned None. Render will terminate'
-					MtsLog(err_msg)
-					self.render_stop()
-					return
-				
-				bitmap_buffer = self.get_bitmap_buffer()
-				render_result.layers.foreach_set('rect', bitmap_buffer)
-				
-				self.render_engine.end_result(render_result, 0)
+			def wait_timer(self):
+				pass
 		
 		class Serializer(object):
 			'''
