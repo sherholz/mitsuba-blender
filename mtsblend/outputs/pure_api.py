@@ -244,12 +244,9 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 				self.bitmap = Bitmap(Bitmap.ERGBA, Bitmap.EFloat32, self.size)
 				self.bitmap.clear()
 				self.time = 0
-				self.started = False
 				self.ctx.queue.registerListener(self)
 			
 			def workBeginEvent(self, job, wu, thr):
-				if not self.started:
-					self.started = True
 				self.bitmap.drawWorkUnit(wu.getOffset(), wu.getSize(), thr)
 				self.timed_update_result()
 			
@@ -289,12 +286,8 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 					render_result.layers.foreach_set('rect', bitmap_buffer)
 					
 					self.ctx.render_engine.end_result(render_result, 0)
-					
-					if render_end:
-						self.started = False
 				except Exception as err:
 					MtsLog('%s' % err)
-					self.started = False
 					self.ctx.render_stop()
 		
 		class Render_Context(object):
@@ -360,12 +353,12 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 				self.job.cancel()
 				self.queue.join()
 				
-				# Wait for RenderListener to finish
-				while self.buffer.started:
-					buffer_wait_timer = threading.Timer(1, self.wait_timer)
-					buffer_wait_timer.start()
-					if buffer_wait_timer.isAlive():
-						buffer_wait_timer.join()
+				# Wait for Render to really finish
+				while self.is_running():
+					render_wait_timer = threading.Timer(1, self.wait_timer)
+					render_wait_timer.start()
+					if render_wait_timer.isAlive():
+						render_wait_timer.join()
 			
 			def is_running(self):
 				return self.job.isRunning()
