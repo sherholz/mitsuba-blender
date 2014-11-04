@@ -39,10 +39,11 @@ def cycles_panel_node_draw(layout, id_data, output_type, input_name):
 	if not node:
 		layout.label(text="No output node")
 	else:
-		input = find_node_input(node, input_name)
-		layout.template_node_view(ntree, node, input)
+		node_input = find_node_input(node, input_name)
+		layout.template_node_view(ntree, node, node_input)
 
 	return True
+
 
 def node_tree_selector_draw(layout, id_data, output_type):
 	try:
@@ -57,6 +58,7 @@ def node_tree_selector_draw(layout, id_data, output_type):
 			return False
 	return True
 
+
 def panel_node_draw(layout, id_data, output_type, input_name):
 	node = find_node(id_data, output_type)
 	if not node:
@@ -64,10 +66,11 @@ def panel_node_draw(layout, id_data, output_type, input_name):
 	else:
 		if id_data.mitsuba_material.nodetree != '':
 			ntree = bpy.data.node_groups[id_data.mitsuba_material.nodetree]
-			input = find_node_input(node, input_name)
-			layout.template_node_view(ntree, node, input)
+			node_input = find_node_input(node, input_name)
+			layout.template_node_view(ntree, node, node_input)
 	
 	return True
+
 
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_header(mitsuba_material_base):
@@ -84,7 +87,7 @@ class MitsubaMaterial_PT_header(mitsuba_material_base):
 		return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
 	
 	display_property_groups = [
-		( ('material',), 'mitsuba_material' )
+		(('material',), 'mitsuba_material')
 	]
 	
 	def draw(self, context):
@@ -127,7 +130,6 @@ class MitsubaMaterial_PT_header(mitsuba_material_base):
 			split.template_ID(space, "pin_id")
 			split.separator()
 		
-		
 		node_tree_selector_draw(layout, mat, 'mitsuba_material_output_node')
 		if not panel_node_draw(layout, mat, 'mitsuba_material_output_node', 'Surface'):
 			row = self.layout.row(align=True)
@@ -136,15 +138,16 @@ class MitsubaMaterial_PT_header(mitsuba_material_base):
 				#row.menu('MATERIAL_MT_mitsuba_type', text=context.material.mitsuba_material.type_label)
 				#super().draw(context)
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_utils(mitsuba_material_base):
 	'''
 	Material Utils UI Panel
 	'''
 	
-	bl_label	= 'Mitsuba Material Utils'
+	bl_label = 'Mitsuba Material Utils'
 	bl_options = {'DEFAULT_CLOSED'}
-	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
+	COMPAT_ENGINES = {'MITSUBA_RENDER'}
 	
 	def draw(self, context):
 		row = self.layout.row(align=True)
@@ -161,14 +164,15 @@ class MitsubaMaterial_PT_utils(mitsuba_material_base):
 		row = self.layout.row(align=True)
 		row.operator("mitsuba.convert_material_cycles", icon='MATERIAL_DATA')
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_bsdf(mitsuba_material_base):
 	'''
 	Material BSDF UI Panel
 	'''
 	
-	bl_label	= 'Mitsuba BSDF Material'
-	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
+	bl_label = 'Mitsuba BSDF Material'
+	COMPAT_ENGINES = {'MITSUBA_RENDER'}
 	
 	display_property_groups = []
 	
@@ -180,9 +184,9 @@ class MitsubaMaterial_PT_bsdf(mitsuba_material_base):
 		mat = context.material.mitsuba_material
 		layout.active = (mat.use_bsdf)
 		self.display_property_groups = [
-			( ('material',), 'mitsuba_material' )
+			(('material',), 'mitsuba_material')
 		]
 		if mat.type != 'none':
-			self.display_property_groups.append(( ('material', 'mitsuba_material'), 'mitsuba_bsdf_%s' % mat.type ))
+			self.display_property_groups.append((('material', 'mitsuba_material'), 'mitsuba_bsdf_%s' % mat.type))
 		
 		return super().draw(context)

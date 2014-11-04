@@ -45,7 +45,7 @@ from ..outputs import MtsLog
 
 # Exporter Property Groups need to be imported to ensure initialisation
 from ..properties import (
-	camera, engine, integrator, lamp,
+	camera, engine, integrator, ior_data, lamp,
 	material, node_material, node_inputs, node_texture, node_converter, mesh, sampler, texture, world
 )
 
