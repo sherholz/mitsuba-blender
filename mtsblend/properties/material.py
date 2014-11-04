@@ -36,9 +36,8 @@ from ..export.materials import (
 	MaterialCounter, ExportedMaterials, ExportedTextures, get_material, get_texture
 )
 from ..properties.texture import (
-	ColorTextureParameter, FloatTextureParameter
+	ColorTextureParameter, FloatTextureParameter, refresh_preview
 )
-from ..outputs import MtsLog
 
 
 def MaterialMediumParameter(attr, name):
@@ -60,6 +59,72 @@ def MaterialMediumParameter(attr, name):
 			'name': name
 		}
 	]
+
+
+class IORMenuParameter(object):
+	attr = None
+	name = None
+	menu = None
+	default = 0.0
+	min = 1.0
+	max = 10.0
+	
+	controls = None
+	properties = None
+	
+	def __init__(self, attr, name, menu, default=None, min=None, max=None):
+		self.attr = attr
+		self.name = name
+		self.menu = menu
+		if default is not None:
+			self.default = default
+		if min is not None:
+			self.min = min
+		if max is not None:
+			self.max = max
+		
+		self.controls = self.get_controls()
+		self.properties = self.get_properties()
+	
+	def get_controls(self):
+		return [
+			self.menu,
+			self.attr,
+		]
+	
+	def get_properties(self):
+		return [
+			{
+				'type': 'ef_callback',
+				'attr': self.menu,
+				'method': self.menu,
+			},
+			{
+				'type': 'float',
+				'attr': self.attr,
+				'name': '%s IOR' % self.name,
+				'description': '%s index of refraction (e.g. air=1, glass=1.5 approximately)' % self.name,
+				'default': self.default,
+				'min': self.min,
+				'max': self.max,
+				'precision': 6,
+				'update': refresh_preview,
+				'save_in_preset': True
+			},
+			{
+				'attr': '%s_presetvalue' % self.attr,
+				'type': 'float',
+				'default': 0.0,
+				'update': refresh_preview,
+				'save_in_preset': True
+			},
+			{
+				'attr': '%s_presetstring' % self.attr,
+				'type': 'string',
+				'default': '-- Choose preset --',
+				'save_in_preset': True
+			},
+		]
 
 
 def dict_merge(*args):
@@ -98,6 +163,10 @@ TC_sigmaS = ColorTextureParameter('sigmaS', 'Scattering Coefficient', default=(0
 TC_sigmaA = ColorTextureParameter('sigmaA', 'Absorption Coefficient', default=(0.0, 0.0, 0.0), max=10.0)
 TC_sigmaT = ColorTextureParameter('sigmaT', 'Extinction Coefficient', default=(0.8, 0.8, 0.8), max=10.0)
 TC_albedo = ColorTextureParameter('albedo', 'Albedo', default=(0.01, 0.01, 0.01), max=10.0)
+
+# IOR Parameters
+MF_intIOR = IORMenuParameter('intIOR', 'Interior', 'draw_int_ior_menu', default=1.49)
+MF_extIOR = IORMenuParameter('extIOR', 'Exterior', 'draw_ext_ior_menu', default=1.000277)
 
 
 @MitsubaAddon.addon_register_class
@@ -257,8 +326,9 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 	
 	controls = [
 		'thin',
-		['intIOR', 'extIOR']
 	] + \
+		MF_intIOR.controls + \
+		MF_extIOR.controls + \
 		TC_specularReflectance.controls + \
 		TC_specularTransmittance.controls + \
 	[
@@ -285,26 +355,6 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-			'type': 'float',
-			'attr': 'intIOR',
-			'name': 'Int. IOR',
-			'description': 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default': 1.5,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'extIOR',
-			'name': 'Ext. IOR',
-			'description': 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default': 1,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		},
-		{
 			'type': 'bool',
 			'attr': 'thin',
 			'name': 'Thin Dielectric',
@@ -313,6 +363,8 @@ class mitsuba_bsdf_dielectric(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
+		MF_intIOR.properties + \
+		MF_extIOR.properties + \
 		TC_specularReflectance.properties + \
 		TC_specularTransmittance.properties + \
 		TF_alphaRoughness.properties + \
@@ -365,8 +417,8 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 	controls = [
 		'material',
 		'eta', 'k',
-		'extEta'
 	] + \
+		MF_extIOR.controls + \
 		TC_specularReflectance.controls + \
 	[
 		'distribution'
@@ -392,11 +444,87 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-			'type': 'string',
+			'type': 'enum',
 			'attr': 'material',
-			'name': 'Material Name',
-			'description': 'Name of a material preset (Cu=copper)',
-			'default': '',
+			'name': 'Material',
+			'description': 'Choose material preset',
+			'items': [
+				('', 'Choose Material Preset', ''),
+				('custom', 'Custom Values', 'custom'),
+				('none', '100% Pure Mirror', 'none'),
+				('a-C', 'Amorphous carbon', 'a-C'),
+				('Ag', 'Silver', 'Ag'),
+				('Al', 'Aluminium', 'Al'),
+				('AlAs', 'Cubic aluminium arsenide', 'AlAs'),
+				('AlAs_palik', 'Cubic aluminium arsenide (p)', 'AlAs_palik'),
+				('AlSb', 'Cubic aluminium antimonide', 'Alsb'),
+				('AlSb_palik', 'Cubic aluminium antimonide (p)', 'AlSb_palik'),
+				('Au', 'Gold', 'Au'),
+				('Be', 'Polycrystalline beryllium', 'Be'),
+				('Be_palik', 'Polycrystalline beryllium (p)', 'Be_palik'),
+				('Cr', 'Chromium', 'Cr'),
+				('CsI', 'Cubic caesium iodide', 'CsI'),
+				('CsI_palik', 'Cubic caesium iodide (p)', 'CsI_palik'),
+				('Cu', 'Copper', 'Cu'),
+				('Cu_palik', 'Copper (p)', 'Cu_palik'),
+				('Cu2O', 'Copper (I) oxide', 'Cu2O'),
+				('Cu2O_palik', 'Copper (I) oxide (p)', 'Cu2O_palik'),
+				('CuO', 'Copper (II) oxide', 'CuO'),
+				('CuO_palik', 'Copper (II) oxide (p)', 'CuO_palik'),
+				('d-C', 'Cubic diamond', 'd-C'),
+				('d-C_palik', 'Cubic diamond (p)', 'd-C_palik'),
+				('Hg', 'Mercury', 'Hg'),
+				('Hg_palik', 'Mercury (p)', 'Hg_palik'),
+				('HgTe', 'Mercury telluride', 'HgTe'),
+				('HgTe_palik', 'Mercury telluride (p)', 'HgTe_palik'),
+				('Ir', 'Iridium', 'Ir'),
+				('Ir_palik', 'Iridium (p)', 'Ir_palik'),
+				('K', 'Polycrystalline potasium', 'K'),
+				('K_palik', 'Polycrystalline potasium (p)', 'K_palik'),
+				('Li', 'Lithium', 'Li'),
+				('Li_palik', 'Lithium (p)', 'Li_palik'),
+				('MgO', 'Magnesium oxide', 'MgO'),
+				('MgO_palik', 'Magenesium oxide (p)', 'MgO_palik'),
+				('Mo', 'Molybdenum', 'Mo'),
+				('Mo_palik', 'Molybdenum (p)', 'Mo_palik'),
+				('Na_palik', 'Sodium (p)', 'Na_palik'),
+				('Nb', 'Niobium', 'Nb'),
+				('Nb_palik', 'Niobium (p)', 'Nb_palik'),
+				('Ni_palik', 'Nickel', 'Ni_palik'),
+				('Rh', 'Rhodium', 'Rh'),
+				('Rh_palik', 'Rhodium (p)', 'Rh_palik'),
+				('Se', 'Selenium', 'Se'),
+				('Se_palik', 'Selenium (p)', 'Se_palik'),
+				('Se-e', 'Selenium (e)', 'Se-e'),
+				('Se-e_palik', 'Selenium (e)(p)', 'Se-e_palik'),
+				('SiC', 'Hexagonal silicon carbide', 'SiC'),
+				('SiC_palik', 'Hexagonal silicon carbide (p)', 'SiC_palik'),
+				('SnTe', 'Tin telluride', 'SnTe'),
+				('SnTe_palik', 'Tin telluride (p)', 'SnTe_palik'),
+				('Ta', 'Tantalum', 'Ta'),
+				('Ta_palik', 'Tantalum (p)', 'Ta_palik'),
+				('Te', 'Trigonal tellurium', 'Te'),
+				('Te_palik', 'Trigonal tellurium (p)', 'Te_palik'),
+				('Te-e', 'Trigonal tellurium (e)', 'Te-e'),
+				('Te-e_palik', 'Trigonal tellurium (e)(p)', 'Te-e_palik'),
+				('ThF4', 'Polycryst. thorium (IV) fluoride', 'ThF4'),
+				('ThF4_palik', 'Polycryst. thorium (IV) fluoride (p)', 'ThF4_palik'),
+				('TiC', 'Polycrystalline titanium carbide', 'TiC'),
+				('TiC_palik', 'Polycrystalline titanium carbide (p)', 'TiC_palik'),
+				('TiN', 'Titanium nitride', 'TiN'),
+				('TiN_palik', 'Titanium nitride (p)', 'TiN_palik'),
+				('TiO2', 'Tetragonal titanium dioxide', 'TiO2'),
+				('TiO2_palik', 'Tetragonal titanium dioxide (p)', 'TiO2_palik'),
+				('TiO2-e', 'Tetragonal titanium dioxide (e)', 'TiO2-e'),
+				('TiO2-e_palik', 'Tetragonal titanium dioxide (e)(p)', 'TiO2-e_palik'),
+				('VC', 'Vanadium carbide', 'VC'),
+				('VC_palik', 'Vanadium carbide (p)', 'VC_palik'),
+				('V_palik', 'Vanadium', 'V_palik'),
+				('VN', 'Vanadium nitride', 'VN'),
+				('VN_palik', 'Vanadium nitride (p)', 'VN_palik'),
+				('W', 'Tungsten', 'W'),
+			],
+			'default': 'custom',
 			'save_in_preset': True
 		},
 		{
@@ -420,17 +548,8 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 			'max': 10.0,
 			'save_in_preset': True
 		},
-		{
-			'type': 'float',
-			'attr': 'extEta',
-			'name': 'Ext. Eta',
-			'description': 'Index of refraction of the surrounding dielectric (e.g. air=1, glass=1.5 approximately)',
-			'default': 1,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		}
 	] + \
+		MF_extIOR.properties + \
 		TC_specularReflectance.properties + \
 		TF_alphaRoughness.properties + \
 		TF_alphaRoughnessU.properties + \
@@ -438,8 +557,8 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 	
 	visibility = dict_merge(
 		{
-			'eta': {'material': ''},
-			'k': {'material': ''}
+			'eta': {'material': O(['', 'custom'])},
+			'k': {'material': O(['', 'custom'])}
 		},
 		TC_specularReflectance.visibility,
 		TF_alphaRoughness.visibility,
@@ -453,10 +572,10 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 	def api_output(self, mts_context):
 		params = {
 			'type': 'conductor',
-			'extEta': self.extEta,
+			'extEta': self.extIOR,
 			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
 		}
-		if self.material == '':
+		if self.material in ('', 'custom'):
 			params.update({
 				'eta': mts_context.spectrum(self.eta[0], self.eta[1], self.eta[2]),
 				'k': mts_context.spectrum(self.k[0], self.k[1], self.k[2]),
@@ -482,9 +601,8 @@ class mitsuba_bsdf_conductor(declarative_property_group):
 class mitsuba_bsdf_plastic(declarative_property_group):
 	ef_attach_to = ['mitsuba_material']
 	
-	controls = [
-		['intIOR', 'extIOR']
-	] + \
+	controls = MF_intIOR.controls + \
+		MF_extIOR.controls + \
 		TC_diffuseReflectance.controls + \
 		TC_specularReflectance.controls + \
 	[
@@ -509,26 +627,6 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 			'save_in_preset': True
 		},
 		{
-			'type': 'float',
-			'attr': 'intIOR',
-			'name': 'Int. IOR',
-			'description': 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default': 1.5,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'extIOR',
-			'name': 'Ext. IOR',
-			'description': 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default': 1,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		},
-		{
 			'type': 'bool',
 			'attr': 'nonlinear',
 			'name': 'Use Internal Scattering',
@@ -537,6 +635,8 @@ class mitsuba_bsdf_plastic(declarative_property_group):
 			'save_in_preset': True
 		}
 	] + \
+		MF_intIOR.properties + \
+		MF_extIOR.properties + \
 		TC_diffuseReflectance.properties + \
 		TC_specularReflectance.properties + \
 		TF_alphaRoughness.properties
@@ -593,7 +693,10 @@ class mitsuba_bsdf_coating(declarative_property_group):
 	
 	controls = [
 		'mat_list',
-		['intIOR', 'extIOR'],
+	] + \
+		MF_intIOR.controls + \
+		MF_extIOR.controls + \
+	[
 		'thickness'
 	] + \
 		TC_sigmaA.controls + \
@@ -628,28 +731,10 @@ class mitsuba_bsdf_coating(declarative_property_group):
 			'max': 15.0,
 			'save_in_preset': True
 		},
-		{
-			'type': 'float',
-			'attr': 'extIOR',
-			'name': 'Ext. IOR',
-			'description': 'Exterior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default': 1,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		},
-		{
-			'type': 'float',
-			'attr': 'intIOR',
-			'name': 'Int. IOR',
-			'description': 'Interior index of refraction (e.g. air=1, glass=1.5 approximately)',
-			'default': 1.5,
-			'min': 1.0,
-			'max': 10.0,
-			'save_in_preset': True
-		}
 	] + \
 		CoatingProperty() + \
+		MF_intIOR.properties + \
+		MF_extIOR.properties + \
 		TC_sigmaA.properties + \
 		TC_specularReflectance.properties + \
 		TF_alphaRoughness.properties

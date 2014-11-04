@@ -23,25 +23,53 @@
 #
 import bl_ui
 
-from ... import MitsubaAddon
-from ...outputs import MtsLog
-
 from extensions_framework.ui import property_group_renderer
-from extensions_framework import util as efutil
 
-def copy(value):
-	if value == None or isinstance(value, str) or isinstance(value, bool) \
-		or isinstance(value, float) or isinstance(value, int):
-		return value
-	elif getattr(value, '__len__', False):
-		return list(value)
-	else:
-		raise Exception("Copy: don't know how to handle '%s'" % str(vlaue))
 
 class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
+	COMPAT_ENGINES = {'MITSUBA_RENDER'}
 	
-	def draw(self, context):
+	def draw_int_ior_menu(self, context):
+		"""
+		This is a draw callback from property_group_renderer, due
+		to ef_callback item in mitsuba material properties
+		"""
+		if context.material and context.material.mitsuba_material and not context.texture:
+			mat = context.material.mitsuba_material
+			if mat.type in ('dielectric', 'plastic', 'coating'):
+				bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
+				
+				if bsdf.intIOR == bsdf.intIOR_presetvalue:
+					menu_text = bsdf.intIOR_presetstring
+				else:
+					menu_text = '-- Choose Int. IOR preset --'
+				
+				cl = self.layout.column(align=True)
+				
+				cl.menu('MITSUBA_MT_interior_ior_presets', text=menu_text)
+	
+	def draw_ext_ior_menu(self, context):
+		"""
+		This is a draw callback from property_group_renderer, due
+		to ef_callback item in mitsuba material properties
+		"""
+		if context.material and context.material.mitsuba_material and not context.texture:
+			mat = context.material.mitsuba_material
+			if mat.type in ('dielectric', 'conductor', 'plastic', 'coating'):
+				bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
+				
+				if bsdf.extIOR == bsdf.extIOR_presetvalue:
+					menu_text = bsdf.extIOR_presetstring
+				else:
+					menu_text = '-- Choose Ext. IOR preset --'
+				
+				cl = self.layout.column(align=True)
+				
+				cl.menu('MITSUBA_MT_exterior_ior_presets', text=menu_text)
+	
+	@classmethod
+	def poll(cls, context):
 		if not hasattr(context, 'material'):
-			return
-		return super().draw(context)
+			return False
+		
+		return super().poll(context)
