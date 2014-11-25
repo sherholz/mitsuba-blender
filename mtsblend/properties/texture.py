@@ -212,7 +212,6 @@ class ColorTextureParameter(TextureParameterBase):
 			return {
 				'type': 'ref',
 				'id': '%s-texture' % getattr(context, '%s_colortexturename' % self.attr),
-				'name': self.attr
 			}
 		else:
 			color = getattr(context, '%s_color' % self.attr)
@@ -349,7 +348,6 @@ class FloatTextureParameter(TextureParameterBase):
 			return {
 				'type': 'ref',
 				'id': '%s-texture' % getattr(context, '%s_floattexturename' % self.attr),
-				'name': self.attr
 			}
 		else:
 			return getattr(context, '%s_floatvalue' % self.attr)

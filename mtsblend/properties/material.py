@@ -754,9 +754,8 @@ class mitsuba_bsdf_coating(declarative_property_group):
 			'thickness': self.thickness,
 			'sigmaA': TC_sigmaA.api_output(mts_context, self),
 			'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
-			'material': {
+			'bsdf': {
 				'type': 'ref',
-				'name': 'bsdf',
 				'id': '%s-material' % getattr(self, "ref_name")
 			}
 		}
@@ -827,9 +826,8 @@ class mitsuba_bsdf_bumpmap(declarative_property_group):
 				'scale': self.scale,
 				'bumpmap': TF_bumpmap.api_output(mts_context, self),
 			},
-			'material': {
+			'bsdf': {
 				'type': 'ref',
-				'name': 'bsdf',
 				'id': '%s-material' % getattr(self, "ref_name")
 			}
 		}
@@ -1062,12 +1060,10 @@ class mitsuba_bsdf_blendbsdf(declarative_property_group):
 			('weight', TF_weightBlend.api_output(mts_context, self)),
 			('bsdf1', {
 				'type': 'ref',
-				'name': 'bsdf1',
 				'id': '%s-material' % self.mat1_name
 			}),
 			('bsdf2', {
 				'type': 'ref',
-				'name': 'bsdf2',
 				'id': '%s-material' % self.mat2_name
 			}),
 		])
@@ -1108,9 +1104,8 @@ class mitsuba_bsdf_mask(declarative_property_group):
 	def api_output(self, mts_context):
 		params = {
 			'type': 'mask',
-			'material': {
+			'bsdf': {
 				'type': 'ref',
-				'name': 'bsdf',
 				'id': '%s-material' % getattr(self, "ref_name")
 			},
 			'opacity': TC_opacityMask.api_output(mts_context, self),
@@ -1165,7 +1160,6 @@ class mitsuba_bsdf_twosided(declarative_property_group):
 			('type', 'twosided'),
 			('bsdf1', {
 				'type': 'ref',
-				'name': 'bsdf1',
 				'id': '%s-material' % self.mat1_name
 			}),
 		])
@@ -1173,7 +1167,6 @@ class mitsuba_bsdf_twosided(declarative_property_group):
 			params.update([
 				('bsdf2', {
 					'type': 'ref',
-					'name': 'bsdf2',
 					'id': '%s-material' % self.mat2_name
 				}),
 			])

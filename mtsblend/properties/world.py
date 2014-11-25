@@ -316,7 +316,6 @@ class mitsuba_medium_data(declarative_property_group):
 			
 			density_params = {
 				'type': 'gridvolume',
-				'name': 'density',
 				'toWorld': matrix,
 			}
 			if self.externalDensity:
@@ -328,7 +327,6 @@ class mitsuba_medium_data(declarative_property_group):
 				density_params.update({'filename': voxels[0]})
 			
 			albedo_params = {
-				'name': 'albedo',
 				'toWorld': matrix,
 			}
 			if not self.albedo_usegridvolume:

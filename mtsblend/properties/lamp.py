@@ -81,7 +81,6 @@ class LampColorTextureParameter(ColorTextureParameter):
 			return {
 				'type': 'ref',
 				'id': '%s-texture' % getattr(context, '%s_colortexturename' % self.attr),
-				'name': self.attr
 			}
 		else:
 			#color = getattr(context, '%s_color' % self.attr)
@@ -149,10 +148,9 @@ class mitsuba_lamp(declarative_property_group):
 			
 			if mlamp.exterior_medium != '' and lamp.data.type in ['POINT', 'SPOT', 'AREA']:
 				params.update({
-					'medium': {
+					'exterior': {
 						'type': 'ref',
 						'id': '%s-medium' % mlamp.exterior_medium,
-						'name': 'exterior'
 					}
 				})
 			

@@ -550,7 +550,7 @@ class Export_Context(object):
 	
 	# Funtions to emulate Mitsuba extension API
 	
-	def pmgr_create(self, mts_dict):
+	def pmgr_create(self, mts_dict=None, args={}):
 		if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
 			return
 		if mts_dict['type'] not in self.plugins:
@@ -558,7 +558,6 @@ class Export_Context(object):
 			return
 		
 		param_dict = mts_dict.copy()
-		args = {}
 		
 		plugin_type = param_dict.pop('type')
 		
@@ -581,16 +580,13 @@ class Export_Context(object):
 					MtsLog('************** Reference ID - %s - exported before referencing **************' % (args['id']))
 					return
 		
-		if 'name' in param_dict:
-			args['name'] = param_dict.pop('name')
-		
 		plugin = self.plugins[plugin_type]
 		if len(param_dict) > 0 and plugin in self.parameters:
 			self.openElement(plugin, args)
 			valid_parameters = self.parameters[plugin]
 			for param, value in param_dict.items():
 				if isinstance(value, dict) and 'type' in value:
-					self.pmgr_create(value)
+					self.pmgr_create(value, {'name': param})
 				elif param in valid_parameters:
 					valid_parameters[param](param, value)
 				else:
