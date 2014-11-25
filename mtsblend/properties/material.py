@@ -265,7 +265,7 @@ class mitsuba_material(declarative_property_group):
 				if mat.mitsuba_material.use_bsdf:
 					mts_context.data_add(mat_params)
 				
-				if mat.mitsuba_mat_subsurface.use_subsurface:
+				if mat.mitsuba_mat_subsurface.use_subsurface and mat.mitsuba_mat_subsurface.type == 'dipole':
 					sss_params = mat.mitsuba_mat_subsurface.api_output(mts_context, mat)
 					mts_context.data_add(sss_params)
 	

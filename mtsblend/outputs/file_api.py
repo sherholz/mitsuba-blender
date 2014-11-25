@@ -258,6 +258,7 @@ class Export_Context(object):
 				'albedo': self._spectrum,
 				'scale': self._float,
 				'method': self._string,
+				'material': self._string,
 			},
 			'phase': {
 				'g': self._float,
