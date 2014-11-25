@@ -351,14 +351,8 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 			
 			def render_stop(self):
 				self.job.cancel()
-				self.queue.join()
-				
-				# Wait for Render to really finish
-				while self.is_running():
-					render_wait_timer = threading.Timer(1, self.wait_timer)
-					render_wait_timer.start()
-					if render_wait_timer.isAlive():
-						render_wait_timer.join()
+				# Wait for the render job to finish
+				self.queue.waitLeft(0)
 			
 			def is_running(self):
 				return self.job.isRunning()
