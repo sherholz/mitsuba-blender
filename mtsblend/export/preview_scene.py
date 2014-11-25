@@ -190,6 +190,11 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
 			pv_export_shape = False
 		
 		if pv_export_shape:  # Any material, texture, light, or volume definitions created from the node editor do not exist before this conditional!
+			# Export all the Participating media
+			for scn in bpy.data.scenes:
+				for media in scn.mitsuba_media.media:
+					mts_context.exportMedium(scn, media)
+			
 			GE = GeometryExporter(mts_context, scene)
 			GE.is_preview = True
 			GE.geometry_scene = scene
