@@ -697,7 +697,7 @@ class GeometryExporter(object):
 		shape.update(me_shape_params)
 		
 		if ob_mat is not None:
-			shape.update({'ref_bsdf': {'type': 'ref', 'name': 'bsdf', 'id': '%s-material' % ob_mat.name}})
+			shape.update({'bsdf': {'type': 'ref', 'id': '%s-material' % ob_mat.name}})
 		
 		self.mts_context.data_add({
 			'type': 'shapegroup',
@@ -707,7 +707,7 @@ class GeometryExporter(object):
 		
 		MtsLog('Mesh definition exported: %s' % me_name)
 		
-		return {'ref_shapegroup': {'type': 'ref', 'id': me_name + '-shapegroup_%i' % (me_mat_index)}}
+		return {'shapegroup': {'type': 'ref', 'id': me_name + '-shapegroup_%i' % (me_mat_index)}}
 	
 	def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None, index=None):
 		
@@ -754,17 +754,16 @@ class GeometryExporter(object):
 			if me_shape_type != 'instance':
 				if ob_mat is not None:
 					if ob_mat.mitsuba_material.use_bsdf:
-						shape.update({'ref_bsdf': {'type': 'ref', 'name': 'bsdf', 'id': '%s-material' % ob_mat.name}})
+						shape.update({'bsdf': {'type': 'ref', 'id': '%s-material' % ob_mat.name}})
 					if ob_mat.mitsuba_mat_subsurface.use_subsurface:
 						if ob_mat.mitsuba_mat_subsurface.type == 'dipole':
-							shape.update({'ref_subsurface': {'type': 'ref', 'name': 'subsurface', 'id': '%s-subsurface' % ob_mat.name}})
+							shape.update({'subsurface': {'type': 'ref', 'id': '%s-subsurface' % ob_mat.name}})
 						#elif ob_mat.mitsuba_mat_subsurface.type == 'homogeneous':
 						#	self.mts_context.element('ref', {'name' : 'interior', 'id' : '%s-interior' % ob_mat.name})
 						elif ob_mat.mitsuba_mat_subsurface.type == 'participating':
 							shape.update({
-								'ref_interior': {
+								'interior': {
 									'type': 'ref',
-									'name': 'interior',
 									'id': '%s-medium' % ob_mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium
 								}
 							})

@@ -140,7 +140,6 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
 		'id': 'checkers',
 		'reflectance': {
 			'type': 'checkerboard',
-			'name': 'reflectance',
 			'color0': mts_context.spectrum(0.2, 0.2, 0.2),
 			'color1': mts_context.spectrum(0.4, 0.4, 0.4),
 			'uscale': 10.0,
@@ -156,7 +155,6 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
 		'toWorld': mts_context.transform_matrix(mathutils.Matrix(((40, 0, 0, 0), (0, -40, 0, 0), (0, 0, 1, -2.9), (0, 0, 0, 1)))),
 		'bsdf': {
 			'type': 'ref',
-			'name': 'bsdf',
 			'id': 'checkers',
 		},
 	})
@@ -167,7 +165,6 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
 		'toWorld': mts_context.transform_matrix(mathutils.Matrix(((40, 0, 0, 0), (0, 0, -1, 10), (0, 40, 0, 17.1), (0, 0, 0, 1)))),
 		'bsdf': {
 			'type': 'ref',
-			'name': 'bsdf',
 			'id': 'checkers',
 		},
 	})
@@ -210,15 +207,14 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
 				}
 				shape.update(mesh_params)
 				if mat.mitsuba_material.use_bsdf:
-					shape.update({'ref_bsdf': {'type': 'ref', 'name': 'bsdf', 'id': '%s-material' % mat.name}})
+					shape.update({'bsdf': {'type': 'ref', 'id': '%s-material' % mat.name}})
 				if mat.mitsuba_mat_subsurface.use_subsurface:
 					if mat.mitsuba_mat_subsurface.type == 'dipole':
-						shape.update({'ref_subsurface': {'type': 'ref', 'name': 'subsurface', 'id': '%s-subsurface' % mat.name}})
+						shape.update({'subsurface': {'type': 'ref', 'id': '%s-subsurface' % mat.name}})
 					elif mat.mitsuba_mat_subsurface.type == 'participating':
 						shape.update({
-							'ref_interior': {
+							'interior': {
 								'type': 'ref',
-								'name': 'interior',
 								'id': '%s-medium' % mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium
 							}
 						})
