@@ -26,7 +26,6 @@
 # System libs
 import os
 import sys
-import importlib
 import threading
 
 # Blender libs
@@ -186,9 +185,6 @@ compatible("properties_data_camera")
 compatible("properties_particle")
 compatible("properties_data_speaker")
 
-FBACK_API = None
-PYMTS_API = None
-
 
 @MitsubaAddon.addon_register_class
 class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
@@ -201,18 +197,6 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 	bl_use_preview		= True
 	
 	render_lock = threading.Lock()
-	
-	def __init__(self):
-		global FBACK_API
-		global PYMTS_API
-		if FBACK_API is None:
-			# LOAD API TYPES
-			# Write conventional xml files and use external process for rendering
-			FBACK_API = importlib.import_module('..outputs.file_api', 'mtsblend.core')
-			# Access Mitsuba through python bindings
-			PYMTS_API = importlib.import_module('..outputs.pure_api', 'mtsblend.core')
-		self.fback_api = FBACK_API
-		self.pymts_api = PYMTS_API
 	
 	def render(self, scene):
 		'''

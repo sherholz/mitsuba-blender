@@ -23,6 +23,7 @@
 #
 
 import os
+import importlib
 
 import bpy
 
@@ -92,6 +93,9 @@ class MtsFilmDisplay(TimerThread):
 			MtsLog(err_msg)
 			self.stop()
 			return
+
+FBACK_API = None
+PYMTS_API = None
 
 
 class MtsManager(object):
@@ -165,14 +169,21 @@ class MtsManager(object):
 		
 		Returns MtsManager object
 		'''
-		if MtsManager.RenderEngine is None:
-			raise Exception('Error creating MtsManager: Render Engine is not set.')
-		self.render_engine = MtsManager.RenderEngine
+		global FBACK_API
+		global PYMTS_API
+		if FBACK_API is None:
+			# LOAD API TYPES
+			# Write conventional xml files and use external process for rendering
+			FBACK_API = importlib.import_module('.file_api', 'mtsblend.outputs')
+			# Access Mitsuba through python bindings
+			PYMTS_API = importlib.import_module('.pure_api', 'mtsblend.outputs')
+		self.fback_api = FBACK_API
+		self.pymts_api = PYMTS_API
 		
-		if api_type == 'API' and self.render_engine.pymts_api.PYMTS_AVAILABLE:
-			Exporter = self.render_engine.pymts_api.Export_Context
-		elif api_type == 'FILE' or (api_type == 'API' and not self.render_engine.pymts_api.PYMTS_AVAILABLE):
-			Exporter = self.render_engine.fback_api.Export_Context
+		if api_type == 'API' and self.pymts_api.PYMTS_AVAILABLE:
+			Exporter = self.pymts_api.Export_Context
+		elif api_type == 'FILE' or (api_type == 'API' and not self.pymts_api.PYMTS_AVAILABLE):
+			Exporter = self.fback_api.Export_Context
 		else:
 			raise Exception('Unknown exporter API type "%s"' % api_type)
 		
@@ -184,10 +195,14 @@ class MtsManager(object):
 		self.reset()
 	
 	def create_render_context(self, render_type='INT'):
-		if render_type == 'INT' and self.render_engine.pymts_api.PYMTS_AVAILABLE:
-			Renderer = self.render_engine.pymts_api.Render_Context
-		elif render_type == 'EXT' or (render_type == 'INT' and not self.render_engine.pymts_api.PYMTS_AVAILABLE):
-			Renderer = self.render_engine.fback_api.Render_Context
+		if MtsManager.RenderEngine is None:
+			raise Exception('Error creating MtsManager: Render Engine is not set.')
+		self.render_engine = MtsManager.RenderEngine
+		
+		if render_type == 'INT' and self.pymts_api.PYMTS_AVAILABLE:
+			Renderer = self.pymts_api.Render_Context
+		elif render_type == 'EXT' or (render_type == 'INT' and not self.pymts_api.PYMTS_AVAILABLE):
+			Renderer = self.fback_api.Render_Context
 		else:
 			raise Exception('Unknown render API type "%s"' % api_type)
 		
