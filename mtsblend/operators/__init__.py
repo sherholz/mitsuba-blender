@@ -217,9 +217,16 @@ class EXPORT_OT_mitsuba(bpy.types.Operator):
 	bl_idname = 'export.mitsuba'
 	bl_label = 'Export Mitsuba Scene (.xml)'
 	
-	filename		= bpy.props.StringProperty(name='Target filename', subtype = 'FILE_PATH')
-	directory		= bpy.props.StringProperty(name='Target directory')
-	scene			= bpy.props.StringProperty(options={'HIDDEN'}, default='')
+	filter_glob = bpy.props.StringProperty(default='*.xml', options={'HIDDEN'})
+	use_filter = bpy.props.BoolProperty(default=True, options={'HIDDEN'})
+	filename = bpy.props.StringProperty(name='Target filename', subtype='FILE_PATH')
+	directory = bpy.props.StringProperty(name='Target directory')
+	
+	api_type = bpy.props.StringProperty(default='FILE', options={'HIDDEN'})
+	write_files = bpy.props.BoolProperty(default=True, options={'HIDDEN'})
+	write_all_files = bpy.props.BoolProperty(default=True, options={'HIDDEN'})
+	
+	scene = bpy.props.StringProperty(options={'HIDDEN'}, default='')
 	
 	def invoke(self, context, event):
 		context.window_manager.fileselect_add(self)
@@ -232,11 +239,13 @@ class EXPORT_OT_mitsuba(bpy.types.Operator):
 			else:
 				scene = bpy.data.scenes[self.properties.scene]
 			
-			result = SceneExporter(
-				directory = self.properties.directory,
-				filename = self.properties.filename).export(scene)
+			scene_exporter = SceneExporter()
+			scene_exporter.set_properties(self.properties)
+			scene_exporter.set_scene(scene)
 			
-			if not result:
+			export_result = scene_exporter.export()
+			
+			if not export_result or 'CANCELLED' in export_result:
 				self.report({'ERROR'}, "Unsucessful export!");
 				return {'CANCELLED'}
 			
