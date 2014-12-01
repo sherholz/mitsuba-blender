@@ -43,6 +43,9 @@ class SceneExporterProperties(object):
 	
 	filename = ''
 	directory = ''
+	api_type = ''
+	write_files = True
+	write_all_files = True
 
 
 class SceneExporter(object):
