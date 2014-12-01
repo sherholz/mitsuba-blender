@@ -456,8 +456,6 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 		
 		internal, start_rendering, parse = self.rendering_behaviour(scene)
 		
-		self.MtsManager.mts_context.configure()
-		
 		# Begin rendering
 		if start_rendering:
 			MtsLog('Starting Mitsuba')

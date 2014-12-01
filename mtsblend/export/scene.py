@@ -130,6 +130,8 @@ class SceneExporter(object):
 			GE = export_geometry.GeometryExporter(mts_context, scene)
 			GE.iterateScene(scene)
 			
+			mts_context.configure()
+			
 			if created_mts_manager:
 				MM.reset()
 			
