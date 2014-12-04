@@ -24,12 +24,13 @@
 from ... import MitsubaAddon
 from ...ui.textures import mitsuba_texture_base
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaTexture_PT_gridtexture(mitsuba_texture_base):
-	bl_label = 'Mitsuba Grid Texture'
-	
-	MTS_COMPAT = {'gridtexture'}
-	
-	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_gridtexture' )
-	]
+    bl_label = 'Mitsuba Grid Texture'
+
+    MTS_COMPAT = {'gridtexture'}
+
+    display_property_groups = [
+        (('texture', 'mitsuba_texture'), 'mitsuba_tex_gridtexture')
+    ]

@@ -24,29 +24,30 @@
 from ... import MitsubaAddon
 from ...ui.materials import mitsuba_material_base
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_dipole(mitsuba_material_base):
-	'''
-	Material Subsurface Settings
-	'''
-	
-	bl_label = 'Mitsuba Subsurface - Int. Media'
-	bl_options = {'DEFAULT_CLOSED'}
-	
-	display_property_groups = [
-		( ('material',), 'mitsuba_mat_subsurface' )
-	]
-	
-	def draw_header(self, context):
-		self.layout.prop(context.material.mitsuba_mat_subsurface, "use_subsurface", text="")
-	
-	def draw(self, context):
-		layout = self.layout
-		mat = context.material.mitsuba_mat_subsurface
-		layout.active = (mat.use_subsurface)
-		layout.prop(context.material.mitsuba_mat_subsurface, "type", text="")
-		sss = getattr(mat, 'mitsuba_sss_%s' % mat.type)
-		for p in sss.controls:
-			self.draw_column(p, self.layout, mat, context,
-				property_group=sss)
-		sss.draw_callback(context)
+    '''
+    Material Subsurface Settings
+    '''
+
+    bl_label = 'Mitsuba Subsurface - Int. Media'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    display_property_groups = [
+        (('material',), 'mitsuba_mat_subsurface')
+    ]
+
+    def draw_header(self, context):
+        self.layout.prop(context.material.mitsuba_mat_subsurface, "use_subsurface", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        mat = context.material.mitsuba_mat_subsurface
+        layout.active = (mat.use_subsurface)
+        layout.prop(context.material.mitsuba_mat_subsurface, "type", text="")
+        sss = getattr(mat, 'mitsuba_sss_%s' % mat.type)
+        for p in sss.controls:
+            self.draw_column(p, self.layout, mat, context,
+                property_group=sss)
+        sss.draw_callback(context)

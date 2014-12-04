@@ -21,52 +21,55 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
-import bpy, bl_ui
+import bpy
+import bl_ui
 
 from extensions_framework.ui import property_group_renderer
 
 from .. import MitsubaAddon
 
+
 class mts_world_panel(bl_ui.properties_world.WorldButtonsPanel, property_group_renderer):
-	COMPAT_ENGINES = 'MITSUBA_RENDER'
+    COMPAT_ENGINES = 'MITSUBA_RENDER'
+
 
 @MitsubaAddon.addon_register_class
 class MitsubaWorld_PT_media(mts_world_panel):
-	'''
-	Participating Media Settings
-	'''
-	
-	bl_label = 'Mitsuba Media'
-	
-	display_property_groups = [
-		( ('scene',), 'mitsuba_media' )
-	]
-	
-	def draw(self, context):
-		super().draw(context)
-		
-		if context.world:
-			row = self.layout.row(align=True)
-			row.menu("MITSUBA_MT_presets_medium", text=bpy.types.MITSUBA_MT_presets_medium.bl_label)
-			row.operator("mitsuba.preset_medium_add", text="", icon="ZOOMIN")
-			row.operator("mitsuba.preset_medium_add", text="", icon="ZOOMOUT").remove_active = True
+    '''
+    Participating Media Settings
+    '''
 
-			if len(context.scene.mitsuba_media.media) > 0:
-				current_vol_ind = context.scene.mitsuba_media.media_index
-				current_vol = context.scene.mitsuba_media.media[current_vol_ind]
-				# 'name' is not a member of current_vol.properties,
-				# so we draw it explicitly
-				self.layout.prop(
-					current_vol, 'name'
-				)
-				# Here we draw the currently selected mitsuba_media_data property group
-				for control in current_vol.controls:
-					self.draw_column(
-						control,
-						self.layout,
-						current_vol,
-						context,
-						property_group = current_vol
-					)
-		else:
-			self.layout.label('No active World available!')
+    bl_label = 'Mitsuba Media'
+
+    display_property_groups = [
+        (('scene',), 'mitsuba_media')
+    ]
+
+    def draw(self, context):
+        super().draw(context)
+
+        if context.world:
+            row = self.layout.row(align=True)
+            row.menu("MITSUBA_MT_presets_medium", text=bpy.types.MITSUBA_MT_presets_medium.bl_label)
+            row.operator("mitsuba.preset_medium_add", text="", icon="ZOOMIN")
+            row.operator("mitsuba.preset_medium_add", text="", icon="ZOOMOUT").remove_active = True
+
+            if len(context.scene.mitsuba_media.media) > 0:
+                current_vol_ind = context.scene.mitsuba_media.media_index
+                current_vol = context.scene.mitsuba_media.media[current_vol_ind]
+                # 'name' is not a member of current_vol.properties,
+                # so we draw it explicitly
+                self.layout.prop(
+                    current_vol, 'name'
+                )
+                # Here we draw the currently selected mitsuba_media_data property group
+                for control in current_vol.controls:
+                    self.draw_column(
+                        control,
+                        self.layout,
+                        current_vol,
+                        context,
+                        property_group=current_vol
+                    )
+        else:
+            self.layout.label('No active World available!')
