@@ -107,6 +107,7 @@ class Export_Context(object):
             'difftrans': 'bsdf',
             'hk': 'bsdf',
             #'irawan' : 'bsdf',
+            'null': 'bsdf',
             # Textures
             'bitmap': 'texture',
             'checkerboard': 'texture',

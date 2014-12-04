@@ -186,7 +186,7 @@ class MitsubaMaterial_PT_bsdf(mitsuba_material_base):
         self.display_property_groups = [
             (('material',), 'mitsuba_material')
         ]
-        if mat.type != 'none':
+        if mat.type != 'null':
             self.display_property_groups.append((('material', 'mitsuba_material'), 'mitsuba_bsdf_%s' % mat.type))
 
         return super().draw(context)
