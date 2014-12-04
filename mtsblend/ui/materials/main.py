@@ -29,164 +29,164 @@ from ...ui.materials import mitsuba_material_base
 
 
 def cycles_panel_node_draw(layout, id_data, output_type, input_name):
-	if not id_data.use_nodes:
-		layout.prop(id_data, "use_nodes", icon='NODETREE')
-		return False
+    if not id_data.use_nodes:
+        layout.prop(id_data, "use_nodes", icon='NODETREE')
+        return False
 
-	ntree = id_data.node_tree
+    ntree = id_data.node_tree
 
-	node = find_node(id_data, output_type)
-	if not node:
-		layout.label(text="No output node")
-	else:
-		node_input = find_node_input(node, input_name)
-		layout.template_node_view(ntree, node, node_input)
+    node = find_node(id_data, output_type)
+    if not node:
+        layout.label(text="No output node")
+    else:
+        node_input = find_node_input(node, input_name)
+        layout.template_node_view(ntree, node, node_input)
 
-	return True
+    return True
 
 
 def node_tree_selector_draw(layout, id_data, output_type):
-	try:
-		layout.prop_search(id_data.mitsuba_material, "nodetree", bpy.data, "node_groups")
-	except:
-		return False
-	
-	node = find_node(id_data, output_type)
-	if not node:
-		if id_data.mitsuba_material.nodetree == '':
-			layout.operator('mitsuba.add_material_nodetree', icon='NODETREE')
-			return False
-	return True
+    try:
+        layout.prop_search(id_data.mitsuba_material, "nodetree", bpy.data, "node_groups")
+    except:
+        return False
+
+    node = find_node(id_data, output_type)
+    if not node:
+        if id_data.mitsuba_material.nodetree == '':
+            layout.operator('mitsuba.add_material_nodetree', icon='NODETREE')
+            return False
+    return True
 
 
 def panel_node_draw(layout, id_data, output_type, input_name):
-	node = find_node(id_data, output_type)
-	if not node:
-		return False
-	else:
-		if id_data.mitsuba_material.nodetree != '':
-			ntree = bpy.data.node_groups[id_data.mitsuba_material.nodetree]
-			node_input = find_node_input(node, input_name)
-			layout.template_node_view(ntree, node, node_input)
-	
-	return True
+    node = find_node(id_data, output_type)
+    if not node:
+        return False
+    else:
+        if id_data.mitsuba_material.nodetree != '':
+            ntree = bpy.data.node_groups[id_data.mitsuba_material.nodetree]
+            node_input = find_node_input(node, input_name)
+            layout.template_node_view(ntree, node, node_input)
+
+    return True
 
 
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_header(mitsuba_material_base):
-	'''
-	Material Editor UI Panel
-	'''
-	bl_label = ''
-	bl_options = {'HIDE_HEADER'}
-	
-	@classmethod
-	def poll(cls, context):
-		# An exception, dont call the parent poll func because this manages materials for all engine types
-		engine = context.scene.render.engine
-		return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
-	
-	display_property_groups = [
-		(('material',), 'mitsuba_material')
-	]
-	
-	def draw(self, context):
-		layout = self.layout
-		
-		mat = context.material
-		ob = context.object
-		slot = context.material_slot
-		space = context.space_data
-		
-		if ob:
-			row = layout.row()
-			
-			row.template_list("MATERIAL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=4)
-			
-			col = row.column(align=True)
-			
-			col.operator("object.material_slot_add", icon='ZOOMIN', text="")
-			col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
-			
-			col.menu("MATERIAL_MT_specials", icon='DOWNARROW_HLT', text="")
-			
-			if ob.mode == 'EDIT':
-				row = layout.row(align=True)
-				row.operator("object.material_slot_assign", text="Assign")
-				row.operator("object.material_slot_select", text="Select")
-				row.operator("object.material_slot_deselect", text="Deselect")
-		
-		split = layout.split(percentage=0.75)
-		
-		if ob:
-			split.template_ID(ob, "active_material", new="material.new")
-			row = split.row()
-			
-			if slot:
-				row.prop(slot, "link", text="")
-			else:
-				row.label()
-		elif mat:
-			split.template_ID(space, "pin_id")
-			split.separator()
-		
-		node_tree_selector_draw(layout, mat, 'mitsuba_material_output_node')
-		if not panel_node_draw(layout, mat, 'mitsuba_material_output_node', 'Surface'):
-			row = self.layout.row(align=True)
-			#if slot:
-				#row.label("Material type")
-				#row.menu('MATERIAL_MT_mitsuba_type', text=context.material.mitsuba_material.type_label)
-				#super().draw(context)
+    '''
+    Material Editor UI Panel
+    '''
+    bl_label = ''
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        # An exception, dont call the parent poll func because this manages materials for all engine types
+        engine = context.scene.render.engine
+        return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
+
+    display_property_groups = [
+        (('material',), 'mitsuba_material')
+    ]
+
+    def draw(self, context):
+        layout = self.layout
+
+        mat = context.material
+        ob = context.object
+        slot = context.material_slot
+        space = context.space_data
+
+        if ob:
+            row = layout.row()
+
+            row.template_list("MATERIAL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=4)
+
+            col = row.column(align=True)
+
+            col.operator("object.material_slot_add", icon='ZOOMIN', text="")
+            col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
+
+            col.menu("MATERIAL_MT_specials", icon='DOWNARROW_HLT', text="")
+
+            if ob.mode == 'EDIT':
+                row = layout.row(align=True)
+                row.operator("object.material_slot_assign", text="Assign")
+                row.operator("object.material_slot_select", text="Select")
+                row.operator("object.material_slot_deselect", text="Deselect")
+
+        split = layout.split(percentage=0.75)
+
+        if ob:
+            split.template_ID(ob, "active_material", new="material.new")
+            row = split.row()
+
+            if slot:
+                row.prop(slot, "link", text="")
+            else:
+                row.label()
+        elif mat:
+            split.template_ID(space, "pin_id")
+            split.separator()
+
+        node_tree_selector_draw(layout, mat, 'mitsuba_material_output_node')
+        if not panel_node_draw(layout, mat, 'mitsuba_material_output_node', 'Surface'):
+            row = self.layout.row(align=True)
+            #if slot:
+                #row.label("Material type")
+                #row.menu('MATERIAL_MT_mitsuba_type', text=context.material.mitsuba_material.type_label)
+                #super().draw(context)
 
 
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_utils(mitsuba_material_base):
-	'''
-	Material Utils UI Panel
-	'''
-	
-	bl_label = 'Mitsuba Material Utils'
-	bl_options = {'DEFAULT_CLOSED'}
-	COMPAT_ENGINES = {'MITSUBA_RENDER'}
-	
-	def draw(self, context):
-		row = self.layout.row(align=True)
-		row.menu("MITSUBA_MT_presets_material", text=bpy.types.MITSUBA_MT_presets_material.bl_label)
-		row.operator("mitsuba.preset_material_add", text="", icon="ZOOMIN")
-		row.operator("mitsuba.preset_material_add", text="", icon="ZOOMOUT").remove_active = True
-		
-		row = self.layout.row(align=True)
-		row.operator("mitsuba.convert_all_materials_blender", icon='WORLD_DATA')
-		row = self.layout.row(align=True)
-		row.operator("mitsuba.convert_material_blender", icon='MATERIAL_DATA')
-		row = self.layout.row(align=True)
-		row.operator("mitsuba.convert_all_materials_cycles", icon='WORLD_DATA')
-		row = self.layout.row(align=True)
-		row.operator("mitsuba.convert_material_cycles", icon='MATERIAL_DATA')
+    '''
+    Material Utils UI Panel
+    '''
+
+    bl_label = 'Mitsuba Material Utils'
+    bl_options = {'DEFAULT_CLOSED'}
+    COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+    def draw(self, context):
+        row = self.layout.row(align=True)
+        row.menu("MITSUBA_MT_presets_material", text=bpy.types.MITSUBA_MT_presets_material.bl_label)
+        row.operator("mitsuba.preset_material_add", text="", icon="ZOOMIN")
+        row.operator("mitsuba.preset_material_add", text="", icon="ZOOMOUT").remove_active = True
+
+        row = self.layout.row(align=True)
+        row.operator("mitsuba.convert_all_materials_blender", icon='WORLD_DATA')
+        row = self.layout.row(align=True)
+        row.operator("mitsuba.convert_material_blender", icon='MATERIAL_DATA')
+        row = self.layout.row(align=True)
+        row.operator("mitsuba.convert_all_materials_cycles", icon='WORLD_DATA')
+        row = self.layout.row(align=True)
+        row.operator("mitsuba.convert_material_cycles", icon='MATERIAL_DATA')
 
 
 @MitsubaAddon.addon_register_class
 class MitsubaMaterial_PT_bsdf(mitsuba_material_base):
-	'''
-	Material BSDF UI Panel
-	'''
-	
-	bl_label = 'Mitsuba BSDF Material'
-	COMPAT_ENGINES = {'MITSUBA_RENDER'}
-	
-	display_property_groups = []
-	
-	def draw_header(self, context):
-		self.layout.prop(context.material.mitsuba_material, "use_bsdf", text="")
-	
-	def draw(self, context):
-		layout = self.layout
-		mat = context.material.mitsuba_material
-		layout.active = (mat.use_bsdf)
-		self.display_property_groups = [
-			(('material',), 'mitsuba_material')
-		]
-		if mat.type != 'none':
-			self.display_property_groups.append((('material', 'mitsuba_material'), 'mitsuba_bsdf_%s' % mat.type))
-		
-		return super().draw(context)
+    '''
+    Material BSDF UI Panel
+    '''
+
+    bl_label = 'Mitsuba BSDF Material'
+    COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+    display_property_groups = []
+
+    def draw_header(self, context):
+        self.layout.prop(context.material.mitsuba_material, "use_bsdf", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        mat = context.material.mitsuba_material
+        layout.active = (mat.use_bsdf)
+        self.display_property_groups = [
+            (('material',), 'mitsuba_material')
+        ]
+        if mat.type != 'none':
+            self.display_property_groups.append((('material', 'mitsuba_material'), 'mitsuba_bsdf_%s' % mat.type))
+
+        return super().draw(context)

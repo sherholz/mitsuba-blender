@@ -21,30 +21,32 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 #
-import bpy, bl_ui
+import bpy
+import bl_ui
 
 from ... import MitsubaAddon
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaTexture_PT_presets(bl_ui.properties_texture.TextureButtonsPanel, bpy.types.Panel):
-	'''
-	Texture Editor UI Panel
-	'''
-	
-	bl_label = 'Mitsuba Texture Presets'
-	bl_options = {'DEFAULT_CLOSED'}
-	COMPAT_ENGINES	= { 'MITSUBA_RENDER' }
-	
-	@classmethod
-	def poll(cls, context):
-		'''
-		Only show Mitsuba panel with the correct context
-		'''
-		tex = context.texture
-		return	tex and (context.scene.render.engine in cls.COMPAT_ENGINES) 
-	
-	def draw(self, context):
-		row = self.layout.row(align=True)
-		row.menu("MITSUBA_MT_presets_texture", text=bpy.types.MITSUBA_MT_presets_texture.bl_label)
-		row.operator("mitsuba.preset_texture_add", text="", icon="ZOOMIN")
-		row.operator("mitsuba.preset_texture_add", text="", icon="ZOOMOUT").remove_active = True
+    '''
+    Texture Editor UI Panel
+    '''
+
+    bl_label = 'Mitsuba Texture Presets'
+    bl_options = {'DEFAULT_CLOSED'}
+    COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+    @classmethod
+    def poll(cls, context):
+        '''
+        Only show Mitsuba panel with the correct context
+        '''
+        tex = context.texture
+        return  tex and (context.scene.render.engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        row = self.layout.row(align=True)
+        row.menu("MITSUBA_MT_presets_texture", text=bpy.types.MITSUBA_MT_presets_texture.bl_label)
+        row.operator("mitsuba.preset_texture_add", text="", icon="ZOOMIN")
+        row.operator("mitsuba.preset_texture_add", text="", icon="ZOOMOUT").remove_active = True

@@ -24,12 +24,13 @@
 from ... import MitsubaAddon
 from ...ui.textures import mitsuba_texture_base
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaTexture_PT_bitmap(mitsuba_texture_base):
-	bl_label = 'Mitsuba Bitmap Texture'
-	
-	MTS_COMPAT = {'bitmap'}
-	
-	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_bitmap' )
-	]
+    bl_label = 'Mitsuba Bitmap Texture'
+
+    MTS_COMPAT = {'bitmap'}
+
+    display_property_groups = [
+        (('texture', 'mitsuba_texture'), 'mitsuba_tex_bitmap')
+    ]

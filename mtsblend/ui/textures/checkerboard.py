@@ -24,12 +24,13 @@
 from ... import MitsubaAddon
 from ...ui.textures import mitsuba_texture_base
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaTexture_PT_checkerboard(mitsuba_texture_base):
-	bl_label = 'Mitsuba Checkerboard Texture'
-	
-	MTS_COMPAT = {'checkerboard'}
-	
-	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_checkerboard' )
-	]
+    bl_label = 'Mitsuba Checkerboard Texture'
+
+    MTS_COMPAT = {'checkerboard'}
+
+    display_property_groups = [
+        (('texture', 'mitsuba_texture'), 'mitsuba_tex_checkerboard')
+    ]

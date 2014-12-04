@@ -24,12 +24,13 @@
 from ... import MitsubaAddon
 from ...ui.textures import mitsuba_texture_base
 
+
 @MitsubaAddon.addon_register_class
 class MitsubaTexture_PT_scale(mitsuba_texture_base):
-	bl_label = 'Mitsuba Multiply Texture Color'
-	
-	MTS_COMPAT = {'bitmap', 'checkerboard', 'gridtexture', 'wireframe', 'curvature'}
-	
-	display_property_groups = [
-		( ('texture', 'mitsuba_texture'), 'mitsuba_tex_scale' )
-	]
+    bl_label = 'Mitsuba Multiply Texture Color'
+
+    MTS_COMPAT = {'bitmap', 'checkerboard', 'gridtexture', 'wireframe', 'curvature'}
+
+    display_property_groups = [
+        (('texture', 'mitsuba_texture'), 'mitsuba_tex_scale')
+    ]

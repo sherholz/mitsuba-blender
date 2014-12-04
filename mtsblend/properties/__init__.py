@@ -24,83 +24,91 @@
 
 import bpy
 
+
 class mitsuba_node(bpy.types.Node):
-	#This node is only for the Mitsuba node-tree
-	@classmethod	
-	def poll(cls, tree):
-		return tree.bl_idname == 'Mitsuba_material_nodes'
-		
+    #This node is only for the Mitsuba node-tree
+    @classmethod
+    def poll(cls, tree):
+        return tree.bl_idname == 'Mitsuba_material_nodes'
+
+
 class mitsuba_texture_node(mitsuba_node):
-	pass
+    pass
+
+
 class mitsuba_material_node(mitsuba_node):
-	pass
+    pass
+
 
 ## For eliminating redundant volume definitions
 class ExportedVolumes(object):
-	vol_names = []
-	
-	@staticmethod
-	def list_exported_volumes(name):
-		if name not in ExportedVolumes.vol_names:
-			ExportedVolumes.vol_names.append(name)
-	
-	@staticmethod
-	def reset_vol_list():
-		ExportedVolumes.vol_names = []
+    vol_names = []
+
+    @staticmethod
+    def list_exported_volumes(name):
+        if name not in ExportedVolumes.vol_names:
+            ExportedVolumes.vol_names.append(name)
+
+    @staticmethod
+    def reset_vol_list():
+        ExportedVolumes.vol_names = []
 
 
 def find_node(material, nodetype):
-	#print('find_node: ', material, nodetype)
-	if not (material and material.mitsuba_material and material.mitsuba_material.nodetree):
-		return None
-		
-	nodetree =  material.mitsuba_material.nodetree
-	#print('nodetree: ', nodetree)
-	
-	if nodetree == '':
-		return None
-	
-	ntree = bpy.data.node_groups[nodetree]
-	#print('ntree: ', ntree)
-	
-	for node in ntree.nodes:
-		#nt = getattr(node, "type", None)
-		nt = getattr(node, "bl_idname", None)
-		#print('node: ', node, nt, node.__class__.__name__)
-		#print(dir(node))
-		if nt == nodetype:
-			return node
-		
-	return None
+    #print('find_node: ', material, nodetype)
+    if not (material and material.mitsuba_material and material.mitsuba_material.nodetree):
+        return None
+
+    nodetree = material.mitsuba_material.nodetree
+    #print('nodetree: ', nodetree)
+
+    if nodetree == '':
+        return None
+
+    ntree = bpy.data.node_groups[nodetree]
+    #print('ntree: ', ntree)
+
+    for node in ntree.nodes:
+        #nt = getattr(node, "type", None)
+        nt = getattr(node, "bl_idname", None)
+        #print('node: ', node, nt, node.__class__.__name__)
+        #print(dir(node))
+        if nt == nodetype:
+            return node
+
+    return None
 
 
 def find_node_input(node, name):
-	for input in node.inputs:
-		if input.name == name:
-			return input
-	
-	return None
+    for input in node.inputs:
+        if input.name == name:
+            return input
+
+    return None
 
 
 def get_linked_node(socket):
-	if not socket.is_linked:
-		return None
-	return socket.links[0].from_node
+    if not socket.is_linked:
+        return None
+    return socket.links[0].from_node
+
 
 def check_node_export_material(node):
-	if not hasattr(node, 'export_material'):
-		print('No export_material() for node: ' + node.bl_idname)
-		return False
-	return True
+    if not hasattr(node, 'export_material'):
+        print('No export_material() for node: ' + node.bl_idname)
+        return False
+    return True
+
 
 def check_node_export_texture(node):
-	if not hasattr(node, 'export_texture'):
-		print('No export_texture() for node: ' + node.bl_idname)
-		return False
-	return True
+    if not hasattr(node, 'export_texture'):
+        print('No export_texture() for node: ' + node.bl_idname)
+        return False
+    return True
+
 
 def check_node_get_paramset(node):
-	if not hasattr(node, 'get_paramset'):
-		print('No get_paramset() for node: ' + node.bl_idname)
-		return False
-	return True
+    if not hasattr(node, 'get_paramset'):
+        print('No get_paramset() for node: ' + node.bl_idname)
+        return False
+    return True
