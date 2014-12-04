@@ -218,7 +218,7 @@ class mitsuba_material(declarative_property_group):
                 ('difftrans', 'Diffuse transmitter', 'difftrans'),
                 ('hk', 'Hanrahan-Krueger BSDF', 'hk'),
                 #('irawan','Irawan & Marschner Woven cloth BRDF', 'irawan'),
-                ('none', 'Passthrough material', 'none')
+                ('null', 'Passthrough material', 'null')
             ],
             'default': 'diffuse',
             'save_in_preset': True
@@ -249,9 +249,6 @@ class mitsuba_material(declarative_property_group):
             if mat.name not in ExportedMaterials.exported_material_names:
                 ExportedMaterials.addExportedMaterial(mat.name)
                 mmat = mat.mitsuba_material
-                if mmat.type == 'none':
-                    mts_context.element('null', {'id': '%s-material' % mat.name})
-                    return
 
                 mat_params = mmat.api_output(mts_context, mat)
 
@@ -275,6 +272,21 @@ class mitsuba_material(declarative_property_group):
         ])
         sub_type = getattr(self, 'mitsuba_bsdf_%s' % self.type)
         params.update(sub_type.api_output(mts_context))
+        return params
+
+
+@MitsubaAddon.addon_register_class
+class mitsuba_bsdf_null(declarative_property_group):
+    ef_attach_to = ['mitsuba_material']
+
+    controls = []
+
+    properties = []
+
+    def api_output(self, mts_context):
+        params = {
+            'type': 'null',
+        }
         return params
 
 
