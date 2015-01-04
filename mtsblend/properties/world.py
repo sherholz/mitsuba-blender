@@ -24,7 +24,7 @@
 from copy import deepcopy
 from mathutils import Matrix
 
-from extensions_framework import declarative_property_group
+from ..extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
 from ..properties.texture import ColorTextureParameter

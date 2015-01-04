@@ -23,7 +23,7 @@
 #
 import math
 
-from extensions_framework import declarative_property_group
+from ..extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
 from ..export import get_worldscale

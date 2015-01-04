@@ -27,7 +27,7 @@ import os
 import bpy
 import mathutils
 
-from extensions_framework import util as efutil
+from ..extensions_framework import util as efutil
 
 from ..outputs import MtsManager, MtsLog
 

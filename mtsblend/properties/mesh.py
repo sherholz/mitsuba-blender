@@ -23,7 +23,7 @@
 #
 from .. import MitsubaAddon
 
-from extensions_framework import declarative_property_group
+from ..extensions_framework import declarative_property_group
 
 
 @MitsubaAddon.addon_register_class

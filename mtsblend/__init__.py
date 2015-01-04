@@ -41,13 +41,13 @@ else:
     import bpy
     from bpy.types import AddonPreferences
     from bpy.props import StringProperty, IntProperty, BoolProperty
-    from extensions_framework import Addon
+    from .extensions_framework import Addon
     import nodeitems_utils
     from nodeitems_utils import NodeCategory, NodeItem, NodeItemCustom
 
     def find_mitsuba_path():
         from os import getenv
-        from extensions_framework import util as efutil
+        from .extensions_framework import util as efutil
         return getenv(
             # Use the env var path, if set ...
             'MITSUBA_ROOT',

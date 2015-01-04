@@ -26,8 +26,8 @@ import bpy
 from copy import deepcopy
 from collections import OrderedDict
 
-from extensions_framework import declarative_property_group
-from extensions_framework.validate import Logic_OR as O, Logic_Operator as LO
+from ..extensions_framework import declarative_property_group
+from ..extensions_framework.validate import Logic_OR as O, Logic_Operator as LO
 
 from .. import MitsubaAddon
 

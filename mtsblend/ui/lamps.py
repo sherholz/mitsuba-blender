@@ -23,7 +23,7 @@
 #
 import bl_ui
 
-from extensions_framework.ui import property_group_renderer
+from ..extensions_framework.ui import property_group_renderer
 
 from .. import MitsubaAddon
 

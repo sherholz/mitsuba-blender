@@ -25,7 +25,7 @@
 import os
 
 # Extensions_Framework Libs
-from extensions_framework import util as efutil
+from ..extensions_framework import util as efutil
 
 # Mitsuba libs
 from ..export import materials as export_materials

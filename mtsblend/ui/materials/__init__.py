@@ -23,7 +23,7 @@
 #
 import bl_ui
 
-from extensions_framework.ui import property_group_renderer
+from ...extensions_framework.ui import property_group_renderer
 
 
 class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
