@@ -22,8 +22,8 @@
 # ***** END GPL LICENSE BLOCK *****
 #
 from .. import MitsubaAddon
-from extensions_framework import declarative_property_group
-from extensions_framework.validate import Logic_OR as O
+from ..extensions_framework import declarative_property_group
+from ..extensions_framework.validate import Logic_OR as O
 
 
 @MitsubaAddon.addon_register_class

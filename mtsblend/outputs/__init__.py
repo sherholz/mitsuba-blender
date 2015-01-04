@@ -27,8 +27,8 @@ import importlib
 
 import bpy
 
-from extensions_framework import log
-from extensions_framework.util import TimerThread
+from ..extensions_framework import log
+from ..extensions_framework.util import TimerThread
 
 
 def MtsLog(*args, popup=False):

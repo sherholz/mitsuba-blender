@@ -33,7 +33,7 @@ import bpy
 import bl_ui
 
 # Framework libs
-from extensions_framework import util as efutil
+from ..extensions_framework import util as efutil
 
 # Exporter libs
 from .. import MitsubaAddon

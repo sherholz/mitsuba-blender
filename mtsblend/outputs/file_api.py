@@ -29,7 +29,7 @@ from collections import OrderedDict
 from bpy_extras.io_utils import axis_conversion
 
 # Framework libs
-from extensions_framework import util as efutil
+from ..extensions_framework import util as efutil
 
 # Exporter libs
 from .. import MitsubaAddon

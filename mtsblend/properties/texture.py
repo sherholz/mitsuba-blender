@@ -22,7 +22,7 @@
 # ***** END GPL LICENSE BLOCK *****
 #
 
-from extensions_framework import declarative_property_group
+from ..extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
 

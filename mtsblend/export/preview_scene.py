@@ -30,7 +30,7 @@ import bpy
 import mathutils
 
 # Framework libs
-from extensions_framework import util as efutil
+from ..extensions_framework import util as efutil
 
 # Exporter libs
 from ..export.geometry import GeometryExporter
