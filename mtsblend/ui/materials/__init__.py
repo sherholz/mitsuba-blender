@@ -29,43 +29,28 @@ from ...extensions_framework.ui import property_group_renderer
 class mitsuba_material_base(bl_ui.properties_material.MaterialButtonsPanel, property_group_renderer):
     COMPAT_ENGINES = {'MITSUBA_RENDER'}
 
-    def draw_int_ior_menu(self, context):
+    def draw_ior_menu(self, context, layout, material, current_property):
         """
         This is a draw callback from property_group_renderer, due
-        to ef_callback item in mitsuba material properties
+        to ef_callback_ex item in mitsuba material properties
         """
-        if context.material and context.material.mitsuba_material and not context.texture:
-            mat = context.material.mitsuba_material
-            if mat.type in ('dielectric', 'plastic', 'coating'):
-                bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
 
-                if bsdf.intIOR == bsdf.intIOR_presetvalue:
-                    menu_text = bsdf.intIOR_presetstring
-                else:
-                    menu_text = '-- Choose Int. IOR preset --'
+        if material.type in ('dielectric', 'conductor', 'plastic', 'coating'):
+            bsdf = getattr(material, 'mitsuba_bsdf_%s' % material.type)
+            menu = 'MITSUBA_MT_%s' % current_property['menu']
 
-                cl = self.layout.column(align=True)
+            if current_property['name'] == 'Int. IOR' and bsdf.intIOR == bsdf.intIOR_presetvalue:
+                menu_text = bsdf.intIOR_presetstring
+            elif current_property['name'] == 'Ext. IOR' and bsdf.extIOR == bsdf.extIOR_presetvalue:
+                menu_text = bsdf.extIOR_presetstring
+            elif current_property['name'] == 'Ext. Eta' and bsdf.extEta == bsdf.extEta_presetvalue:
+                menu_text = bsdf.extEta_presetstring
+            else:
+                menu_text = '-- Choose %s preset --' % current_property['name']
 
-                cl.menu('MITSUBA_MT_interior_ior_presets', text=menu_text)
+            cl = layout.column(align=True)
 
-    def draw_ext_ior_menu(self, context):
-        """
-        This is a draw callback from property_group_renderer, due
-        to ef_callback item in mitsuba material properties
-        """
-        if context.material and context.material.mitsuba_material and not context.texture:
-            mat = context.material.mitsuba_material
-            if mat.type in ('dielectric', 'conductor', 'plastic', 'coating'):
-                bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
-
-                if bsdf.extIOR == bsdf.extIOR_presetvalue:
-                    menu_text = bsdf.extIOR_presetstring
-                else:
-                    menu_text = '-- Choose Ext. IOR preset --'
-
-                cl = self.layout.column(align=True)
-
-                cl.menu('MITSUBA_MT_exterior_ior_presets', text=menu_text)
+            cl.menu(menu, text=menu_text)
 
     @classmethod
     def poll(cls, context):

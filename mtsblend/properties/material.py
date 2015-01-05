@@ -64,6 +64,7 @@ def MaterialMediumParameter(attr, name):
 class IORMenuParameter(object):
     attr = None
     name = None
+    description = None
     menu = None
     default = 0.0
     min = 1.0
@@ -72,9 +73,10 @@ class IORMenuParameter(object):
     controls = None
     properties = None
 
-    def __init__(self, attr, name, menu, default=None, min=None, max=None):
+    def __init__(self, attr, name, description, menu, default=None, min=None, max=None):
         self.attr = attr
         self.name = name
+        self.description = description
         self.menu = menu
         if default is not None:
             self.default = default
@@ -87,23 +89,25 @@ class IORMenuParameter(object):
         self.properties = self.get_properties()
 
     def get_controls(self):
-        return [
-            self.menu,
+        return [[
+            '%s_presetmenu' % self.attr,
             self.attr,
-        ]
+        ]]
 
     def get_properties(self):
         return [
             {
-                'type': 'ef_callback',
-                'attr': self.menu,
-                'method': self.menu,
+                'type': 'ef_callback_ex',
+                'attr': '%s_presetmenu' % self.attr,
+                'name': self.name,
+                'menu': self.menu,
+                'method': 'draw_ior_menu',
             },
             {
                 'type': 'float',
                 'attr': self.attr,
-                'name': '%s IOR' % self.name,
-                'description': '%s index of refraction (e.g. air=1, glass=1.5 approximately)' % self.name,
+                'name': self.name,
+                'description': self.description,
                 'default': self.default,
                 'min': self.min,
                 'max': self.max,
@@ -112,15 +116,15 @@ class IORMenuParameter(object):
                 'save_in_preset': True
             },
             {
-                'attr': '%s_presetvalue' % self.attr,
                 'type': 'float',
+                'attr': '%s_presetvalue' % self.attr,
                 'default': 0.0,
                 'update': refresh_preview,
                 'save_in_preset': True
             },
             {
-                'attr': '%s_presetstring' % self.attr,
                 'type': 'string',
+                'attr': '%s_presetstring' % self.attr,
                 'default': '-- Choose preset --',
                 'save_in_preset': True
             },
@@ -165,8 +169,9 @@ TC_sigmaT = ColorTextureParameter('sigmaT', 'Extinction Coefficient', default=(0
 TC_albedo = ColorTextureParameter('albedo', 'Albedo', default=(0.01, 0.01, 0.01), max=10.0)
 
 # IOR Parameters
-MF_intIOR = IORMenuParameter('intIOR', 'Interior', 'draw_int_ior_menu', default=1.49)
-MF_extIOR = IORMenuParameter('extIOR', 'Exterior', 'draw_ext_ior_menu', default=1.000277)
+MF_intIOR = IORMenuParameter('intIOR', 'Int. IOR', 'Interior Index of Refraction', 'interior_ior_presets', default=1.49)
+MF_extIOR = IORMenuParameter('extIOR', 'Ext. IOR', 'Exterior Index of Refraction', 'exterior_ior_presets', default=1.000277)
+MF_extEta = IORMenuParameter('extEta', 'Ext. Eta', 'Exterior Index of Refraction', 'exterior_ior_presets', default=1.000277)
 
 
 @MitsubaAddon.addon_register_class
@@ -430,7 +435,7 @@ class mitsuba_bsdf_conductor(declarative_property_group):
         'material',
         'eta', 'k',
     ] + \
-        MF_extIOR.controls + \
+        MF_extEta.controls + \
         TC_specularReflectance.controls + \
     [
         'distribution'
@@ -561,7 +566,7 @@ class mitsuba_bsdf_conductor(declarative_property_group):
             'save_in_preset': True
         },
     ] + \
-        MF_extIOR.properties + \
+        MF_extEta.properties + \
         TC_specularReflectance.properties + \
         TF_alphaRoughness.properties + \
         TF_alphaRoughnessU.properties + \
@@ -584,7 +589,7 @@ class mitsuba_bsdf_conductor(declarative_property_group):
     def api_output(self, mts_context):
         params = {
             'type': 'conductor',
-            'extEta': self.extIOR,
+            'extEta': self.extEta,
             'specularReflectance': TC_specularReflectance.api_output(mts_context, self),
         }
         if self.material in ('', 'custom'):

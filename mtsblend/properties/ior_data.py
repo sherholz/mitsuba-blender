@@ -379,9 +379,11 @@ class MITSUBA_OT_set_interior_ior_preset(bpy.types.Operator):
             if context.material and context.material.mitsuba_material and not context.texture:
                 mat = context.material.mitsuba_material
                 if mat.type in ('dielectric', 'plastic', 'coating'):
-                    getattr(mat, 'mitsuba_bsdf_%s' % mat.type).intIOR = ior
-                    getattr(mat, 'mitsuba_bsdf_%s' % mat.type).intIOR_presetvalue = ior
-                    getattr(mat, 'mitsuba_bsdf_%s' % mat.type).intIOR_presetstring = name
+                    bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
+                    bsdf.intIOR = ior
+                    bsdf.intIOR_presetvalue = ior
+                    bsdf.intIOR_presetstring = name
+
         return {'FINISHED'}
 
 
@@ -412,10 +414,16 @@ class MITSUBA_OT_set_exterior_ior_preset(bpy.types.Operator):
         else:
             if context.material and context.material.mitsuba_material and not context.texture:
                 mat = context.material.mitsuba_material
-                if mat.type in ('dielectric', 'conductor', 'plastic', 'coating'):
-                    getattr(mat, 'mitsuba_bsdf_%s' % mat.type).extIOR = ior
-                    getattr(mat, 'mitsuba_bsdf_%s' % mat.type).extIOR_presetvalue = ior
-                    getattr(mat, 'mitsuba_bsdf_%s' % mat.type).extIOR_presetstring = name
+                bsdf = getattr(mat, 'mitsuba_bsdf_%s' % mat.type)
+                if mat.type in ('dielectric', 'plastic', 'coating'):
+                    bsdf.extIOR = ior
+                    bsdf.extIOR_presetvalue = ior
+                    bsdf.extIOR_presetstring = name
+                elif mat.type == 'conductor':
+                    bsdf.extEta = ior
+                    bsdf.extEta_presetvalue = ior
+                    bsdf.extEta_presetstring = name
+
         return {'FINISHED'}
 
 
