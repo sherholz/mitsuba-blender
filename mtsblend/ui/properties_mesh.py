@@ -20,3 +20,23 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
+
+import bl_ui
+
+from ..extensions_framework.ui import property_group_renderer
+
+from .. import MitsubaAddon
+
+
+@MitsubaAddon.addon_register_class
+class MitsubaMesh_PT_meshes(bl_ui.properties_data_mesh.MeshButtonsPanel, property_group_renderer):
+    '''
+    Mesh Settings
+    '''
+
+    bl_label = 'Mesh Options'
+    COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+    display_property_groups = [
+        (('mesh',), 'mitsuba_mesh')
+    ]

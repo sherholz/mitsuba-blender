@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 from .. import MitsubaAddon
 from ..extensions_framework import declarative_property_group
 from ..extensions_framework.validate import Logic_OR as O
@@ -91,8 +91,10 @@ class mitsuba_sampler(declarative_property_group):
 
         sampler_dict['type'] = self.type
         sampler_dict['sampleCount'] = self.sampleCount
+
         if self.type == 'halton' or self.type == 'hammersley':
             sampler_dict['scramble'] = self.scramble
+
         elif self.type == 'sobol':
             sampler_dict['scramble'] = self.scramble + 1
 

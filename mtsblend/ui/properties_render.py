@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 import bpy
 import bl_ui
 
@@ -34,7 +34,7 @@ class mts_render_panel(bl_ui.properties_render.RenderButtonsPanel, property_grou
     Base class for render engine settings panels
     '''
 
-    COMPAT_ENGINES = 'MITSUBA_RENDER'
+    COMPAT_ENGINES = {'MITSUBA_RENDER'}
 
 
 @MitsubaAddon.addon_register_class
@@ -85,7 +85,7 @@ class MitsubaRender_PT_setup_preset(mts_render_panel):
     Engine settings presets UI Panel
     '''
 
-    bl_label = 'Mitsuba Engine Presets'
+    bl_label = 'Engine Presets'
 
     def draw(self, context):
         row = self.layout.row(align=True)
@@ -102,17 +102,11 @@ class MitsubaRender_PT_engine(mts_render_panel):
     Engine settings UI Panel
     '''
 
-    bl_label = 'Mitsuba Engine Settings'
+    bl_label = 'Engine Settings'
 
     display_property_groups = [
         (('scene',), 'mitsuba_engine')
     ]
-
-    def draw(self, context):
-        super().draw(context)
-
-        row = self.layout.row(align=True)
-        rd = context.scene.render
 
 
 @MitsubaAddon.addon_register_class
@@ -121,7 +115,7 @@ class MitsubaRender_PT_integrator(mts_render_panel):
     Integrator settings UI Panel
     '''
 
-    bl_label = 'Mitsuba Integrator Settings'
+    bl_label = 'Integrator Settings'
 
     display_property_groups = [
         (('scene',), 'mitsuba_integrator')
@@ -174,7 +168,7 @@ class MitsubaRender_PT_sampler(mts_render_panel):
     Sampler settings UI Panel
     '''
 
-    bl_label = 'Mitsuba Sampler Settings'
+    bl_label = 'Sampler Settings'
 
     display_property_groups = [
         (('scene',), 'mitsuba_sampler')
@@ -183,7 +177,7 @@ class MitsubaRender_PT_sampler(mts_render_panel):
 
 @MitsubaAddon.addon_register_class
 class MitsubaRender_PT_testing(mts_render_panel):
-    bl_label = 'Mitsuba Test/Debugging Options'
+    bl_label = 'Test/Debugging Options'
     bl_options = {'DEFAULT_CLOSED'}
 
     display_property_groups = [
@@ -217,6 +211,7 @@ class MitsubaRenderLayer_PT_layer_selector(mts_render_panel):
 
         row = layout.row()
         rl = rd.layers.active
+
         if rl:
             row.prop(rl, "name")
 

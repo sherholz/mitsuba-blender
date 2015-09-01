@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 import os
 import struct
 import array
@@ -34,11 +34,10 @@ from bpy.app.handlers import persistent
 
 from ..outputs import MtsLog
 from ..export import ExportProgressThread, ExportCache
-from ..export import get_references
 from ..export import is_obj_visible
 from ..export import get_output_subdir
 from ..export import get_export_path
-from ..export.materials import get_material
+from ..export.materials import export_material
 
 
 class InvalidGeometryException(Exception):
@@ -61,7 +60,7 @@ class DupliExportProgressThread(ExportProgressThread):
     message = '... %i%% ...'
 
 
-class GeometryExporter(object):
+class GeometryExporter:
 
     # for partial mesh export
     KnownExportedObjects = set()
@@ -112,10 +111,14 @@ class GeometryExporter(object):
 
         self.fast_export = False
         self.serializer = None
+
         from ..outputs.pure_api import PYMTS_AVAILABLE
+
         if PYMTS_AVAILABLE:
             self.fast_export = True
+
             from ..outputs.pure_api import Serializer
+
             self.serializer = Serializer()
 
     def buildMesh(self, obj):
@@ -125,6 +128,7 @@ class GeometryExporter(object):
 
         # Using a cache on object massively speeds up dupli instance export
         obj_cache_key = (self.geometry_scene, obj)
+
         if self.ExportedObjects.have(obj_cache_key):
             return self.ExportedObjects.get(obj_cache_key)
 
@@ -136,12 +140,15 @@ class GeometryExporter(object):
             # Choose the mesh export type, if set, or use the default
             mesh_type = obj.data.mitsuba_mesh.mesh_type
             global_type = self.visibility_scene.mitsuba_engine.mesh_type
+
             if mesh_type == 'serialized' or (mesh_type == 'global' and global_type == 'serialized'):
                 mesh_definitions.extend(self.buildSerializedMesh(obj))
+
             if mesh_type == 'binary_ply' or (mesh_type == 'global' and global_type == 'binary_ply'):
                 mesh_definitions.extend(self.buildBinaryPLYMesh(obj))
 
         self.ExportedObjects.add(obj_cache_key, mesh_definitions)
+
         return mesh_definitions
 
     def buildBinaryPLYMesh(self, obj):
@@ -152,22 +159,29 @@ class GeometryExporter(object):
         try:
             mesh_definitions = []
             mesh = obj.to_mesh(self.geometry_scene, True, 'RENDER')
+
             if mesh is None:
                 raise UnexportableObjectException('Cannot create render/export mesh')
 
             # collate faces by mat index
             ffaces_mats = {}
             mesh_faces = mesh.tessfaces
+
             for f in mesh_faces:
                 mi = f.material_index
+
                 if mi not in ffaces_mats.keys():
                     ffaces_mats[mi] = []
+
                 ffaces_mats[mi].append(f)
+
             material_indices = ffaces_mats.keys()
 
             number_of_mats = len(mesh.materials)
+
             if number_of_mats > 0:
                 iterator_range = range(number_of_mats)
+
             else:
                 iterator_range = [0]
 
@@ -178,6 +192,7 @@ class GeometryExporter(object):
 
                     # If this mesh/mat combo has already been processed, get it from the cache
                     mesh_cache_key = (self.geometry_scene, obj.data, i)
+
                     if self.allowShapeInstancing(obj, i) and self.ExportedMeshes.have(mesh_cache_key):
                         mesh_definitions.append(self.ExportedMeshes.get(mesh_cache_key))
                         continue
@@ -203,14 +218,16 @@ class GeometryExporter(object):
 
                     # skip writing the PLY file if the box is checked
                     skip_exporting = obj in self.KnownExportedObjects and not obj in self.KnownModifiedObjects
+
                     if not os.path.exists(ply_path) or not (self.visibility_scene.mitsuba_engine.partial_export and skip_exporting):
 
                         GeometryExporter.NewExportedObjects.add(obj)
-
                         uv_textures = mesh.tessface_uv_textures
+
                         if len(uv_textures) > 0:
                             if uv_textures.active and uv_textures.active.data:
                                 uv_layer = uv_textures.active.data
+
                         else:
                             uv_layer = None
 
@@ -230,8 +247,10 @@ class GeometryExporter(object):
                         vert_use_vno = set()        # Set of vert indices that use vert normals
 
                         vert_index = 0              # exported vert index
+
                         for face in ffaces_mats[i]:
                             fvi = []
+
                             for j, vertex in enumerate(face.vertices):
                                 v = mesh.vertices[vertex]
 
@@ -243,6 +262,7 @@ class GeometryExporter(object):
 
                                     if uv_layer:
                                         vert_data = (v.co[:], v.normal[:], uv_coord)
+
                                     else:
                                         vert_data = (v.co[:], v.normal[:])
 
@@ -255,6 +275,7 @@ class GeometryExporter(object):
                                         fvi.append(vert_index)
 
                                         vert_index += 1
+
                                     else:
                                         fvi.append(vert_vno_indices[vert_data])
 
@@ -262,6 +283,7 @@ class GeometryExporter(object):
 
                                     if uv_layer:
                                         vert_data = (v.co[:], face.normal[:], uv_layer[face.index].uv[j][:])
+
                                     else:
                                         vert_data = (v.co[:], face.normal[:])
 
@@ -276,6 +298,7 @@ class GeometryExporter(object):
                             # For Mitsuba, we need to triangulate quad faces
                             face_vert_indices.append(fvi[0:3])
                             ntris += 3
+
                             if len(fvi) == 4:
                                 face_vert_indices.append((fvi[0], fvi[2], fvi[3]))
                                 ntris += 3
@@ -313,6 +336,7 @@ class GeometryExporter(object):
                                     ply.write(struct.pack('<3f', *co))
                                     ply.write(struct.pack('<3f', *no))
                                     ply.write(struct.pack('<2f', *uv))
+
                             else:
                                 for co, no in co_no_uv_cache:
                                     ply.write(struct.pack('<3f', *co))
@@ -327,6 +351,7 @@ class GeometryExporter(object):
                             del face_vert_indices
 
                         MtsLog('Binary PLY file written: %s' % (ply_path))
+
                     else:
                         MtsLog('Skipping already exported PLY: %s' % mesh_name)
 
@@ -341,6 +366,7 @@ class GeometryExporter(object):
                         'ply',
                         shape_params
                     )
+
                     # Only export Shapegroup and cache this mesh_definition if we plan to use instancing
                     if self.allowShapeInstancing(obj, i):
                         shape_params = self.exportShapeGroup(obj, mesh_definition)
@@ -376,22 +402,29 @@ class GeometryExporter(object):
         try:
             mesh_definitions = []
             mesh = obj.to_mesh(self.geometry_scene, True, 'RENDER')
+
             if mesh is None:
                 raise UnexportableObjectException('Cannot create render/export mesh')
 
             # collate faces by mat index
             ffaces_mats = {}
             mesh_faces = mesh.tessfaces
+
             for f in mesh_faces:
                 mi = f.material_index
+
                 if mi not in ffaces_mats.keys():
                     ffaces_mats[mi] = []
+
                 ffaces_mats[mi].append(f)
+
             material_indices = ffaces_mats.keys()
 
             number_of_mats = len(mesh.materials)
+
             if number_of_mats > 0:
                 iterator_range = range(number_of_mats)
+
             else:
                 iterator_range = [0]
 
@@ -402,6 +435,7 @@ class GeometryExporter(object):
 
                     # If this mesh/mat-index combo has already been processed, get it from the cache
                     mesh_cache_key = (self.geometry_scene, obj.data, i)
+
                     if self.allowShapeInstancing(obj, i) and self.ExportedMeshes.have(mesh_cache_key):
                         mesh_definitions.append(self.ExportedMeshes.get(mesh_cache_key))
                         continue
@@ -427,25 +461,30 @@ class GeometryExporter(object):
 
                     # skip writing the Serialized file if the box is checked
                     skip_exporting = obj in self.KnownExportedObjects and not obj in self.KnownModifiedObjects
+
                     if not os.path.exists(ser_path) or not (self.visibility_scene.mitsuba_engine.partial_export and skip_exporting):
 
                         GeometryExporter.NewExportedObjects.add(obj)
-
                         uv_textures = mesh.tessface_uv_textures
+
                         if len(uv_textures) > 0:
                             if mesh.uv_textures.active and uv_textures.active.data:
                                 uv_layer = uv_textures.active.data
+
                         else:
                             uv_layer = None
 
                         vertex_color = mesh.tessface_vertex_colors.active
+
                         if vertex_color:
                             vertex_color_layer = vertex_color.data
+
                         else:
                             vertex_color_layer = None
 
                         if self.fast_export:
                             self.serializer.serialize(ser_path, mesh_name, mesh, i)
+
                         else:
                             # Export data
                             points = array.array('d', [])
@@ -468,10 +507,13 @@ class GeometryExporter(object):
                                     if vertex_color_layer:
                                         if j == 0:
                                             vert_col = vertex_color_layer[face.index].color1
+
                                         elif j == 1:
                                             vert_col = vertex_color_layer[face.index].color2
+
                                         elif j == 2:
                                             vert_col = vertex_color_layer[face.index].color3
+
                                         elif j == 3:
                                             vert_col = vertex_color_layer[face.index].color4
 
@@ -484,11 +526,14 @@ class GeometryExporter(object):
                                         if uv_layer:
                                             if vertex_color_layer:
                                                 vert_data = (v.co[:], v.normal[:], uv_coord[:], vert_col[:])
+
                                             else:
                                                 vert_data = (v.co[:], v.normal[:], uv_coord[:])
+
                                         else:
                                             if vertex_color_layer:
                                                 vert_data = (v.co[:], v.normal[:], vert_col[:])
+
                                             else:
                                                 vert_data = (v.co[:], v.normal[:])
 
@@ -497,10 +542,13 @@ class GeometryExporter(object):
 
                                             points.extend(vert_data[0])
                                             normals.extend(vert_data[1])
+
                                             if uv_layer:
                                                 uvs.extend(vert_data[2])
+
                                                 if vertex_color_layer:
                                                     vtx_colors.extend(vert_data[3])
+
                                             else:
                                                 if vertex_color_layer:
                                                     vtx_colors.extend(vert_data[2])
@@ -509,6 +557,7 @@ class GeometryExporter(object):
                                             fvi.append(vert_index)
 
                                             vert_index += 1
+
                                         else:
                                             fvi.append(vert_vno_indices[vert_data])
 
@@ -517,8 +566,10 @@ class GeometryExporter(object):
                                         # cache them
                                         points.extend(v.co[:])
                                         normals.extend(face.normal[:])
+
                                         if uv_layer:
                                             uvs.extend(uv_coord[:])
+
                                         if vertex_color_layer:
                                             vtx_colors.extend(vert_col[:])
 
@@ -529,6 +580,7 @@ class GeometryExporter(object):
                                 # For Mitsuba, we need to triangulate quad faces
                                 face_vert_indices.extend(fvi[0:3])
                                 ntris += 3
+
                                 if len(fvi) == 4:
                                     face_vert_indices.extend((fvi[0], fvi[2], fvi[3]))
                                     ntris += 3
@@ -543,9 +595,11 @@ class GeometryExporter(object):
                                 flags = flags | 0x2000
                                 # turn on vertex normals
                                 flags = flags | 0x0001
+
                                 # turn on uv layer
                                 if uv_layer:
                                     flags = flags | 0x0002
+
                                 if vertex_color_layer:
                                     flags = flags | 0x0008
 
@@ -559,10 +613,13 @@ class GeometryExporter(object):
                                 ser.write(encoder.compress(struct.pack('<QQ', vert_index, int(ntris / 3))))
                                 ser.write(encoder.compress(points.tostring()))
                                 ser.write(encoder.compress(normals.tostring()))
+
                                 if uv_layer:
                                     ser.write(encoder.compress(uvs.tostring()))
+
                                 if vertex_color_layer:
                                     ser.write(encoder.compress(vtx_colors.tostring()))
+
                                 ser.write(encoder.compress(face_vert_indices.tostring()))
                                 ser.write(encoder.flush())
 
@@ -571,6 +628,7 @@ class GeometryExporter(object):
                                 ser.close()
 
                         MtsLog('Binary Serialized file written: %s' % (ser_path))
+
                     else:
                         MtsLog('Skipping already exported Serialized mesh: %s' % mesh_name)
 
@@ -585,6 +643,7 @@ class GeometryExporter(object):
                         'serialized',
                         shape_params
                     )
+
                     # Only export Shapegroup and cache this mesh_definition if we plan to use instancing
                     if self.allowShapeInstancing(obj, i):
                         instance_params = self.exportShapeGroup(obj, mesh_definition)
@@ -612,22 +671,18 @@ class GeometryExporter(object):
 
     is_preview = False
 
-    def allowMaterialInstancing(self, mat):
-        if mat.mitsuba_mat_subsurface.use_subsurface:
-            return False
+    def allowMaterialInstancing(self, material):
+        ntree = material.mitsuba_nodes.get_node_tree()
 
-        if mat.mitsuba_mat_medium.use_medium:
-            return False
+        if not ntree:
+            return True
 
-        if mat.mitsuba_mat_emitter.use_emitter:
-            return False
+        output_node = ntree.find_node('MtsNodeMaterialOutput')
 
-        mmat = mat.mitsuba_material
-        params = mmat.api_output(self.mts_context, mat)
-
-        for p in get_references(params):
-            if p['id'].endswith('-material'):
-                if not self.allowMaterialInstancing(get_material(p['id'][:len(p['id']) - 9])):
+        if output_node:
+            for socket in output_node.inputs:
+                if socket.name in {'Subsurface', 'Interior Medium', 'Exterior Medium', 'Emitter'} and \
+                        socket.is_linked:
                     return False
 
         return True
@@ -637,8 +692,10 @@ class GeometryExporter(object):
         # Only allow instancing if the mesh material is safe to use on instances
         try:
             ob_mat = obj.material_slots[mat_index].material
-            if ob_mat is not None and not self.allowMaterialInstancing(ob_mat):
+
+            if ob_mat and not self.allowMaterialInstancing(ob_mat):
                 return False
+
         except IndexError:
             pass
 
@@ -652,10 +709,13 @@ class GeometryExporter(object):
         # the same shared base mesh.
         if hasattr(obj, 'modifiers') and len(obj.modifiers) > 0 and obj.data.users > 1:
             instance = False
+
             for mod in obj.modifiers:
                 # Allow non-deforming modifiers
-                instance |= mod.type in ('COLLISION', 'PARTICLE_INSTANCE', 'PARTICLE_SYSTEM', 'SMOKE')
+                instance |= mod.type in {'COLLISION', 'PARTICLE_INSTANCE', 'PARTICLE_SYSTEM', 'SMOKE'}
+
             return instance
+
         else:
             return not self.is_preview
 
@@ -663,13 +723,12 @@ class GeometryExporter(object):
         try:
             ob_mat = obj.material_slots[mat_index].material
             # create material xml
-            if ob_mat is not None:
-                ob_mat.mitsuba_material.export(self.mts_context, ob_mat)
+            return export_material(self.mts_context, ob_mat)
+
         except IndexError:
-            ob_mat = None
             MtsLog('WARNING: material slot %d on object "%s" is unassigned!' % (mat_index + 1, obj.name))
 
-        return ob_mat
+        return None
 
     def exportShapeGroup(self, obj, mesh_definition):
         """
@@ -684,26 +743,26 @@ class GeometryExporter(object):
         if len(me_shape_params) == 0:
             return
 
-        ob_mat = self.exportShapeMaterial(obj, me_mat_index)
-
         shape = {
             'type': me_shape_type,
             'id': me_name + '-shape_%i' % (me_mat_index),
         }
         shape.update(me_shape_params)
 
-        if ob_mat is not None:
-            shape.update({'bsdf': {'type': 'ref', 'id': '%s-material' % ob_mat.name}})
+        mat_params = self.exportShapeMaterial(obj, me_mat_index)
+
+        if mat_params:
+            shape.update(mat_params)
 
         self.mts_context.data_add({
             'type': 'shapegroup',
-            'id': me_name + '-shapegroup_%i' % (me_mat_index),
+            'id': '%s-shapegroup_%i' % (me_name, me_mat_index),
             'shape': shape
         })
 
         MtsLog('Mesh definition exported: %s' % me_name)
 
-        return {'shapegroup': {'type': 'ref', 'id': me_name + '-shapegroup_%i' % (me_mat_index)}}
+        return {'shapegroup': {'type': 'ref', 'id': '%s-shapegroup_%i' % (me_name, me_mat_index)}}
 
     def exportShapeInstances(self, obj, mesh_definitions, matrix=None, parent=None, index=None):
 
@@ -711,30 +770,19 @@ class GeometryExporter(object):
         if len(mesh_definitions) < 1:
             return
 
-        # Let's test if matrix can be inverted, don't export singular matrix
-        try:
-            if matrix is not None:
-                test_matrix = matrix[0].inverted()
-            else:
-                test_matrix = obj.matrix_world.inverted()
-        except ValueError:
+        # Let's test if matrix is singular, don't export singular matrix
+        if (matrix is not None and matrix[0].determinant() == 0) or \
+                obj.matrix_world.determinant() == 0:
             MtsLog('WARNING: skipping export of singular matrix in object "%s" - "%s"!' % (obj.name, mesh_definitions[0][0]))
             return
 
         if index is not None:
             shape_index = '_%08d' % (index)
+
         else:
             shape_index = ''
 
         for me_name, me_mat_index, me_shape_type, me_shape_params in mesh_definitions:
-
-            if me_shape_type != 'instance':
-                if parent is not None:
-                    mat_object = parent
-                else:
-                    mat_object = obj
-
-                ob_mat = self.exportShapeMaterial(mat_object, me_mat_index)
 
             shape = {
                 'type': me_shape_type,
@@ -744,30 +792,21 @@ class GeometryExporter(object):
 
             if matrix is not None:
                 shape.update({'toWorld': self.mts_context.transform_matrix(matrix[0])})
+
             else:
                 shape.update({'toWorld': self.mts_context.transform_matrix(obj.matrix_world)})
 
             if me_shape_type != 'instance':
-                if ob_mat is not None:
-                    if ob_mat.mitsuba_material.use_bsdf:
-                        shape.update({'bsdf': {'type': 'ref', 'id': '%s-material' % ob_mat.name}})
-                    if ob_mat.mitsuba_mat_subsurface.use_subsurface:
-                        if ob_mat.mitsuba_mat_subsurface.type == 'dipole':
-                            shape.update({'subsurface': {'type': 'ref', 'id': '%s-subsurface' % ob_mat.name}})
-                        #elif ob_mat.mitsuba_mat_subsurface.type == 'homogeneous':
-                        #    self.mts_context.element('ref', {'name' : 'interior', 'id' : '%s-interior' % ob_mat.name})
-                        elif ob_mat.mitsuba_mat_subsurface.type == 'participating':
-                            shape.update({
-                                'interior': {
-                                    'type': 'ref',
-                                    'id': '%s-medium' % ob_mat.mitsuba_mat_subsurface.mitsuba_sss_participating.interior_medium
-                                }
-                            })
-                    #mmat_medium = ob_mat.mitsuba_mat_medium
-                    #if ob_mat.mitsuba_mat_extmedium.use_extmedium:
-                    #    self.mts_context.element('ref', {'name' : 'exterior', 'id' : '%s' % ob_mat.mitsuba_mat_extmedium.mitsuba_extmed_participating.exterior_medium})
-                    if ob_mat.mitsuba_mat_emitter.use_emitter:
-                        shape.update({'emitter': ob_mat.mitsuba_mat_emitter.api_output(self.mts_context)})
+                if parent is not None:
+                    mat_object = parent
+
+                else:
+                    mat_object = obj
+
+                mat_params = self.exportShapeMaterial(mat_object, me_mat_index)
+
+                if mat_params:
+                    shape.update(mat_params)
 
             self.mts_context.data_add(shape)
 
@@ -777,39 +816,49 @@ class GeometryExporter(object):
         def Basispolynom(controlpoints, i, u, degree):
             if degree == 0:
                 temp = 0
+
                 if (controlpoints[i] <= u) and (u < controlpoints[i + 1]):
                     temp = 1
+
             else:
                 N0 = Basispolynom(controlpoints, i, u, degree - 1)
                 N1 = Basispolynom(controlpoints, i + 1, u, degree - 1)
 
                 if N0 == 0:
                     sum1 = 0
+
                 else:
                     sum1 = (u - controlpoints[i]) / (controlpoints[i + degree] - controlpoints[i]) * N0
+
                 if N1 == 0:
                     sum2 = 0
+
                 else:
                     sum2 = (controlpoints[i + 1 + degree] - u) / (controlpoints[i + 1 + degree] - controlpoints[i + 1]) * N1
 
                 temp = sum1 + sum2
+
             return temp
 
         for i in range(len(points) + degree + 1):
             if i <= degree:
                 controlpoints.append(0)
+
             elif i >= len(points):
                 controlpoints.append(len(points) - degree)
+
             else:
                 controlpoints.append(i - degree)
 
         if dimension == 2:
             temp = mathutils.Vector((0.0, 0.0))
+
         elif dimension == 3:
             temp = mathutils.Vector((0.0, 0.0, 0.0))
 
         for i in range(len(points)):
             temp = temp + Basispolynom(controlpoints, i, u, degree) * points[i]
+
         return temp
 
     def handler_Duplis_PATH(self, obj, *args, **kwargs):
@@ -863,6 +912,7 @@ class GeometryExporter(object):
         hair_file = open(hair_file_path, 'w')
 
         transform = obj.matrix_world.inverted()
+
         for pindex in range(num_parents + num_children):
             det.exported_objects += 1
             points = []
@@ -876,12 +926,15 @@ class GeometryExporter(object):
                 temp = []
                 degree = 2
                 dimension = 3
+
                 for i in range(math.trunc(math.pow(2, psys.settings.render_step))):
                     if i > 0:
                         u = i * (len(points) - degree) / math.trunc(math.pow(2, psys.settings.render_step) - 1) - 0.0000000000001
+
                     else:
                         u = i * (len(points) - degree) / math.trunc(math.pow(2, psys.settings.render_step) - 1)
                     temp.append(self.BSpline(points, dimension, degree, u))
+
                 points = temp
 
             for p in points:
@@ -908,15 +961,18 @@ class GeometryExporter(object):
             self.ExportedObjectsDuplis.add(obj, True)
 
             obj.dupli_list_create(self.visibility_scene)
+
             if not obj.dupli_list:
                 raise Exception('cannot create dupli list for object %s' % obj.name)
 
             # Create our own DupliOb list to work around incorrect layers
             # attribute when inside create_dupli_list()..free_dupli_list()
             duplis = []
+
             for dupli_ob in obj.dupli_list:
-                if dupli_ob.object.type not in ['MESH', 'SURFACE', 'FONT', 'CURVE']:
+                if dupli_ob.object.type not in {'MESH', 'SURFACE', 'FONT', 'CURVE'}:
                     continue
+
                 if not is_obj_visible(self.visibility_scene, dupli_ob.object, is_dupli=True):
                     continue
 
@@ -945,6 +1001,7 @@ class GeometryExporter(object):
                 gviz = len(do.users_group) == 0
                 for grp in do.users_group:
                     gviz |= True in [a & b for a, b in zip(do.layers, grp.layers)]
+
                 if not gviz:
                     continue
 
@@ -979,6 +1036,7 @@ class GeometryExporter(object):
                 self.buildMesh(obj),
                 matrix=kwargs['matrix']
             )
+
         else:
             self.exportShapeInstances(
                 obj,
@@ -1009,35 +1067,37 @@ class GeometryExporter(object):
                 if obj.parent and obj.parent.is_duplicator:
                     raise UnexportableObjectException(' -> parent is duplicator')
 
-                #for mod in obj.modifiers:
-                #    if mod.name == 'Smoke':
-                #        if mod.smoke_type == 'DOMAIN':
-                #            raise UnexportableObjectException(' -> Smoke domain')
-
                 number_psystems = len(obj.particle_systems)
 
                 if obj.is_duplicator and number_psystems < 1:
                     if self.visibility_scene.mitsuba_testing.object_analysis:
                         print(' -> is duplicator without particle systems')
+
                     if obj.dupli_type in self.valid_duplis_callbacks:
                         self.callbacks['duplis'][obj.dupli_type](obj)
+
                     elif self.visibility_scene.mitsuba_testing.object_analysis:
                         print(' -> Unsupported Dupli type: %s' % obj.dupli_type)
 
                 # Some dupli types should hide the original
-                if obj.is_duplicator and obj.dupli_type in ('VERTS', 'FACES', 'GROUP'):
+                if obj.is_duplicator and obj.dupli_type in {'VERTS', 'FACES', 'GROUP'}:
                     export_originals[obj] = False
+
                 else:
                     export_originals[obj] = True
 
                 if number_psystems > 0:
                     export_originals[obj] = False
+
                     if self.visibility_scene.mitsuba_testing.object_analysis:
                         print(' -> has %i particle systems' % number_psystems)
+
                     for psys in obj.particle_systems:
                         export_originals[obj] = export_originals[obj] or psys.settings.use_render_emitter
+
                         if psys.settings.render_type in self.valid_particles_callbacks:
                             self.callbacks['particles'][psys.settings.render_type](obj, particle_system=psys)
+
                         elif self.visibility_scene.mitsuba_testing.object_analysis:
                             print(' -> Unsupported Particle system type: %s' % psys.settings.render_type)
 
@@ -1085,10 +1145,6 @@ def mts_scene_update(context):
         for ob in bpy.data.objects:
             if ob is None:
                 continue
-            #if ob.is_updated_data:
-            #    print('updated_data', ob.name)
-            #if ob.data.is_updated:
-            #    print('updated', ob.name)
 
             # only flag as updated if either modifiers or
             # mesh data is updated

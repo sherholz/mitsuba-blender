@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 import os
 import sys
 import subprocess
@@ -36,18 +36,19 @@ from .. import MitsubaAddon
 
 from ..export import matrix_to_list
 from ..export import get_output_subdir
+from ..export import get_export_path
 from ..outputs import MtsLog, MtsManager
 from ..properties import ExportedVolumes
 
 
-class Files(object):
+class Files:
     MAIN = 0
     MATS = 1
     GEOM = 2
     VOLM = 3
 
 
-class Export_Context(object):
+class Export_Context:
     '''
     File API
     '''
@@ -62,6 +63,7 @@ class Export_Context(object):
     current_file = Files.MAIN
     scene_data = None
     counter = 0
+    color_mode = 'rgb'
 
     def __init__(self, name):
         self.context_name = name
@@ -77,9 +79,17 @@ class Export_Context(object):
             'scene': 'scene',
             # References
             'ref': 'ref',
+            # Color spectra
+            'rgb': 'rgb',
+            'srgb': 'srgb',
+            'spectrum': 'spectrum',
+            'blackbody': 'blackbody',
             # Shapes
+            'cube': 'shape',
             'sphere': 'shape',
+            'cylinder': 'shape',
             'rectangle': 'shape',
+            'disk': 'shape',
             'shapegroup': 'shape',
             'instance': 'shape',
             'serialized': 'shape',
@@ -118,6 +128,7 @@ class Export_Context(object):
             'curvature': 'texture',
             # Subsurface
             'dipole': 'subsurface',
+            'singlescatter': 'subsurface',
             # Medium
             'homogeneous': 'medium',
             'heterogeneous': 'medium',
@@ -128,8 +139,11 @@ class Export_Context(object):
             'constvolume': 'volume',
             'gridvolume': 'volume',
             # Emitters
+            'point': 'emitter',
             'area': 'emitter',
             'spot': 'emitter',
+            'directional': 'emitter',
+            'collimated': 'emitter',
             'constant': 'emitter',
             'envmap': 'emitter',
             'sun': 'emitter',
@@ -187,30 +201,20 @@ class Export_Context(object):
                 'toWorld': self._transform,
                 'center': self._point,
                 'radius': self._float,
+                'p0': self._point,
+                'p1': self._point,
                 'filename': self._string,
                 'faceNormals': self._bool,
             },
             'bsdf': {
-                'reflectance': self._spectrum,
-                'specularReflectance': self._spectrum,
-                'specularTransmittance': self._spectrum,
-                'diffuseReflectance': self._spectrum,
-                'opacity': self._spectrum,
-                'transmittance': self._spectrum,
-                'sigmaS': self._spectrum,
-                'sigmaA': self._spectrum,
-                'sigmaT': self._spectrum,
-                'albedo': self._spectrum,
                 'alpha': self._float,
                 'alphaU': self._float,
                 'alphaV': self._float,
                 'exponent': self._float,
                 'weight': self._float,
-                'intIOR': self._float,  # string not supported yet
-                'extIOR': self._float,  # string not supported yet
-                'extEta': self._float,  # string not supported yet
-                'eta': self._spectrum,
-                'k': self._spectrum,
+                'intIOR': self._float,
+                'extIOR': self._float,
+                'extEta': self._float,
                 'thickness': self._float,
                 'distribution': self._string,
                 'material': self._string,
@@ -228,10 +232,6 @@ class Export_Context(object):
                 'maxAnisotropy': self._float,
                 'channel': self._string,
                 'cache': self._bool,
-                'color0': self._spectrum,
-                'color1': self._spectrum,
-                'interiorColor': self._spectrum,
-                'edgeColor': self._spectrum,
                 'lineWidth': self._float,
                 'stepWidth': self._float,
                 'curvature': self._string,
@@ -243,20 +243,17 @@ class Export_Context(object):
             },
             'subsurface': {
                 'material': self._string,
-                'sigmaA': self._spectrum,
-                'sigmaS': self._spectrum,
-                'sigmaT': self._spectrum,
-                'albedo': self._spectrum,
                 'scale': self._float,
-                'intIOR': self._float,  # string not supported yet
-                'extIOR': self._float,  # string not supported yet
+                'intIOR': self._float,
+                'extIOR': self._float,
                 'irrSamples': self._integer,
+                'fastSingleScatter': self._bool,
+                'fssSamples': self._integer,
+                'singleScatterShadowRays': self._bool,
+                'singleScatterTransmittance': self._bool,
+                'singleScatterDepth': self._integer,
             },
             'medium': {
-                'sigmaA': self._spectrum,
-                'sigmaS': self._spectrum,
-                'sigmaT': self._spectrum,
-                'albedo': self._spectrum,
                 'scale': self._float,
                 'method': self._string,
                 'material': self._string,
@@ -267,27 +264,33 @@ class Export_Context(object):
             'volume': {
                 'toWorld': self._transform,
                 'filename': self._string,
-                'value': self._spectrum,  # float or vector not supported yet
             },
             'emitter': {
                 'toWorld': self._transform,
-                'radiance': self._spectrum,
-                'intensity': self._spectrum,
                 'cutoffAngle': self._float,
                 'beamWidth': self._float,
-                'scale': self._float,
-                'samplingWeight': self._float,
                 'filename': self._string,
+                'gamma': self._float,
+                'cache': self._bool,
                 'turbidity': self._float,
+                'year': self._integer,
+                'month': self._integer,
+                'day': self._integer,
+                'hour': self._float,
+                'minute': self._float,
+                'second': self._float,
+                'latitude': self._float,
+                'longitude': self._float,
+                'timezone': self._float,
                 'sunDirection': self._vector,
-                'resolution': self._integer,
                 'stretch': self._float,
-                'albedo': self._spectrum,
+                'extend': self._bool,
+                'resolution': self._integer,
                 'scale': self._float,
                 'skyScale': self._float,
                 'sunScale': self._float,
                 'sunRadiusScale': self._float,
-                'extend': self._bool,
+                'samplingWeight': self._float,
             },
             'sensor': {
                 'toWorld': self._transform,
@@ -482,8 +485,10 @@ class Export_Context(object):
             self.set_output_file(file)
 
         self.wf(self.current_file, '<%s' % name, self.file_tabs[self.current_file])
+
         for (k, v) in attributes.items():
             self.wf(self.current_file, ' %s=\"%s\"' % (k, v.replace('"', '')))
+
         self.wf(self.current_file, '>\n')
 
         # Indent
@@ -505,8 +510,10 @@ class Export_Context(object):
             self.set_output_file(file)
 
         self.wf(self.current_file, '<%s' % name, self.file_tabs[self.current_file])
+
         for (k, v) in attributes.items():
             self.wf(self.current_file, ' %s=\"%s\"' % (k, v))
+
         self.wf(self.current_file, '/>\n')
 
     def parameter(self, paramType, paramName, attributes={}, file=None):
@@ -514,8 +521,10 @@ class Export_Context(object):
             self.set_output_file(file)
 
         self.wf(self.current_file, '<%s name="%s"' % (paramType, paramName), self.file_tabs[self.current_file])
+
         for (k, v) in attributes.items():
             self.wf(self.current_file, ' %s=\"%s\"' % (k, v))
+
         self.wf(self.current_file, '/>\n')
 
     # Callback functions
@@ -532,9 +541,6 @@ class Export_Context(object):
     def _float(self, name, value):
         self.parameter('float', name, {'value': '%f' % value})
 
-    def _spectrum(self, name, value):
-        self.parameter('spectrum', name, value)
-
     def _vector(self, name, value):
         self.parameter('vector', name, value)
 
@@ -543,8 +549,10 @@ class Export_Context(object):
 
     def _transform(self, plugin, params):
         self.openElement('transform', {'name': 'toWorld'})
+
         for param in params:
             self.element(param, params[param])
+
         self.closeElement()
 
     # Funtions to emulate Mitsuba extension API
@@ -552,64 +560,133 @@ class Export_Context(object):
     def pmgr_create(self, mts_dict=None, args={}):
         if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
             return
+
         if mts_dict['type'] not in self.plugins:
             MtsLog('************** Plugin not supported: %s **************' % mts_dict['type'])
             return
 
         param_dict = mts_dict.copy()
-        #args = {}
-
         plugin_type = param_dict.pop('type')
 
-        if plugin_type not in ['scene', 'ref']:
+        if plugin_type not in {'scene', 'ref', 'rgb', 'srgb', 'spectrum', 'blackbody'}:
             args['type'] = plugin_type
 
-        if plugin_type == 'scene':
-            args['version'] = '0.5.0'
+        else:
+            if plugin_type == 'scene':
+                args['version'] = '0.5.0'
+
+            elif plugin_type in {'rgb', 'srgb', 'spectrum', 'blackbody'}:
+                args.update(param_dict)
+                param_dict = {}
 
         if 'id' in param_dict:
             args['id'] = param_dict.pop('id')
+
             if args['id'] in self.exported_ids:
                 if plugin_type != 'ref':
                     MtsLog('************** Plugin - %s - ID - %s - already exported **************' % (plugin_type, args['id']))
                     return
+
             else:
                 if plugin_type != 'ref':
                     self.exported_ids += [args['id']]
+
                 else:
                     MtsLog('************** Reference ID - %s - exported before referencing **************' % (args['id']))
                     return
 
-        #if 'name' in param_dict:
-        #    name = param_dict.pop('name')
-        #    if 'name' not in args:
-        #        args['name'] = name
-        #        print('Warning! Name property in dict but not in args.')
-        #    else:
-        #        print('Warning! Name property in dict conflicts with args.')
-        #    print('Warning! Name property in dict. Plugin: %s -- Value: %s' % (plugin_type, args['name']))
-
         plugin = self.plugins[plugin_type]
+
         if len(param_dict) > 0 and plugin in self.parameters:
             self.openElement(plugin, args)
             valid_parameters = self.parameters[plugin]
+
             for param, value in param_dict.items():
                 if isinstance(value, dict) and 'type' in value:
                     self.pmgr_create(value, {'name': param})
+
                 elif param in valid_parameters:
                     valid_parameters[param](param, value)
+
                 else:
                     MtsLog('************** %s param not exported: %s **************' % (plugin_type, param))
                     MtsLog(value)
+
             self.closeElement()
+
         elif len(param_dict) == 0:
             self.element(plugin, args)
+
         else:
             MtsLog('************** Plugin not exported: %s **************' % plugin_type)
             MtsLog(param_dict)
 
-    def spectrum(self, r, g, b):
-        return {'value': "%f %f %f" % (r, g, b)}
+    def spectrum(self, value, mode=''):
+        if not mode:
+            mode = self.color_mode
+
+        spec = {}
+
+        if isinstance(value, (dict)):
+            if 'type' in value:
+                if value['type'] in {'rgb', 'srgb', 'spectrum'}:
+                    spec = self.spectrum(value['value'], value['type'])
+
+                else:
+                    spec = value
+
+        elif isinstance(value, (float, int)):
+            spec = {'value': "%f" % value, 'type': 'spectrum'}
+
+        elif isinstance(value, (str)):
+            spec = {'filename': get_export_path(self, value), 'type': 'spectrum'}
+
+        else:
+            try:
+                items = list(value)
+
+                for i in items:
+                    if not isinstance(i, (float, int, tuple)):
+                        raise Exception('Error: spectrum list contains an unknown type')
+
+            except:
+                items = None
+
+            if items:
+                totitems = len(items)
+
+                if isinstance(items[0], (float, int)):
+                    if totitems == 3 or totitems == 4:
+                        spec = {'value': "%f %f %f" % (items[0], items[1], items[2])}
+
+                        if mode == 'srgb':
+                            spec.update({'type': 'srgb'})
+
+                        else:
+                            spec.update({'type': 'rgb'})
+
+                    elif totitems == 1:
+                        spec = {'value': "%f" % items[0], 'type': 'spectrum'}
+
+                    else:
+                        MtsLog('Expected spectrum items to be 1, 3 or 4, got %d.' % len(items), type(items), items)
+
+                else:
+                    contspec = []
+
+                    for spd in items:
+                        (wlen, val) = spd
+                        contspec.append('%d:%f' % (wlen, val))
+
+                    spec = {'value': ", ".join(contspec), 'type': 'spectrum'}
+
+            else:
+                MtsLog('Unknown spectrum type.', type(value), value)
+
+        if not spec:
+            spec = {'value': "0.0", 'type': 'spectrum'}
+
+        return spec
 
     def vector(self, x, y, z):
         # Blender is Z up but Mitsuba is Y up, convert the vector
@@ -628,6 +705,7 @@ class Export_Context(object):
                 'up': '%f, %f, %f' % (up[0], up[2], -up[1])
             }
         }
+
         if scale:
             params.update({
                 'scale': {
@@ -635,6 +713,7 @@ class Export_Context(object):
                     'y': scale
                 }
             })
+
         return params
 
     def transform_matrix(self, matrix):
@@ -642,11 +721,13 @@ class Export_Context(object):
         global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
         l = matrix_to_list(global_matrix * matrix)
         value = " ".join(["%f" % f for f in l])
+
         return {'matrix': {'value': value}}
 
     def exportMedium(self, scene, medium):
         if medium.name in self.exported_media:
             return
+
         self.exported_media += [medium.name]
 
         params = medium.api_output(self, scene)
@@ -655,10 +736,12 @@ class Export_Context(object):
 
     def data_add(self, mts_dict):
         if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
-            return
+            return False
 
         self.scene_data.update([('elm%i' % self.counter, mts_dict)])
         self.counter += 1
+
+        return True
 
     def configure(self):
         '''
@@ -666,10 +749,6 @@ class Export_Context(object):
         '''
 
         self.pmgr_create(self.scene_data)
-
-        #if self.files[Files.MAIN] is not None:
-            # End of the world as we know it
-            #self.wf(Files.MAIN, 'WorldEnd')
 
         # Close files
         MtsLog('Wrote scene files')
@@ -690,18 +769,8 @@ class Export_Context(object):
             if f is not None:
                 f.close()
 
-    #def wait(self):
-    #    pass
 
-    #def parse(self, filename, async):
-    #    '''
-    #    In a deviation from the API, this function returns a new context,
-    #    which must be passed back to MtsManager so that it can control the
-    #    rendering process.
-    #    '''
-
-
-class Render_Context(object):
+class Render_Context:
     '''
     Mitsuba External Render
     '''
@@ -727,6 +796,7 @@ class Render_Context(object):
         if self.render_engine.is_preview:
             self.binary_name = 'mitsuba'
             verbosity = 'quiet'
+
         else:
             self.binary_name = self.render_scene.mitsuba_engine.binary_name
             verbosity = self.render_scene.mitsuba_engine.log_verbosity
@@ -743,14 +813,19 @@ class Render_Context(object):
         if sys.platform == 'darwin':
             if os.path.exists(os.path.join(mitsuba_path, 'Mitsuba.app/Contents/MacOS/')):
                 mitsuba_path = os.path.join(mitsuba_path, 'Mitsuba.app/Contents/MacOS/')
+
             elif os.path.exists(os.path.join(mitsuba_path, 'Contents/MacOS/')):
                 mitsuba_path = os.path.join(mitsuba_path, 'Contents/MacOS/')
+
             mitsuba_path += self.binary_name
+
             if not os.path.exists(mitsuba_path):
                 MtsLog('Mitsuba not found at path: %s' % mitsuba_path, ', trying default Mitsuba location')
                 mitsuba_path = '/Applications/Mitsuba.app/Contents/MacOS/%s' % self.binary_name  # try fallback to default installation path
+
         elif sys.platform == 'win32':
             mitsuba_path += '%s.exe' % self.binary_name
+
         else:
             mitsuba_path += self.binary_name
 
@@ -770,6 +845,7 @@ class Render_Context(object):
     def set_scene(self, export_context):
         if export_context.EXPORT_API_TYPE == 'FILE':
             self.filename = export_context.file_names[0]
+
         else:
             raise Exception('Unknown exporter type')
 
@@ -783,6 +859,9 @@ class Render_Context(object):
     def render_stop(self):
         # Use SIGTERM because that's the only one supported on Windows
         self.mitsuba_process.send_signal(subprocess.signal.SIGTERM)
+
+    def test_break(self):
+        return self.render_engine.test_break()
 
     def is_running(self):
         return self.mitsuba_process.poll() is None

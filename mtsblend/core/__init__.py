@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 """Main Mitsuba extension class definition"""
 
 # System libs
@@ -44,32 +44,30 @@ from ..outputs import MtsLog
 
 # Exporter Property Groups need to be imported to ensure initialisation
 from ..properties import (
-    camera, engine, integrator, ior_data, lamp,
-    material, node_material, node_inputs, node_texture, node_converter, mesh, sampler, texture, world
+    camera, engine, integrator, mesh, sampler
+)
+
+# Exporter Nodes need to be imported to ensure initialisation
+from ..nodes import (
+    sockets, node_output, node_input, node_bsdf, node_subsurface, node_medium,
+    node_emitter, node_environment, node_texture, nodetree
 )
 
 # Exporter Interface Panels need to be imported to ensure initialisation
 from ..ui import (
-    render_panels, camera, lamps, mesh, node_editor, world
-)
-
-#Legacy material editor panels, node editor UI is initialized above
-from ..ui.materials import (
-    main as mat_main, subsurface, medium, emitter
-)
-
-#Legacy texture editor panels
-from ..ui.textures import (
-    main as tex_main, scale, bitmap, checkerboard, gridtexture, mapping, wireframe, curvature
+    properties_render, properties_camera, properties_lamp, properties_mesh,
+    properties_world, properties_material, properties_texture
 )
 
 # Exporter Operators need to be imported to ensure initialisation
 from .. import operators
+from ..operators import material, node
 
 
 def _register_elm(elm, required=False):
     try:
         elm.COMPAT_ENGINES.add('MITSUBA_RENDER')
+
     except:
         if required:
             MtsLog('Failed to add Mitsuba to ' + elm.__name__)
@@ -93,6 +91,7 @@ _register_elm(bl_ui.properties_scene.SCENE_PT_rigid_body_world)
 _register_elm(bl_ui.properties_scene.SCENE_PT_custom_props)
 
 _register_elm(bl_ui.properties_world.WORLD_PT_context_world, required=True)
+_register_elm(bl_ui.properties_world.WORLD_PT_preview)
 
 _register_elm(bl_ui.properties_material.MATERIAL_PT_preview)
 
@@ -109,16 +108,15 @@ def mts_use_alternate_matview(self, context):
         row = self.layout.row()
         row.prop(mts_engine, "preview_depth")
         row.prop(mts_engine, "preview_spp")
-        row = self.layout.row()
-        row.prop(context.scene.mitsuba_world, "preview_object_size", text="Size")
-        row.prop(context.material.mitsuba_material, "preview_zoom", text="Zoom")
 
         global cached_depth
         global cached_spp
+
         if mts_engine.preview_depth != cached_depth or mts_engine.preview_spp != cached_spp:
             actualChange = cached_depth is not None
             cached_depth = mts_engine.preview_depth
             cached_spp = mts_engine.preview_spp
+
             if actualChange:
                 MtsLog("Forcing a repaint")
                 efutil.write_config_value('mitsuba', 'defaults', 'preview_spp', str(cached_spp))
@@ -129,10 +127,11 @@ _register_elm(bl_ui.properties_material.MATERIAL_PT_preview.append(mts_use_alter
 
 # Add radial distortion options to lens panel
 def mts_use_rdist(self, context):
-    if context.scene.render.engine == 'MITSUBA_RENDER' and context.camera.type not in ['ORTHO', 'PANO']:
+    if context.scene.render.engine == 'MITSUBA_RENDER' and context.camera.type not in {'ORTHO', 'PANO'}:
         col = self.layout.column()
         col.active = context.camera.mitsuba_camera.use_dof is not True
         col.prop(context.camera.mitsuba_camera, "use_rdist", text="Use Radial Distortion")
+
         if context.camera.mitsuba_camera.use_rdist is True:
             row = col.row(align=True)
             row.prop(context.camera.mitsuba_camera, "kc0", text="kc0")
@@ -146,6 +145,7 @@ def mts_use_dof(self, context):
     if context.scene.render.engine == 'MITSUBA_RENDER':
         row = self.layout.row()
         row.prop(context.camera.mitsuba_camera, "use_dof", text="Use Depth of Field")
+
         if context.camera.mitsuba_camera.use_dof is True:
             row = self.layout.row()
             row.prop(context.camera.mitsuba_camera, "apertureRadius", text="DOF Aperture Radius")
@@ -159,6 +159,7 @@ def render_start_options(self, context):
         col = self.layout.column()
         #row = self.layout.row()
         col.prop(context.scene.mitsuba_engine, "export_type", text="Export Type")
+
         if context.scene.mitsuba_engine.export_type == 'EXT':
             col.prop(context.scene.mitsuba_engine, "binary_name", text="Render Using")
         #if context.scene.mitsuba_engine.export_type == 'INT':
@@ -168,11 +169,23 @@ def render_start_options(self, context):
 _register_elm(bl_ui.properties_render.RENDER_PT_render.append(render_start_options))
 
 
+# Add shader type back to Node Editor header
+def mts_nodetree_shader_type(self, context):
+    snode = context.space_data
+
+    if context.scene.render.engine == 'MITSUBA_RENDER' and snode.tree_type == 'MitsubaShaderNodeTree':
+        self.layout.prop(snode, "shader_type", expand=True, icon_only=True)
+
+_register_elm(bl_ui.space_node.NODE_HT_header.append(mts_nodetree_shader_type))
+
+
 # compatible() copied from blender repository (netrender)
 def compatible(mod):
     mod = getattr(bl_ui, mod)
+
     for subclass in mod.__dict__.values():
         _register_elm(subclass)
+
     del mod
 
 compatible("properties_data_mesh")
@@ -238,11 +251,15 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 
         if sys.platform == 'darwin':
             self.output_dir = efutil.filesystem_path(bpy.app.tempdir)
+
         else:
             self.output_dir = efutil.temp_directory()
 
         if self.output_dir[-1] != '/':
             self.output_dir += '/'
+
+        output_file = os.path.join(self.output_dir, "matpreview.png")
+        self.output_file = output_file
 
         efutil.export_path = self.output_dir
 
@@ -255,34 +272,45 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
                 if mat is not None:
                     if not obj.name in objects_mats.keys():
                         objects_mats[obj] = []
+
                     objects_mats[obj].append(mat)
 
         # find objects that are likely to be the preview objects
         preview_objects = [o for o in objects_mats.keys() if o.name.startswith('preview')]
-        if len(preview_objects) < 1:
-            return
+
+        try:
+            pobj = preview_objects[0]
+
+        except:
+            pobj = None
 
         # find the materials attached to the likely preview object
-        likely_materials = objects_mats[preview_objects[0]]
-        if len(likely_materials) < 1:
-            print('no preview materials')
-            return
+        try:
+            likely_materials = objects_mats[pobj]
 
-        output_file = os.path.join(self.output_dir, "matpreview.png")
-        self.output_file = output_file
+        except:
+            likely_materials = None
 
-        pm = likely_materials[0]
-        pt = None
-        MtsLog('Rendering material preview: %s' % pm.name)
+        try:
+            pmat = likely_materials[0]
+            MtsLog('Rendering material preview: %s' % pmat.name)
+
+        except:
+            pmat = None
+
+        ptex = None
+
+        addon_prefs = MitsubaAddon.get_prefs()
 
         MM = MtsManager(
             scene.name,
-            api_type='API',
+            api_type=addon_prefs.preview_export if addon_prefs else 'API',
         )
         MtsManager.SetCurrentScene(scene)
         MtsManager.SetActive(MM)
 
         preview_context = MM.mts_context
+
         if preview_context.EXPORT_API_TYPE == 'FILE':
             mts_filename = os.path.join(
                 self.output_dir,
@@ -296,32 +324,34 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 
         try:
             export_materials.ExportedMaterials.clear()
-            export_materials.ExportedTextures.clear()
 
             from ..export import preview_scene
 
-            preview_scene.preview_scene(scene, preview_context, obj=preview_objects[0], mat=pm, tex=pt)
+            preview_scene.preview_scene(scene, preview_context, obj=pobj, mat=pmat, tex=ptex)
 
             preview_context.configure()
 
             refresh_interval = 2
 
             MM.create_render_context('INT')  # Try creating an internal render context for preview
+            render_ctx = MM.render_ctx
 
-            if MM.render_ctx.RENDER_API_TYPE == 'EXT':  # Internal rendering is not available, set some options for external rendering
-                MM.render_ctx.cmd_args.extend(['-b', '16',
+            if render_ctx.RENDER_API_TYPE == 'EXT':  # Internal rendering is not available, set some options for external rendering
+                render_ctx.cmd_args.extend(['-b', '16',
                     '-r', '%i' % refresh_interval])
 
-            MM.render_ctx.set_scene(preview_context)
-            MM.render_ctx.render_start(output_file)
+            render_ctx.set_scene(preview_context)
+            render_ctx.render_start(output_file)
 
             MM.start()
-            if MM.render_ctx.RENDER_API_TYPE == 'EXT':
+
+            if render_ctx.RENDER_API_TYPE == 'EXT':
                 MM.start_framebuffer_thread()
 
-            while MM.render_ctx.is_running() and not self.test_break():
+            while render_ctx.is_running() and not render_ctx.test_break():
                 self.render_update_timer = threading.Timer(1, self.process_wait_timer)
                 self.render_update_timer.start()
+
                 if self.render_update_timer.isAlive():
                     self.render_update_timer.join()
 
@@ -339,33 +369,42 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
         # OSX also has a special temp location that we should use
         fp = scene.render.filepath
         output_path_split = list(os.path.split(fp))
-        if sys.platform in ('win32', 'darwin') and output_path_split[0] == '/tmp':
+
+        if sys.platform in {'win32', 'darwin'} and output_path_split[0] == '/tmp':
             if sys.platform == 'darwin':
                 output_path_split[0] = efutil.filesystem_path(bpy.app.tempdir)
+
             else:
                 output_path_split[0] = efutil.temp_directory()
+
             fp = os.path.join(*output_path_split)
 
         scene_path = efutil.filesystem_path(fp)
 
         if os.path.isdir(scene_path):
             self.output_dir = scene_path
+
         else:
             self.output_dir = os.path.dirname(scene_path)
 
-        if self.output_dir[-1] not in ('/', '\\'):
+        if self.output_dir[-1] not in {'/', '\\'}:
             self.output_dir += '/'
 
         if scene.mitsuba_engine.export_type == 'INT':
             write_files = scene.mitsuba_engine.write_files
+
             if write_files:
                 api_type = 'FILE'
+
             else:
                 api_type = 'API'
+
                 if sys.platform == 'darwin':
                     self.output_dir = efutil.filesystem_path(bpy.app.tempdir)
+
                 else:
                     self.output_dir = efutil.temp_directory()
+
         else:
             api_type = 'FILE'
             write_files = True
@@ -413,8 +452,8 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
         return "%s.xml" % output_filename
 
     def rendering_behaviour(self, scene):
-        internal = (scene.mitsuba_engine.export_type in ['INT'])
-        write_files = scene.mitsuba_engine.write_files and (scene.mitsuba_engine.export_type in ['INT', 'EXT'])
+        internal = (scene.mitsuba_engine.export_type == 'INT')
+        write_files = scene.mitsuba_engine.write_files and (scene.mitsuba_engine.export_type in {'INT', 'EXT'})
         render = scene.mitsuba_engine.render
 
         # Handle various option combinations using simplified variable names !
@@ -423,18 +462,22 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
                 if render:
                     start_rendering = True
                     parse = True
+
                 else:
                     start_rendering = False
                     parse = False
+
             else:
                 # will always render
                 start_rendering = True
                 parse = False
+
         else:
             # external always writes files
             if render:
                 start_rendering = True
                 parse = False
+
             else:
                 start_rendering = False
                 parse = False
@@ -471,9 +514,10 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
                 if render_ctx.RENDER_API_TYPE == 'EXT':
                     self.MtsManager.start_framebuffer_thread()
 
-                while render_ctx.is_running() and not self.test_break():
+                while render_ctx.is_running() and not render_ctx.test_break():
                     self.render_update_timer = threading.Timer(1, self.process_wait_timer)
                     self.render_update_timer.start()
+
                     if self.render_update_timer.isAlive():
                         self.render_update_timer.join()
 

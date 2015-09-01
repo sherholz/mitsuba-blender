@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 # System Libs
 import os
 
@@ -28,15 +28,14 @@ import os
 from ..extensions_framework import util as efutil
 
 # Mitsuba libs
-from ..export import materials as export_materials
-from ..export import geometry as export_geometry
-from ..export import get_references
+from ..export.lamps import export_lamp
+from ..export.materials import ExportedMaterials
+from ..export.geometry import GeometryExporter
 from ..export import is_obj_visible
-#from ..export.materials import ExportedTextures, get_texture
 from ..outputs import MtsManager, MtsLog
 
 
-class SceneExporterProperties(object):
+class SceneExporterProperties:
     """
     Mimics the properties member contained within EXPORT_OT_Mitsuba operator
     """
@@ -48,7 +47,7 @@ class SceneExporterProperties(object):
     write_all_files = True
 
 
-class SceneExporter(object):
+class SceneExporter:
 
     properties = SceneExporterProperties()
 
@@ -93,7 +92,7 @@ class SceneExporter(object):
                 self.properties.filename
             )
 
-            if self.properties.directory[-1] not in ('/', '\\'):
+            if self.properties.directory[-1] not in {'/', '\\'}:
                 self.properties.directory += '/'
 
             efutil.export_path = self.properties.directory
@@ -105,14 +104,12 @@ class SceneExporter(object):
                     mts_filename,
                 )
 
-            export_materials.ExportedMaterials.clear()
-            export_materials.ExportedTextures.clear()
+            ExportedMaterials.clear()
 
             mts_context.data_add(scene.mitsuba_integrator.api_output())
 
-            # Export all the Participating media
-            for media in scene.mitsuba_media.media:
-                mts_context.exportMedium(scene, media)
+            # Export world environment
+            scene.world.mitsuba_nodes.export_node_tree(mts_context)
 
             # Always export all Cameras, active camera last
             allCameras = [cam for cam in scene.objects if cam.type == 'CAMERA' and cam.name != scene.camera.name]
@@ -123,14 +120,10 @@ class SceneExporter(object):
             # Get all renderable LAMPS
             renderableLamps = [lmp for lmp in scene.objects if is_obj_visible(scene, lmp) and lmp.type == 'LAMP']
             for lamp in renderableLamps:
-                params = lamp.data.mitsuba_lamp.api_output(mts_context, scene)
-                for p in get_references(params):
-                    if p['id'].endswith('-texture'):
-                        export_materials.ExportedTextures.texture(mts_context, export_materials.get_texture(p['id'][:len(p['id']) - 8]))
-                mts_context.data_add(params)
+                export_lamp(mts_context, lamp)
 
             # Export geometry
-            GE = export_geometry.GeometryExporter(mts_context, scene)
+            GE = GeometryExporter(mts_context, scene)
             GE.iterateScene(scene)
 
             mts_context.configure()
