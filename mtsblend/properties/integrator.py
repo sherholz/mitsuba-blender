@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 from .. import MitsubaAddon
 from ..extensions_framework import declarative_property_group
 from ..extensions_framework.validate import Logic_OR as O
@@ -514,6 +514,7 @@ class mitsuba_integrator(declarative_property_group):
                 'shadingSamples': self.shadingSamples,
                 'rayLength': self.rayLength,
             }
+
         elif self.type == 'direct':
             params = {
                 'emitterSamples': self.emitterSamples,
@@ -521,13 +522,15 @@ class mitsuba_integrator(declarative_property_group):
                 'strictNormals': self.strictNormals,
                 'hideEmitters': self.hideEmitters,
             }
-        elif self.type in ['path', 'volpath_simple', 'volpath']:
+
+        elif self.type in {'path', 'volpath_simple', 'volpath'}:
             params = {
                 'maxDepth': self.maxDepth,
                 'rrDepth': self.rrDepth,
                 'strictNormals': self.strictNormals,
                 'hideEmitters': self.hideEmitters,
             }
+
         elif self.type == 'bdpt':
             params = {
                 'maxDepth': self.maxDepth,
@@ -535,6 +538,7 @@ class mitsuba_integrator(declarative_property_group):
                 'sampleDirect': self.sampleDirect,
                 'rrDepth': self.rrDepth,
             }
+
         elif self.type == 'photonmapper':
             params = {
                 'directSamples': self.directSamples,
@@ -550,7 +554,8 @@ class mitsuba_integrator(declarative_property_group):
                 'hideEmitters': self.hideEmitters,
                 'rrDepth': self.rrDepth,
             }
-        elif self.type in ['ppm', 'sppm']:
+
+        elif self.type in {'ppm', 'sppm'}:
             params = {
                 'maxDepth': self.maxDepth,
                 'photonCount': self.photonCount,
@@ -559,6 +564,7 @@ class mitsuba_integrator(declarative_property_group):
                 'granularity': self.granularityPM,
                 'rrDepth': self.rrDepth,
             }
+
         elif self.type == 'pssmlt':
             params = {
                 'bidirectional': self.bidirectional,
@@ -569,6 +575,7 @@ class mitsuba_integrator(declarative_property_group):
                 'twoStage': self.twoStage,
                 'pLarge': self.pLarge,
             }
+
         elif self.type == 'mlt':
             params = {
                 'maxDepth': self.maxDepth,
@@ -582,6 +589,7 @@ class mitsuba_integrator(declarative_property_group):
                 'manifoldPerturbation': self.manifoldPerturbation,
                 'lambda': self.lambdaMP,
             }
+
         elif self.type == 'erpt':
             params = {
                 'maxDepth': self.maxDepth,
@@ -598,12 +606,14 @@ class mitsuba_integrator(declarative_property_group):
                 'lambda': self.lambdaMP,
                 'rrDepth': self.rrDepth,
             }
+
         elif self.type == 'ptracer':
             params = {
                 'maxDepth': self.maxDepth,
                 'rrDepth': self.rrDepth,
                 'granularity': self.granularityPT,
             }
+
         elif self.type == 'vpl':
             params = {
                 'maxDepth': self.maxDepth,
@@ -615,6 +625,7 @@ class mitsuba_integrator(declarative_property_group):
 
         if self.mitsuba_irrcache.use_irrcache:
             params = self.mitsuba_irrcache.api_output(params)
+
         if self.mitsuba_adaptive.use_adaptive:
             params = self.mitsuba_adaptive.api_output(params)
 
@@ -681,7 +692,9 @@ class mitsuba_adaptive(declarative_property_group):
                 'maxSampleFactor': self.maxSampleFactor,
                 'integrator': integrator,
             }
+
             return adaptive
+
         else:
             return integrator
 
@@ -806,6 +819,8 @@ class mitsuba_irrcache(declarative_property_group):
                 'resolution': self.resolution,
                 'integrator': integrator,
             }
+
             return irrcache
+
         else:
             return integrator

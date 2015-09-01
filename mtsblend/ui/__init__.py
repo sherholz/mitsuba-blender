@@ -20,4 +20,12 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
+
+def refresh_preview(cls, context):
+
+    if context.material is not None:
+        context.material.preview_render_type = context.material.preview_render_type
+
+    if context.texture is not None:
+        context.texture.type = context.texture.type

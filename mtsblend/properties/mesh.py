@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 from .. import MitsubaAddon
 
 from ..extensions_framework import declarative_property_group

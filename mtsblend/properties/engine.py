@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 import multiprocessing
 
 from ..extensions_framework import declarative_property_group
@@ -28,6 +28,7 @@ from ..extensions_framework import util as efutil
 from ..extensions_framework.validate import Logic_OR as O, Logic_AND as A
 
 from .. import MitsubaAddon
+from ..ui import refresh_preview
 
 
 @MitsubaAddon.addon_register_class
@@ -66,6 +67,7 @@ class mitsuba_testing(declarative_property_group):
 def get_cpu_count():
     try:
         return multiprocessing.cpu_count()
+
     except:
         return 1
 
@@ -88,11 +90,14 @@ class mitsuba_engine(declarative_property_group):
         apis = [
             ('EXT', 'External', 'EXT'),
         ]
+
         if addon_prefs is None:
             addon_prefs = MitsubaAddon.get_prefs()
+
             if addon_prefs is not None:
                 from ..outputs.pure_api import PYMTS_AVAILABLE
                 pymts_available = PYMTS_AVAILABLE
+
         if pymts_available:
             apis.append(('INT', 'Internal', 'INT'))
 
@@ -240,6 +245,7 @@ class mitsuba_engine(declarative_property_group):
             'default': int(efutil.find_config_value('mitsuba', 'defaults', 'preview_depth', '2')),
             'min': 2,
             'max': 10,
+            'update': refresh_preview,
             'save_in_preset': True
         },
         {
@@ -250,6 +256,7 @@ class mitsuba_engine(declarative_property_group):
             'default': int(efutil.find_config_value('mitsuba', 'defaults', 'preview_spp', '16')),
             'min': 1,
             'max': 128,
+            'update': refresh_preview,
             'save_in_preset': True
         },
     ]

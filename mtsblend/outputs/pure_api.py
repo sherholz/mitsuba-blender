@@ -20,10 +20,11 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 import os
 import sys
 import time
+import numpy
 from collections import OrderedDict
 
 import bpy
@@ -36,6 +37,7 @@ from ..extensions_framework import util as efutil
 from .. import MitsubaAddon
 
 from ..export import matrix_to_list
+from ..export import get_export_path
 from ..properties import ExportedVolumes
 
 from ..outputs import MtsLog, MtsManager
@@ -50,6 +52,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
         if sys.platform == 'win32':
             os.environ['PATH'] = mitsuba_path + os.pathsep + os.environ['PATH']
+
         elif sys.platform == 'darwin':
             mitsuba_path = mitsuba_path[:mitsuba_path.index('Mitsuba.app') + 11]
             os.environ['PATH'] = os.path.join(mitsuba_path, 'Contents', 'Frameworks') + os.pathsep + os.environ['PATH']
@@ -87,13 +90,15 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
             RTLD_DEEPBIND = 8
             oldflags = sys.getdlopenflags()
             sys.setdlopenflags(RTLD_DEEPBIND | RTLD_LAZY)
+
         import mitsuba
+
         if sys.platform == 'linux':
             sys.setdlopenflags(oldflags)
 
         from mitsuba.core import (
-            Scheduler, LocalWorker, Thread, Bitmap, Point2i, FileStream,
-            PluginManager, Spectrum, Vector, Point, Matrix4x4, Transform,
+            Scheduler, LocalWorker, Thread, Bitmap, Point2i, Vector2i, FileStream,
+            PluginManager, Spectrum, InterpolatedSpectrum, BlackBodySpectrum, Vector, Point, Matrix4x4, Transform,
             Appender, EInfo, EWarn, EError,
         )
         from mitsuba.render import (
@@ -112,10 +117,12 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
             def logProgress(self, progress, name, formatted, eta):
                 render_engine = MtsManager.RenderEngine
+
                 if not render_engine.is_preview:
                     percent = progress / 100
                     render_engine.update_progress(percent)
                     render_engine.update_stats('', 'Progress: %s - ETA: %s' % ('{:.2%}'.format(percent), eta))
+
                 else:
                     MtsLog('Progress message: %s' % formatted)
 
@@ -127,9 +134,10 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
         # Start up the scheduling system with one worker per local core
         for i in range(0, multiprocessing.cpu_count()):
             scheduler.registerWorker(LocalWorker(i, 'wrk%i' % i))
+
         scheduler.start()
 
-        class Export_Context(object):
+        class Export_Context:
             '''
             Python API
             '''
@@ -145,6 +153,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
             scene = None
             scene_data = None
             counter = 0
+            color_mode = 'rgb'
 
             def __init__(self, name):
                 global fresolver
@@ -165,9 +174,79 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
             # Funtions binding to Mitsuba extension API
 
-            def spectrum(self, r, g, b):
-                spec = Spectrum()
-                spec.fromLinearRGB(r, g, b)
+            def spectrum(self, value, mode=''):
+                if not mode:
+                    mode = self.color_mode
+
+                spec = None
+
+                if isinstance(value, (dict)):
+                    if 'type' in value:
+                        if value['type'] in {'rgb', 'srgb', 'spectrum'}:
+                            spec = self.spectrum(value['value'], value['type'])
+
+                        elif value['type'] == 'blackbody':
+                            spec = Spectrum()
+                            spec.fromContinuousSpectrum(BlackBodySpectrum(value['temperature']))
+                            spec.clampNegative()
+                            spec = spec * value['scale']
+
+                elif isinstance(value, (float, int)):
+                    spec = Spectrum(value)
+
+                elif isinstance(value, (str)):
+                    contspec = InterpolatedSpectrum(get_export_path(self, value))
+                    spec = Spectrum()
+                    spec.fromContinuousSpectrum(contspec)
+                    spec.clampNegative()
+
+                else:
+                    try:
+                        items = list(value)
+
+                        for i in items:
+                            if not isinstance(i, (float, int, tuple)):
+                                raise Exception('Error: spectrum list contains an unknown type')
+
+                    except:
+                        items = None
+
+                    if items:
+                        totitems = len(items)
+
+                        if isinstance(items[0], (float, int)):
+                            if totitems == 3 or totitems == 4:
+                                spec = Spectrum()
+
+                                if mode == 'srgb':
+                                    spec.fromSRGB(items[0], items[1], items[2])
+
+                                else:
+                                    spec.fromLinearRGB(items[0], items[1], items[2])
+
+                            elif totitems == 1:
+                                spec = Spectrum(items[0])
+
+                            else:
+                                MtsLog('Expected spectrum items to be 1, 3 or 4, got %d.' % len(items), type(items), items)
+
+                        else:
+                            spec = Spectrum()
+                            contspec = InterpolatedSpectrum()
+
+                            for spd in items:
+                                (wlen, val) = spd
+                                contspec.append(wlen, val)
+
+                            spec.fromContinuousSpectrum(contspec)
+                            spec.clampNegative()
+
+                    else:
+                        MtsLog('Unknown spectrum type.', type(value), value)
+
+                if spec is None:
+                    spec = Spectrum(0.0)
+
                 return spec
 
             def vector(self, x, y, z):
@@ -185,8 +264,10 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                     Point(target[0], target[2], -target[1]),
                     Vector(up[0], up[2], -up[1])
                 )
+
                 if scale is not None:
                     transform *= Transform.scale(Vector(scale, scale, 1))
+
                 return transform
 
             def transform_matrix(self, matrix):
@@ -195,11 +276,13 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 l = matrix_to_list(global_matrix * matrix)
                 mat = Matrix4x4(l)
                 transform = Transform(mat)
+
                 return transform
 
             def exportMedium(self, scene, medium):
                 if medium.name in self.exported_media:
                     return
+
                 self.exported_media += [medium.name]
 
                 params = medium.api_output(self, scene)
@@ -208,10 +291,12 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
             def data_add(self, mts_dict):
                 if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
-                    return
+                    return False
 
                 self.scene_data.update([('elm%i' % self.counter, mts_dict)])
                 self.counter += 1
+
+                return True
 
             def configure(self):
                 '''
@@ -242,7 +327,11 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 self.size = self.film.getSize()
                 self.bitmap = Bitmap(Bitmap.ERGBA, Bitmap.EFloat32, self.size)
                 self.bitmap.clear()
+                self.buffer = None
+                self.fast_buffer = True
+                self.do_cancel = False
                 self.time = 0
+                self.delay = .5
                 self.ctx.queue.registerListener(self)
 
             def workBeginEvent(self, job, wu, thr):
@@ -262,40 +351,77 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 self.film.develop(Point2i(0), self.size, Point2i(0), self.bitmap)
                 self.update_result(render_end=True)
 
-            def get_bitmap_buffer(self):
+            def get_bitmap_buffer(self, passes=1):
                 bitmap_clone = self.bitmap.clone()
                 bitmap_clone.flipVertically()
-                return bitmap_clone.buffer()
+
+                if passes == 1:
+                    return bitmap_clone.buffer()
+
+                if self.buffer is None:
+                    self.buffer = Bitmap(Bitmap.ERGBA, Bitmap.EFloat32, Vector2i(self.size[0], self.size[1] * passes))
+                    self.buffer.clear()
+
+                self.buffer.copyFrom(bitmap_clone)
+
+                return self.buffer.buffer()
+
+            def get_bitmap_list(self):
+                self.delay = 1.5
+                bitmap_list = numpy.ndarray((self.size[0] * self.size[1], 4), buffer=self.get_bitmap_buffer(), dtype='float32')  # .tolist()
+
+                return bitmap_list
 
             def timed_update_result(self):
                 now = time.time()
-                if now - self.time > 0.5:
+
+                if now - self.time > self.delay:
                     self.time = now
                     self.update_result()
 
             def update_result(self, render_end=False):
+                if self.ctx.test_break():
+                    return
+
                 try:
                     render_result = self.ctx.render_engine.begin_result(0, 0, self.size[0], self.size[1])
 
                     if render_result is None:
-                        err_msg = 'ERROR: Cannot not load render result: begin_result() returned None. Render will terminate'
+                        err_msg = 'ERROR: Cannot not load render result: begin_result() returned None.'
+                        self.do_cancel = True
                         raise Exception(err_msg)
 
-                    bitmap_buffer = self.get_bitmap_buffer()
-                    render_result.layers.foreach_set('rect', bitmap_buffer)
+                    if self.fast_buffer:
+                        passes = len(render_result.layers[0].passes)
+                        bitmap_buffer = self.get_bitmap_buffer(passes)
+                        render_result.layers[0].passes.foreach_set('rect', bitmap_buffer)
+
+                    else:
+                        bitmap_buffer = self.get_bitmap_list()
+                        render_result.layers[0].passes[0].rect = bitmap_buffer
 
                     self.ctx.render_engine.end_result(render_result, 0)
+
                 except Exception as err:
                     MtsLog('%s' % err)
-                    self.ctx.render_stop()
 
-        class Render_Context(object):
+                    if self.fast_buffer:
+                        self.fast_buffer = False
+
+                    else:
+                        self.do_cancel = True
+
+                    if self.do_cancel:
+                        self.ctx.render_cancel()
+
+        class Render_Context:
             '''
             Mitsuba Internal Python API Render
             '''
 
             RENDER_API_TYPE = 'INT'
 
+            cancelled = False
             context_name = ''
             thread = None
             scheduler = None
@@ -323,6 +449,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
                 if self.render_engine.is_preview:
                     verbosity = 'quiet'
+
                 else:
                     verbosity = self.render_scene.mitsuba_engine.log_verbosity
 
@@ -333,12 +460,15 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                     scene_path, scene_file = os.path.split(efutil.filesystem_path(export_context.file_names[0]))
                     self.fresolver.appendPath(scene_path)
                     self.scene = SceneHandler.loadScene(self.fresolver.resolve(scene_file))
+
                 elif export_context.EXPORT_API_TYPE == 'PURE':
                     self.scene = export_context.scene
+
                 else:
                     raise Exception('Unknown exporter type')
 
             def render_start(self, dest_file):
+                self.cancelled = False
                 self.queue = RenderQueue()
                 self.buffer = MtsBufferDisplay(self)
                 self.job = RenderJob('mtsblend_render', self.scene, self.queue)
@@ -353,6 +483,13 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 # Wait for the render job to finish
                 self.queue.waitLeft(0)
 
+            def render_cancel(self):
+                self.cancelled = True
+                MtsLog('Cancelling render.')
+
+            def test_break(self):
+                return self.render_engine.test_break() or self.cancelled
+
             def is_running(self):
                 return self.job.isRunning()
 
@@ -362,7 +499,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
             def wait_timer(self):
                 pass
 
-        class Serializer(object):
+        class Serializer:
             '''
             Helper Class for fast mesh export in File API
             '''
@@ -381,14 +518,18 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 vertices = mesh.vertices[0].as_pointer()
 
                 uv_textures = mesh.tessface_uv_textures
+
                 if len(uv_textures) > 0 and mesh.uv_textures.active and uv_textures.active.data:
                     texCoords = uv_textures.active.data[0].as_pointer()
+
                 else:
                     texCoords = 0
 
                 vertex_color = mesh.tessface_vertex_colors.active
+
                 if vertex_color:
                     vertexColors = vertex_color.data[0].as_pointer()
+
                 else:
                     vertexColors = 0
 

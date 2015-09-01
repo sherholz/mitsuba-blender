@@ -20,7 +20,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
+
 import math
 
 from ..extensions_framework import declarative_property_group
@@ -42,8 +42,8 @@ def CameraMediumParameter(attr, name):
         {
             'type': 'prop_search',
             'attr': attr,
-            'src': lambda s, c: s.scene.mitsuba_media,
-            'src_attr': 'media',
+            'src': lambda s, c: s.scene.mitsuba_nodegroups,
+            'src_attr': 'medium',
             'trg': lambda s, c: c.mitsuba_camera,
             'trg_attr': '%s_medium' % attr,
             'name': name
@@ -158,6 +158,7 @@ class mitsuba_camera(declarative_property_group):
         '''
         if matrix is None:
             matrix = camera.matrix_world.copy()
+
         ws = get_worldscale()
         matrix *= ws
         ws = get_worldscale(as_scalematrix=False)
@@ -171,6 +172,7 @@ class mitsuba_camera(declarative_property_group):
         forwards = -matrix[2]
         target = (pos + forwards)
         up = matrix[1]
+
         return (pos, target, up)
 
     def api_output(self, mts_context, scene, camera=None):
@@ -186,8 +188,10 @@ class mitsuba_camera(declarative_property_group):
 
         if camera is None:
             camera = next(cam for cam in scene.objects if cam.type == 'CAMERA' and cam.data.name == self.id_data.name)
+
             if camera is None:
                 MtsLog("Error: Camera not found!")
+
                 return
 
         cam_dict = {}
@@ -199,8 +203,10 @@ class mitsuba_camera(declarative_property_group):
 
         # detect sensor type
         cam_dict['type'] = 'orthographic' if cam.type == 'ORTHO' else 'spherical' if cam.type == 'PANO' else 'perspective'
+
         if mcam.use_dof is True:
             cam_dict['type'] = 'telecentric' if cam.type == 'ORTHO' else 'thinlens'
+
         elif mcam.use_rdist is True and cam.type == 'PERSP':
             cam_dict['type'] = 'perspective_rdist'
 
@@ -213,9 +219,11 @@ class mitsuba_camera(declarative_property_group):
             if cam.sensor_fit == 'VERTICAL':
                 sensor = cam.sensor_height
                 cam_dict['fovAxis'] = 'y'
+
             else:
                 sensor = cam.sensor_width
                 cam_dict['fovAxis'] = 'x'
+
             cam_dict['fov'] = math.degrees(2.0 * math.atan((sensor / 2.0) / cam.lens))
 
         cam_dict['nearClip'] = cam.clip_start
@@ -224,6 +232,7 @@ class mitsuba_camera(declarative_property_group):
         if mcam.use_dof is True:
             cam_dict['apertureRadius'] = mcam.apertureRadius
             cam_dict['focusDistance'] = cam.dof_distance
+
         elif mcam.use_rdist is True and cam.type == 'PERSP':
             cam_dict['kc'] = '%d, %d' % (mcam.kc0, mcam.kc1)
 
@@ -259,11 +268,13 @@ class mitsuba_film(declarative_property_group):
                 ('rgb', 'RGB', 'rgb'),
                 ('rgba', 'RGBA', 'rgba'),
             ]
+
         if self.fileFormat == 'jpeg':
             return [
                 ('rgb', 'RGB', 'rgb'),
                 ('luminance', 'BW', 'luminance'),
             ]
+
         else:
             return [
                 ('rgb', 'RGB', 'rgb'),
@@ -276,10 +287,13 @@ class mitsuba_film(declarative_property_group):
         if self.fileFormat == 'openexr':
             self.type = 'hdrfilm'
             self.fileExtension = 'exr'
+
         else:
             self.type = 'ldrfilm'
+
             if self.fileFormat == 'jpeg':
                 self.fileExtension = 'jpg'
+
             else:
                 self.fileExtension = 'png'
 
@@ -534,28 +548,36 @@ class mitsuba_film(declarative_property_group):
 
         film_dict['fileFormat'] = self.fileFormat
         film_dict['pixelFormat'] = self.pixelFormat
+
         if self.fileFormat == 'openexr':
             film_dict['componentFormat'] = self.componentFormat
             film_dict['attachLog'] = self.attachLog
+
         if self.type == 'ldrfilm':
             film_dict['tonemapMethod'] = self.tonemapMethod
             film_dict['gamma'] = self.gamma
+
             if self.tonemapMethod == 'reinhard':
                 film_dict['key'] = self.key
                 film_dict['burn'] = self.burn
+
             else:
                 film_dict['exposure'] = self.exposure
+
         film_dict['banner'] = self.banner
         film_dict['highQualityEdges'] = self.highQualityEdges
 
         rfilt_dict = {}
         rfilt_dict['type'] = self.rfilter
-        if self.rfilter in ['gaussian', 'mitchell', 'lanczos']:
+
+        if self.rfilter in {'gaussian', 'mitchell', 'lanczos'}:
             if self.rfilter == 'gaussian':
                 rfilt_dict['stddev'] = self.stddev
+
             elif self.rfilter == 'mitchell':
                 rfilt_dict['B'] = self.B
                 rfilt_dict['C'] = self.C
+
             else:
                 rfilt_dict['lobes'] = self.lobes
 

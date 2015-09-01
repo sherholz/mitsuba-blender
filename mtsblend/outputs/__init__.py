@@ -20,7 +20,6 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
-#
 
 import os
 import importlib
@@ -66,6 +65,7 @@ class MtsFilmDisplay(TimerThread):
 
                 if render_end:
                     MtsLog('Final render result (%ix%i)' % (xres, yres))
+
                 elif self.LocalStorage['render_ctx'].RENDER_API_TYPE == 'EXT':
                     MtsLog('Updating render result (%ix%i)' % (xres, yres))
 
@@ -81,13 +81,17 @@ class MtsFilmDisplay(TimerThread):
 
                 if self.LocalStorage['render_ctx'].RENDER_API_TYPE == 'INT':
                     bitmap_buffer = self.LocalStorage['render_ctx'].get_bitmap_buffer()
-                    result.layers.foreach_set('rect', bitmap_buffer)
+                    lay.passes.foreach_set('rect', bitmap_buffer)
+
                 elif os.path.exists(self.LocalStorage['RE'].output_file):
                     lay.load_from_file(self.LocalStorage['RE'].output_file)
+
                 else:
                     err_msg = 'ERROR: Could not load render result from %s' % self.LocalStorage['RE'].output_file
                     MtsLog(err_msg)
+
                 self.LocalStorage['RE'].end_result(result, 0)
+
         else:
             err_msg = 'ERROR: MtsFilmThread started with insufficient parameters. MtsFilmThread will terminate'
             MtsLog(err_msg)
@@ -98,7 +102,7 @@ FBACK_API = None
 PYMTS_API = None
 
 
-class MtsManager(object):
+class MtsManager:
     '''
     Manage a Context object for rendering.
 
@@ -171,40 +175,41 @@ class MtsManager(object):
         '''
         global FBACK_API
         global PYMTS_API
+
         if FBACK_API is None:
             # LOAD API TYPES
             # Write conventional xml files and use external process for rendering
             FBACK_API = importlib.import_module('.file_api', 'mtsblend.outputs')
             # Access Mitsuba through python bindings
             PYMTS_API = importlib.import_module('.pure_api', 'mtsblend.outputs')
+
         self.fback_api = FBACK_API
         self.pymts_api = PYMTS_API
 
         if api_type == 'API' and self.pymts_api.PYMTS_AVAILABLE:
             Exporter = self.pymts_api.Export_Context
-        elif api_type == 'FILE' or (api_type == 'API' and not self.pymts_api.PYMTS_AVAILABLE):
-            Exporter = self.fback_api.Export_Context
+
         else:
-            raise Exception('Unknown exporter API type "%s"' % api_type)
+            Exporter = self.fback_api.Export_Context
 
         if manager_name is not '':
             self.manager_name = manager_name
             manager_name = ' (%s)' % manager_name
-        self.mts_context = Exporter('MtsContext %04i%s' % (MtsManager.get_context_number(), manager_name))
 
+        self.mts_context = Exporter('MtsContext %04i%s' % (MtsManager.get_context_number(), manager_name))
         self.reset()
 
     def create_render_context(self, render_type='INT'):
         if MtsManager.RenderEngine is None:
             raise Exception('Error creating MtsManager: Render Engine is not set.')
+
         self.render_engine = MtsManager.RenderEngine
 
         if render_type == 'INT' and self.pymts_api.PYMTS_AVAILABLE:
             Renderer = self.pymts_api.Render_Context
-        elif render_type == 'EXT' or (render_type == 'INT' and not self.pymts_api.PYMTS_AVAILABLE):
-            Renderer = self.fback_api.Render_Context
+
         else:
-            raise Exception('Unknown render API type "%s"' % api_type)
+            Renderer = self.fback_api.Render_Context
 
         self.render_ctx = Renderer(self.manager_name)
 
@@ -238,10 +243,13 @@ class MtsManager(object):
         self.fb_thread.LocalStorage['resolution'] = scene.camera.data.mitsuba_camera.mitsuba_film.resolution(scene)
         self.fb_thread.LocalStorage['RE'] = self.render_engine
         self.fb_thread.LocalStorage['render_ctx'] = self.render_ctx
+
         if self.render_engine.is_preview:
             self.fb_thread.set_kick_period(2)
+
         else:
             self.fb_thread.set_kick_period(scene.mitsuba_engine.refresh_interval)
+
         self.fb_thread.start()
 
     def reset(self):
@@ -258,6 +266,7 @@ class MtsManager(object):
 
         if not self.started:
             return
+
         self.started = False
 
         # Stop the framebuffer update thread
