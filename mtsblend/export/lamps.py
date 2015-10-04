@@ -26,6 +26,7 @@ import math
 import mathutils
 
 from ..export import compute_normalized_radiance
+from ..outputs.file_api import FileExportContext
 
 
 def lamp_dict_to_nodes(ntree, params):
@@ -33,7 +34,7 @@ def lamp_dict_to_nodes(ntree, params):
 
     if params['type'] == 'rectangle':
         shader = ntree.nodes.new('MtsNodeEmitter_area')
-        radiance = params['emitter']['radiance']
+        radiance = [float(x) for x in params['emitter']['radiance']['value'].split()]
         toworld = params['toWorld']
 
         if toworld['type'] == 'scale':
@@ -49,36 +50,36 @@ def lamp_dict_to_nodes(ntree, params):
     elif params['type'] == 'sphere':
         shader = ntree.nodes.new('MtsNodeEmitter_point')
         shader.size = params['radius'] * 2
-        radiance = params['emitter']['radiance']
+        radiance = [float(x) for x in params['emitter']['radiance']['value'].split()]
 
     elif params['type'] == 'point':
         shader = ntree.nodes.new('MtsNodeEmitter_point')
         shader.size = 0
-        radiance = params['intensity']
+        radiance = [float(x) for x in params['intensity']['value'].split()]
 
     elif params['type'] == 'spot':
         shader = ntree.nodes.new('MtsNodeEmitter_spot')
         shader.cutoffAngle = params['cutoffAngle']
         shader.spotBlend = 1 - (params['beamWidth'] / params['cutoffAngle'])
-        radiance = params['intensity']
+        radiance = [float(x) for x in params['intensity']['value'].split()]
 
     elif params['type'] == 'directional':
         shader = ntree.nodes.new('MtsNodeEmitter_directional')
-        radiance = params['irradiance']
+        radiance = [float(x) for x in params['irradiance']['value'].split()]
 
     if shader:
 
         if 'emitter' in params and 'scale' in params['emitter']:
-            shader.inputs['Radiance'].default_value = radiance / params['emitter']['scale']
+            shader.inputs['Radiance'].default_value = [x / params['emitter']['scale'] for x in radiance]
             shader.scale = params['emitter']['scale']
 
         elif 'scale' in params:
-            shader.inputs['Radiance'].default_value = radiance / params['scale']
+            shader.inputs['Radiance'].default_value = [x / params['scale'] for x in radiance]
             shader.scale = params['scale']
 
-        elif 'bsdf' in params:
-            shader.inputs['Radiance'].default_value = params['bsdf']['reflectance']
-            shader.scale = max(radiance / params['bsdf']['reflectance'])
+        #elif 'bsdf' in params:
+            #shader.inputs['Radiance'].default_value = params['bsdf']['reflectance']
+            #shader.scale = max(radiance / params['bsdf']['reflectance'])
 
         else:
             compute_normalized_radiance(shader, radiance)
@@ -86,7 +87,10 @@ def lamp_dict_to_nodes(ntree, params):
     return shader
 
 
-def blender_lamp_to_dict(lamp):
+def blender_lamp_to_dict(mts_context, lamp):
+    if mts_context is None:
+        mts_context = FileExportContext()
+
     params = {}
 
     if lamp.type == 'AREA':
@@ -111,12 +115,12 @@ def blender_lamp_to_dict(lamp):
             'toWorld': toworld,
             'emitter': {
                 'type': 'area',
-                'radiance': lamp.color * lamp.energy * boost,
+                'radiance': mts_context.spectrum(lamp.color * lamp.energy * boost),
                 'scale': lamp.energy * boost,
             },
             'bsdf': {
                 'type': 'diffuse',
-                'reflectance': lamp.color,
+                'reflectance': mts_context.spectrum(lamp.color),
             },
         }
 
@@ -128,22 +132,22 @@ def blender_lamp_to_dict(lamp):
             boost = max(1.0, 1 / (4 * math.pi * radius * radius)) * 20
             params.update({
                 'type': 'sphere',
-                'radius': lamp.shadow_soft_size / 2.0,
+                'radius': radius,
                 'emitter': {
                     'type': 'area',
-                    'radiance': lamp.color * lamp.energy * boost,
+                    'radiance': mts_context.spectrum(lamp.color * lamp.energy * boost),
                     'scale': lamp.energy * boost,
                 },
                 'bsdf': {
                     'type': 'diffuse',
-                    'reflectance': lamp.color,
+                    'reflectance': mts_context.spectrum(lamp.color),
                 },
             })
 
         else:
             params.update({
                 'type': 'point',
-                'intensity': lamp.color * lamp.energy * 20,
+                'intensity': mts_context.spectrum(lamp.color * lamp.energy * 20),
                 'scale': lamp.energy * 20,
             })
 
@@ -152,14 +156,14 @@ def blender_lamp_to_dict(lamp):
             'type': 'spot',
             'cutoffAngle': lamp.spot_size * 180 / (math.pi * 2.0),
             'beamWidth': (1 - lamp.spot_blend) * (lamp.spot_size * 180 / (math.pi * 2.0)),
-            'intensity': lamp.color * lamp.energy * 20,
+            'intensity': mts_context.spectrum(lamp.color * lamp.energy * 20),
             'scale': lamp.energy * 20,
         }
 
     elif lamp.type in {'SUN', 'HEMI'}:
         params = {
             'type': 'directional',
-            'irradiance': lamp.color * lamp.energy,
+            'irradiance': mts_context.spectrum(lamp.color * lamp.energy),
             'scale': lamp.energy,
         }
 
@@ -167,7 +171,7 @@ def blender_lamp_to_dict(lamp):
 
 
 def blender_lamp_to_nodes(ntree, lamp):
-    params = blender_lamp_to_dict(lamp)
+    params = blender_lamp_to_dict(None, lamp)
 
     if params:
         return lamp_dict_to_nodes(ntree, params)
@@ -175,17 +179,26 @@ def blender_lamp_to_nodes(ntree, lamp):
     return None
 
 
-def export_lamp(mts_context, lamp):
-    if not lamp.data.mitsuba_nodes.export_node_tree(mts_context, lamp):
-        params = blender_lamp_to_dict(lamp.data)
+def export_lamp_instance(mts_context, instance, name):
+    lamp = instance.obj.data
+
+    ntree = lamp.mitsuba_nodes.get_node_tree()
+    params = {}
+
+    if ntree:
+        params = ntree.get_nodetree_dict(mts_context, lamp)
+
+    if not params:
+        params = blender_lamp_to_dict(mts_context, lamp)
 
         if params['type'] in {'rectangle', 'sphere'}:
-            params['emitter'].pop('scale')
+            del params['emitter']['scale']
 
         else:
-            params.pop('scale')
+            del params['scale']
 
-        if params['type'] == 'rectangle':
+    if params and 'type' in params:
+        if params['type'] in {'rectangle', 'disk'}:
             toworld = params.pop('toWorld')
 
             if 'value' in toworld:
@@ -196,26 +209,24 @@ def export_lamp(mts_context, lamp):
                 size_y = toworld['y']
 
             params.update({
-                'id': '%s-arealight' % lamp.name,
-                'toWorld': mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((size_x, 0, 0, 0), (0, size_y, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))),
+                'id': '%s-arealight' % name,
+                'toWorld': mts_context.animated_transform(
+                    [(t, m * mathutils.Matrix(((size_x, 0, 0, 0), (0, size_y, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))) for (t, m) in instance.motion]
+                ),
             })
 
         elif params['type'] in {'point', 'sphere'}:
             params.update({
-                'id': '%s-pointlight' % lamp.name,
-                'toWorld': mts_context.transform_matrix(lamp.matrix_world),
+                'id': '%s-pointlight' % name,
+                'toWorld': mts_context.animated_transform(instance.motion),
             })
 
-        elif params['type'] == 'spot':
+        elif params['type'] in {'spot', 'directional', 'collimated'}:
             params.update({
-                'id': '%s-spotlight' % lamp.name,
-                'toWorld': mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))),
-            })
-
-        elif params['type'] == 'directional':
-            params.update({
-                'id': '%s-directionallight' % lamp.name,
-                'toWorld': mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))),
+                'id': '%s-%slight' % (name, params['type']),
+                'toWorld': mts_context.animated_transform(
+                    [(t, m * mathutils.Matrix(((-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))) for (t, m) in instance.motion]
+                ),
             })
 
         mts_context.data_add(params)

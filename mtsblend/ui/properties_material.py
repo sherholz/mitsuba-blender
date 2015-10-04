@@ -23,13 +23,42 @@
 
 from bpy.types import Menu, Panel
 
+import bl_ui
 from bl_ui.properties_material import MaterialButtonsPanel
 
+from ..extensions_framework import util as efutil
+
 from .. import MitsubaAddon
-from ..nodes import node_tree_selector_draw, panel_node_draw
+from ..ui import node_tree_selector_draw, panel_node_draw
 
 from ..data.ior import ior_tree
 from ..data.materials import medium_material_tree
+
+cached_spp = None
+cached_depth = None
+
+
+# Add view buttons for viewcontrol to preview panels
+def mts_use_alternate_matview(self, context):
+    if context.scene.render.engine == 'MITSUBA_RENDER':
+        mts_engine = context.scene.mitsuba_engine
+        row = self.layout.row()
+        row.prop(mts_engine, "preview_depth")
+        row.prop(mts_engine, "preview_spp")
+
+        global cached_depth
+        global cached_spp
+
+        if mts_engine.preview_depth != cached_depth or mts_engine.preview_spp != cached_spp:
+            actualChange = cached_depth is not None
+            cached_depth = mts_engine.preview_depth
+            cached_spp = mts_engine.preview_spp
+
+            if actualChange:
+                efutil.write_config_value('mitsuba', 'defaults', 'preview_spp', str(cached_spp))
+                efutil.write_config_value('mitsuba', 'defaults', 'preview_depth', str(cached_depth))
+
+bl_ui.properties_material.MATERIAL_PT_preview.append(mts_use_alternate_matview)
 
 
 def draw_generator(operator, m_names):

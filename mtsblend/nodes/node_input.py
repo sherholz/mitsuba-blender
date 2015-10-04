@@ -64,22 +64,22 @@ class MtsNodeInput_rgb(mitsuba_input_node, Node):
     )
 
     gain_r = FloatProperty(
-        name='Red Gain',
-        description='Red Gain',
+        name='Red Scale',
+        description='Scale amount for red value',
         default=1.0,
         min=0.0,
     )
 
     gain_g = FloatProperty(
-        name='Green Gain',
-        description='Green Gain',
+        name='Green Scale',
+        description='Scale amount for green value',
         default=1.0,
         min=0.0,
     )
 
     gain_b = FloatProperty(
-        name='Blue Gain',
-        description='Blue Gain',
+        name='Blue Scale',
+        description='Scale amount for blue value',
         default=1.0,
         min=0.0,
     )
@@ -91,10 +91,11 @@ class MtsNodeInput_rgb(mitsuba_input_node, Node):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, 'color_mode')
-        row = layout.row()
-        row.prop(self, 'color')
+        col = layout.column()
+        col.template_color_picker(self, 'color', value_slider=True)
+        col.prop(self, 'color', text='')
         row = layout.row(align=True)
-        row.label('RGB Gain:')
+        row.label('RGB Scale:')
         row.prop(self, 'gain_r', text='')
         row.prop(self, 'gain_g', text='')
         row.prop(self, 'gain_b', text='')
@@ -112,7 +113,7 @@ class MtsNodeInput_rgb(mitsuba_input_node, Node):
     def get_color_dict(self, mts_context):
         return self.get_spectrum_dict(mts_context)
 
-    def set_spectrum_socket(self, ntree, params):
+    def set_from_dict(self, ntree, params):
         if params['type'] == 'srgb':
             self.color_mode == 'srgb'
 
@@ -239,7 +240,7 @@ class MtsNodeInput_spectrum(mitsuba_input_node, Node):
     def get_color_dict(self, mts_context):
         return self.get_spectrum_dict(mts_context)
 
-    def set_spectrum_socket(self, ntree, params):
+    def set_from_dict(self, ntree, params):
         try:
             items = params['value'].split(', ')
             num_samples = len(items)
@@ -291,7 +292,7 @@ class MtsNodeInput_spdfile(mitsuba_input_node, Node):
     def get_color_dict(self, mts_context):
         return self.get_spectrum_dict(mts_context)
 
-    def set_spectrum_socket(self, ntree, params):
+    def set_from_dict(self, ntree, params):
         if 'filename' in params:
             self.filename == params['filename']
 
@@ -326,7 +327,7 @@ class MtsNodeInput_blackbody(mitsuba_input_node, Node):
     def get_color_dict(self, mts_context):
         return self.get_spectrum_dict(mts_context)
 
-    def set_spectrum_socket(self, ntree, params):
+    def set_from_dict(self, ntree, params):
         if 'temperature' in params:
             self.temperature == params['temperature']
 

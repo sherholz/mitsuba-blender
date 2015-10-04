@@ -25,8 +25,10 @@ import mathutils
 
 from ..extensions_framework import util as efutil
 
+from ..export import Instance
 from ..export.geometry import GeometryExporter
 from ..export.materials import export_material
+from ..export.environment import export_world_environment
 
 
 def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
@@ -109,19 +111,11 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
         pv_export_shape = True
         emitter = False
 
-        if mat.preview_render_type == 'SPHERE':
-            # Sphere
-            pass
-        if mat.preview_render_type == 'CUBE':
-            # Cube
-            pass
-        if mat.preview_render_type == 'MONKEY':
-            # Monkey
-            pass
         if mat.preview_render_type == 'HAIR':
             # Hair
             pv_export_shape = False
-        if mat.preview_render_type == 'SPHERE_A':
+
+        elif mat.preview_render_type == 'SPHERE_A':
             # Sphere A
             pv_export_shape = False
 
@@ -129,28 +123,29 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
             GE = GeometryExporter(mts_context, scene)
             GE.is_preview = True
             GE.geometry_scene = scene
-            for mesh_mat, mesh_name, mesh_type, mesh_params in GE.buildSerializedMesh(obj):
+
+            for mesh_mat, mesh_name, mesh_type, mesh_params, seq in GE.writeMesh(obj, file_format='serialized'):
                 if tex is not None:
                     # Tex
                     pass
+
                 else:
                     shape = {
                         'type': mesh_type,
                         'id': '%s_%s-shape' % (obj.name, mesh_name),
-                        'toWorld': mts_context.transform_matrix(obj.matrix_world)
+                        'toWorld': mts_context.transform_matrix(obj.matrix_world.copy())
                     }
                     shape.update(mesh_params)
 
                     mat_params = export_material(mts_context, mat)
+
                     if mat_params:
                         shape.update(mat_params)
+
                         if 'emitter' in mat_params:
                             emitter = True
 
                     mts_context.data_add(shape)
-        else:
-            # else
-            pass
 
         if emitter:
             return
@@ -184,5 +179,5 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
             'film': film,
         })
 
-        if not scene.world.mitsuba_nodes.export_node_tree(mts_context):
-            mts_context.data_add({'type': 'constant', 'radiance': mts_context.spectrum(0)})
+        world_environment = Instance(scene.world, None)
+        export_world_environment(mts_context, world_environment, is_preview=True)

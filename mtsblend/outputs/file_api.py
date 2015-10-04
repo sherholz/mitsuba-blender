@@ -21,10 +21,11 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 
+from collections import OrderedDict
+
 import os
 import sys
 import subprocess
-from collections import OrderedDict
 
 from bpy_extras.io_utils import axis_conversion
 
@@ -34,11 +35,191 @@ from ..extensions_framework import util as efutil
 # Exporter libs
 from .. import MitsubaAddon
 
+from ..export import ExportContextBase
 from ..export import matrix_to_list
 from ..export import get_output_subdir
 from ..export import get_export_path
 from ..outputs import MtsLog, MtsManager
 from ..properties import ExportedVolumes
+
+
+mitsuba_props = {
+    'ref',
+    'lookat',
+    'scale',
+    'matrix',
+    'point',
+    'vector',
+    'rgb',
+    'srgb',
+    'blackbody',
+    'spectrum',
+}
+
+mitsuba_tags = {
+    'scene',
+    'shape',
+    'sampler',
+    'film',
+    'integrator',
+    'texture',
+    'sensor',
+    'emitter',
+    'subsurface',
+    'medium',
+    'volume',
+    'phase',
+    'bsdf',
+    'rfilter',
+    'transform',
+    'animation',
+}
+
+# Tree for plugin types
+mitsuba_plugin_tree = [
+    # Shapes
+    ('shape', {
+        'cube',
+        'sphere',
+        'cylinder',
+        'rectangle',
+        'disk',
+        'shapegroup',
+        'instance',
+        'serialized',
+        'ply',
+        'hair',
+        'deformable',
+    }),
+    # Surface scattering models
+    ('bsdf', {
+        'diffuse',
+        'roughdiffuse',
+        'dielectric',
+        'thindielectric',
+        'roughdielectric',
+        'conductor',
+        'roughconductor',
+        'plastic',
+        'roughplastic',
+        'coating',
+        'roughcoating',
+        'bumpmap',
+        'phong',
+        'ward',
+        'mixturebsdf',
+        'blendbsdf',
+        'mask',
+        'twosided',
+        'difftrans',
+        'hk',
+        #'irawan',
+        'null',
+    }),
+    # Textures
+    ('texture', {
+        'bitmap',
+        'checkerboard',
+        'gridtexture',
+        'scale',
+        'vertexcolors',
+        'wireframe',
+        'curvature',
+    }),
+    # Subsurface
+    ('subsurface', {
+        'dipole',
+        'singlescatter',
+    }),
+    # Medium
+    ('medium', {
+        'homogeneous',
+        'heterogeneous',
+    }),
+    # Phase
+    ('phase', {
+        'isotropic',
+        'hg',
+    }),
+    # Volume
+    ('volume', {
+        'constvolume',
+        'gridvolume',
+    }),
+    # Emitters
+    ('emitter', {
+        'point',
+        'area',
+        'spot',
+        'directional',
+        'collimated',
+        'constant',
+        'envmap',
+        'sun',
+        'sky',
+        'sunsky',
+    }),
+    # Sensors
+    ('sensor', {
+        'perspective',
+        'thinlens',
+        'orthographic',
+        'telecentric',
+        'spherical',
+        'perspective_rdist',
+    }),
+    # Integrators
+    ('integrator', {
+        'ao',
+        'direct',
+        'path',
+        'volpath_simple',
+        'volpath',
+        'bdpt',
+        'photonmapper',
+        'ppm',
+        'sppm',
+        'pssmlt',
+        'mlt',
+        'erpt',
+        'ptracer',
+        'vpl',
+        'adaptive',
+        'irrcache',
+        'multichannel',
+    }),
+    # Sample generators
+    ('sampler', {
+        'independent',
+        'stratified',
+        'ldsampler',
+        'halton',
+        'hammersley',
+        'sobol',
+    }),
+    # Films
+    ('film', {
+        'hdrfilm',
+        'ldrfilm',
+    }),
+    # Rfilters
+    ('rfilter', {
+        'box',
+        'tent',
+        'gaussian',
+        'mitchell',
+        'catmullrom',
+        'lanczos',
+    }),
+]
+
+
+def get_plugin_tag(plugin):
+    for plugin_tag, plugin_types in mitsuba_plugin_tree:
+        if plugin in plugin_types:
+            return plugin_tag
+
+    return plugin
 
 
 class Files:
@@ -48,343 +229,18 @@ class Files:
     VOLM = 3
 
 
-class Export_Context:
+class FileExportContext(ExportContextBase):
     '''
     File API
     '''
 
     EXPORT_API_TYPE = 'FILE'
 
-    context_name = ''
     files = []
     file_names = []
     file_tabs = []
     file_stack = []
     current_file = Files.MAIN
-    scene_data = None
-    counter = 0
-    color_mode = 'rgb'
-
-    def __init__(self, name):
-        self.context_name = name
-        self.exported_media = []
-        self.exported_ids = []
-        self.hemi_lights = 0
-        self.scene_data = OrderedDict([('type', 'scene')])
-        self.counter = 0
-
-        # Reverse translation tables for Mitsuba extension dictionary
-        self.plugins = {
-            # Scene
-            'scene': 'scene',
-            # References
-            'ref': 'ref',
-            # Color spectra
-            'rgb': 'rgb',
-            'srgb': 'srgb',
-            'spectrum': 'spectrum',
-            'blackbody': 'blackbody',
-            # Shapes
-            'cube': 'shape',
-            'sphere': 'shape',
-            'cylinder': 'shape',
-            'rectangle': 'shape',
-            'disk': 'shape',
-            'shapegroup': 'shape',
-            'instance': 'shape',
-            'serialized': 'shape',
-            'ply': 'shape',
-            'hair': 'shape',
-            # Surface scattering models
-            'diffuse': 'bsdf',
-            'roughdiffuse': 'bsdf',
-            'dielectric': 'bsdf',
-            'thindielectric': 'bsdf',
-            'roughdielectric': 'bsdf',
-            'conductor': 'bsdf',
-            'roughconductor': 'bsdf',
-            'plastic': 'bsdf',
-            'roughplastic': 'bsdf',
-            'coating': 'bsdf',
-            'roughcoating': 'bsdf',
-            'bumpmap': 'bsdf',
-            'phong': 'bsdf',
-            'ward': 'bsdf',
-            'mixturebsdf': 'bsdf',
-            'blendbsdf': 'bsdf',
-            'mask': 'bsdf',
-            'twosided': 'bsdf',
-            'difftrans': 'bsdf',
-            'hk': 'bsdf',
-            #'irawan' : 'bsdf',
-            'null': 'bsdf',
-            # Textures
-            'bitmap': 'texture',
-            'checkerboard': 'texture',
-            'gridtexture': 'texture',
-            'scale': 'texture',
-            'vertexcolors': 'texture',
-            'wireframe': 'texture',
-            'curvature': 'texture',
-            # Subsurface
-            'dipole': 'subsurface',
-            'singlescatter': 'subsurface',
-            # Medium
-            'homogeneous': 'medium',
-            'heterogeneous': 'medium',
-            # Phase
-            'isotropic': 'phase',
-            'hg': 'phase',
-            # Medium
-            'constvolume': 'volume',
-            'gridvolume': 'volume',
-            # Emitters
-            'point': 'emitter',
-            'area': 'emitter',
-            'spot': 'emitter',
-            'directional': 'emitter',
-            'collimated': 'emitter',
-            'constant': 'emitter',
-            'envmap': 'emitter',
-            'sun': 'emitter',
-            'sky': 'emitter',
-            'sunsky': 'emitter',
-            # Sensors
-            'perspective': 'sensor',
-            'thinlens': 'sensor',
-            'orthographic': 'sensor',
-            'telecentric': 'sensor',
-            'spherical': 'sensor',
-            'perspective_rdist': 'sensor',
-            # Integrators
-            'ao': 'integrator',
-            'direct': 'integrator',
-            'path': 'integrator',
-            'volpath_simple': 'integrator',
-            'volpath': 'integrator',
-            'bdpt': 'integrator',
-            'photonmapper': 'integrator',
-            'ppm': 'integrator',
-            'sppm': 'integrator',
-            'pssmlt': 'integrator',
-            'mlt': 'integrator',
-            'erpt': 'integrator',
-            'ptracer': 'integrator',
-            'vpl': 'integrator',
-            'adaptive': 'integrator',
-            'irrcache': 'integrator',
-            'multichannel': 'integrator',
-            # Sample generators
-            'independent': 'sampler',
-            'stratified': 'sampler',
-            'ldsampler': 'sampler',
-            'halton': 'sampler',
-            'hammersley': 'sampler',
-            'sobol': 'sampler',
-            # Films
-            'hdrfilm': 'film',
-            'ldrfilm': 'film',
-            # Rfilters
-            'box': 'rfilter',
-            'tent': 'rfilter',
-            'gaussian': 'rfilter',
-            'mitchell': 'rfilter',
-            'catmullrom': 'rfilter',
-            'lanczos': 'rfilter',
-        }
-
-        self.parameters = {
-            'scene': {
-                # Scene has no parameters but it's needed here for pmgr_create to work
-            },
-            'shape': {
-                'toWorld': self._transform,
-                'center': self._point,
-                'radius': self._float,
-                'p0': self._point,
-                'p1': self._point,
-                'filename': self._string,
-                'faceNormals': self._bool,
-            },
-            'bsdf': {
-                'alpha': self._float,
-                'alphaU': self._float,
-                'alphaV': self._float,
-                'exponent': self._float,
-                'weight': self._float,
-                'intIOR': self._float,
-                'extIOR': self._float,
-                'extEta': self._float,
-                'thickness': self._float,
-                'distribution': self._string,
-                'material': self._string,
-                'variant': self._string,
-                'weights': self._string,
-                'useFastApprox': self._bool,
-                'nonlinear': self._bool,
-            },
-            'texture': {
-                'filename': self._string,
-                'wrapModeU': self._string,
-                'wrapModeV': self._string,
-                'gamma': self._float,
-                'filterType': self._string,
-                'maxAnisotropy': self._float,
-                'channel': self._string,
-                'cache': self._bool,
-                'lineWidth': self._float,
-                'stepWidth': self._float,
-                'curvature': self._string,
-                'scale': self._float,
-                'uscale': self._float,
-                'vscale': self._float,
-                'uoffset': self._float,
-                'voffset': self._float,
-            },
-            'subsurface': {
-                'material': self._string,
-                'scale': self._float,
-                'intIOR': self._float,
-                'extIOR': self._float,
-                'irrSamples': self._integer,
-                'fastSingleScatter': self._bool,
-                'fssSamples': self._integer,
-                'singleScatterShadowRays': self._bool,
-                'singleScatterTransmittance': self._bool,
-                'singleScatterDepth': self._integer,
-            },
-            'medium': {
-                'scale': self._float,
-                'method': self._string,
-                'material': self._string,
-            },
-            'phase': {
-                'g': self._float,
-            },
-            'volume': {
-                'toWorld': self._transform,
-                'filename': self._string,
-            },
-            'emitter': {
-                'toWorld': self._transform,
-                'cutoffAngle': self._float,
-                'beamWidth': self._float,
-                'filename': self._string,
-                'gamma': self._float,
-                'cache': self._bool,
-                'turbidity': self._float,
-                'year': self._integer,
-                'month': self._integer,
-                'day': self._integer,
-                'hour': self._float,
-                'minute': self._float,
-                'second': self._float,
-                'latitude': self._float,
-                'longitude': self._float,
-                'timezone': self._float,
-                'sunDirection': self._vector,
-                'stretch': self._float,
-                'extend': self._bool,
-                'resolution': self._integer,
-                'scale': self._float,
-                'skyScale': self._float,
-                'sunScale': self._float,
-                'sunRadiusScale': self._float,
-                'samplingWeight': self._float,
-            },
-            'sensor': {
-                'toWorld': self._transform,
-                'fov': self._float,
-                'fovAxis': self._string,
-                'nearClip': self._float,
-                'farClip': self._float,
-                'apertureRadius': self._float,
-                'focusDistance': self._float,
-                'shutterOpen': self._float,
-                'shutterClose': self._float,
-                'kc': self._string,
-            },
-            'integrator': {
-                'shadingSamples': self._integer,
-                'rayLength': self._float,
-                'emitterSamples': self._integer,
-                'bsdfSamples': self._integer,
-                'strictNormals': self._bool,
-                'hideEmitters': self._bool,
-                'maxDepth': self._integer,
-                'rrDepth': self._integer,
-                'lightImage': self._bool,
-                'sampleDirect': self._bool,
-                'directSamples': self._integer,
-                'glossySamples': self._integer,
-                'globalPhotons': self._integer,
-                'causticPhotons': self._integer,
-                'volumePhotons': self._integer,
-                'globalLookupRadius': self._float,
-                'causticLookupRadius': self._float,
-                'lookupSize': self._integer,
-                'granularity': self._integer,
-                'photonCount': self._integer,
-                'initialRadius': self._float,
-                'alpha': self._float,
-                'bidirectional': self._bool,
-                'luminanceSamples': self._integer,
-                'twoStage': self._bool,
-                'pLarge': self._float,
-                'bidirectionalMutation': self._bool,
-                'lensPerturbation': self._bool,
-                'causticPerturbation': self._bool,
-                'multiChainPerturbation': self._bool,
-                'manifoldPerturbation': self._bool,
-                'lambda': self._float,
-                'numChains': self._float,
-                'maxChains': self._integer,
-                'chainLength': self._integer,
-                'shadowMapResolution': self._integer,
-                'clamping': self._float,
-                'maxError': self._float,
-                'pValue': self._float,
-                'maxSampleFactor': self._integer,
-                'clampNeighbor': self._bool,
-                'clampScreen': self._bool,
-                'debug': self._bool,
-                'indirectOnly': self._bool,
-                'gradients': self._bool,
-                'overture': self._bool,
-                'quality': self._float,
-                'qualityAdjustment': self._float,
-                'resolution': self._integer,
-            },
-            'sampler': {
-                'sampleCount': self._integer,
-                'scramble': self._integer,
-            },
-            'film': {
-                # common
-                'width': self._integer,
-                'height': self._integer,
-                'fileFormat': self._string,
-                'pixelFormat': self._string,
-                'banner': self._bool,
-                'highQualityEdges': self._bool,
-                'label[10,10]': self._string,
-                # hdrfilm
-                'componentFormat': self._string,
-                'attachLog': self._bool,
-                # ldrfilm
-                'tonemapMethod': self._string,
-                'gamma': self._float,
-                'exposure': self._float,
-                'key': self._float,
-                'burn': self._float,
-            },
-            'rfilter': {
-                'stddev': self._float,
-                'B': self._float,
-                'C': self._float,
-                'lobes': self._integer,
-            },
-        }
 
     def wf(self, ind, st, tabs=0):
         '''
@@ -527,89 +383,74 @@ class Export_Context:
 
         self.wf(self.current_file, '/>\n')
 
-    # Callback functions
-
-    def _string(self, name, value):
-        self.parameter('string', name, {'value': str(value)})
-
-    def _bool(self, name, value):
-        self.parameter('boolean', name, {'value': str(value).lower()})
-
-    def _integer(self, name, value):
-        self.parameter('integer', name, {'value': '%d' % value})
-
-    def _float(self, name, value):
-        self.parameter('float', name, {'value': '%f' % value})
-
-    def _vector(self, name, value):
-        self.parameter('vector', name, value)
-
-    def _point(self, name, value):
-        self.parameter('point', name, value)
-
-    def _transform(self, plugin, params):
-        self.openElement('transform', {'name': 'toWorld'})
-
-        for param in params:
-            self.element(param, params[param])
-
-        self.closeElement()
-
     # Funtions to emulate Mitsuba extension API
 
     def pmgr_create(self, mts_dict=None, args={}):
         if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
             return
 
-        if mts_dict['type'] not in self.plugins:
-            MtsLog('************** Plugin not supported: %s **************' % mts_dict['type'])
-            return
-
         param_dict = mts_dict.copy()
         plugin_type = param_dict.pop('type')
+        plugin = get_plugin_tag(plugin_type)
 
-        if plugin_type not in {'scene', 'ref', 'rgb', 'srgb', 'spectrum', 'blackbody'}:
+        # Special case for scale, it can be a transform or a texture
+        if plugin_type == 'scale':
+            if 'scale' not in param_dict:
+                plugin = 'scale'
+
+        if plugin != plugin_type:
             args['type'] = plugin_type
 
+        if plugin == 'scene':
+            args['version'] = '0.5.0'
+
+        elif plugin in mitsuba_props:
+            args.update(param_dict)
+            param_dict = {}
+
+            if plugin == 'ref' and 'id' in args and args['id'] not in self.exported_ids:
+                MtsLog('************** Reference ID - %s - exported before referencing **************' % (args['id']))
+                return
+
+            elif plugin in {'matrix', 'lookat', 'scale'}:
+                del args['name']
+
         else:
-            if plugin_type == 'scene':
-                args['version'] = '0.5.0'
+            if plugin == 'transform' and 'time' in param_dict:
+                args['time'] = str(param_dict.pop('time'))
+                del args['name']
 
-            elif plugin_type in {'rgb', 'srgb', 'spectrum', 'blackbody'}:
-                args.update(param_dict)
-                param_dict = {}
+            if 'id' in param_dict:
+                args['id'] = param_dict.pop('id')
 
-        if 'id' in param_dict:
-            args['id'] = param_dict.pop('id')
+                if args['id'] not in self.exported_ids:
+                    self.exported_ids.add(args['id'])
 
-            if args['id'] in self.exported_ids:
-                if plugin_type != 'ref':
+                else:
                     MtsLog('************** Plugin - %s - ID - %s - already exported **************' % (plugin_type, args['id']))
                     return
 
-            else:
-                if plugin_type != 'ref':
-                    self.exported_ids += [args['id']]
-
-                else:
-                    MtsLog('************** Reference ID - %s - exported before referencing **************' % (args['id']))
-                    return
-
-        plugin = self.plugins[plugin_type]
-
-        if len(param_dict) > 0 and plugin in self.parameters:
+        if len(param_dict) > 0 and plugin in mitsuba_tags:
             self.openElement(plugin, args)
-            valid_parameters = self.parameters[plugin]
 
             for param, value in param_dict.items():
                 if isinstance(value, dict) and 'type' in value:
                     self.pmgr_create(value, {'name': param})
 
-                elif param in valid_parameters:
-                    valid_parameters[param](param, value)
+                elif isinstance(value, str):
+                    self.parameter('string', param, {'value': value})
+
+                elif isinstance(value, bool):
+                    self.parameter('boolean', param, {'value': str(value).lower()})
+
+                elif isinstance(value, int):
+                    self.parameter('integer', param, {'value': '%d' % value})
+
+                elif isinstance(value, float):
+                    self.parameter('float', param, {'value': '%f' % value})
 
                 else:
-                    MtsLog('************** %s param not exported: %s **************' % (plugin_type, param))
+                    MtsLog('************** %s param not supported: %s **************' % (plugin_type, param))
                     MtsLog(value)
 
             self.closeElement()
@@ -618,7 +459,7 @@ class Export_Context:
             self.element(plugin, args)
 
         else:
-            MtsLog('************** Plugin not exported: %s **************' % plugin_type)
+            MtsLog('************** Plugin not supported: %s **************' % plugin_type)
             MtsLog(param_dict)
 
     def spectrum(self, value, mode=''):
@@ -690,29 +531,64 @@ class Export_Context:
 
     def vector(self, x, y, z):
         # Blender is Z up but Mitsuba is Y up, convert the vector
-        return {'x': '%f' % x, 'y': '%f' % z, 'z': '%f' % -y}
+        return {
+            'type': 'vector',
+            'x': '%f' % x, 'y': '%f' % z, 'z': '%f' % -y
+        }
 
     def point(self, x, y, z):
         # Blender is Z up but Mitsuba is Y up, convert the point
-        return {'x': '%f' % x, 'y': '%f' % z, 'z': '%f' % -y}
+        return {
+            'type': 'point',
+            'x': '%f' % x, 'y': '%f' % z, 'z': '%f' % -y
+        }
 
     def transform_lookAt(self, origin, target, up, scale=False):
         # Blender is Z up but Mitsuba is Y up, convert the lookAt
-        params = {
-            'lookat': {
+        params = OrderedDict()
+
+        if scale:
+            params.update([
+                ('scale', {
+                    'type': 'scale',
+                    'x': scale,
+                    'y': scale
+                })
+            ])
+
+        params.update([
+            ('type', 'transform'),
+            ('lookat', {
+                'type': 'lookat',
                 'origin': '%f, %f, %f' % (origin[0], origin[2], -origin[1]),
                 'target': '%f, %f, %f' % (target[0], target[2], -target[1]),
                 'up': '%f, %f, %f' % (up[0], up[2], -up[1])
-            }
-        }
-
-        if scale:
-            params.update({
-                'scale': {
-                    'x': scale,
-                    'y': scale
-                }
             })
+        ])
+
+        return params
+
+    def animated_lookAt(self, motion):
+        if len(motion) == 2 and motion[0][1] == motion[1][1]:
+            del motion[1]
+
+        params = {}
+
+        if len(motion) > 1:
+            params = OrderedDict([
+                ('type', 'animation'),
+            ])
+
+            for (t, (origin, target, up, scale)) in motion:
+                mat = self.transform_lookAt(origin, target, up, scale)
+                mat.update({'time': t})
+                params.update([
+                    ('trafo%f' % t, mat)
+                ])
+
+        else:
+            (origin, target, up, scale) = motion[0][1]
+            params = self.transform_lookAt(origin, target, up, scale)
 
         return params
 
@@ -722,26 +598,38 @@ class Export_Context:
         l = matrix_to_list(global_matrix * matrix)
         value = " ".join(["%f" % f for f in l])
 
-        return {'matrix': {'value': value}}
+        params = {
+            'type': 'transform',
+            'matrix': {
+                'type': 'matrix',
+                'value': value,
+            }
+        }
 
-    def exportMedium(self, scene, medium):
-        if medium.name in self.exported_media:
-            return
+        return params
 
-        self.exported_media += [medium.name]
+    def animated_transform(self, motion):
+        if len(motion) == 2 and motion[0][1] == motion[1][1]:
+            del motion[1]
 
-        params = medium.api_output(self, scene)
+        params = {}
 
-        self.data_add(params)
+        if len(motion) > 1:
+            params = OrderedDict([
+                ('type', 'animation'),
+            ])
 
-    def data_add(self, mts_dict):
-        if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
-            return False
+            for (t, m) in motion:
+                mat = self.transform_matrix(m)
+                mat.update({'time': t})
+                params.update([
+                    ('trafo%f' % t, mat)
+                ])
 
-        self.scene_data.update([('elm%i' % self.counter, mts_dict)])
-        self.counter += 1
+        else:
+            params = self.transform_matrix(motion[0][1])
 
-        return True
+        return params
 
     def configure(self):
         '''
@@ -770,14 +658,13 @@ class Export_Context:
                 f.close()
 
 
-class Render_Context:
+class ExternalRenderContext:
     '''
     Mitsuba External Render
     '''
 
     RENDER_API_TYPE = 'EXT'
 
-    context_name = ''
     binary_name = 'mitsuba'
     render_engine = None
     render_scene = None
@@ -788,8 +675,7 @@ class Render_Context:
         'quiet': '-q'
     }
 
-    def __init__(self, name):
-        self.context_name = name
+    def __init__(self):
         self.render_engine = MtsManager.RenderEngine
         self.render_scene = MtsManager.CurrentScene
 

@@ -26,7 +26,7 @@ from bpy.types import Panel
 from bl_ui.properties_data_lamp import DataButtonsPanel
 
 from .. import MitsubaAddon
-from ..nodes import node_tree_selector_draw, panel_node_draw
+from ..ui import node_tree_selector_draw, panel_node_draw
 
 
 class mitsuba_lamp_panel(DataButtonsPanel, Panel):

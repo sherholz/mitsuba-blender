@@ -95,7 +95,7 @@ else:
 
     def register():
         bpy.utils.register_class(MitsubaAddonPreferences)
-        nodeitems_utils.register_node_categories("MITSUBA_SHADER_NODES", nodes.nodetree.mitsuba_shader_node_catagories)
+        nodeitems_utils.register_node_categories("MITSUBA_SHADER_NODES", ui.space_node.mitsuba_shader_node_catagories)
         addon_register()
 
     def unregister():
