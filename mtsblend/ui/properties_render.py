@@ -21,15 +21,34 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 
-import bpy
+#import bpy
+from bpy.types import Panel, Menu
+
 import bl_ui
+from bl_ui.properties_render import RenderButtonsPanel
 
 from ..extensions_framework.ui import property_group_renderer
 
 from .. import MitsubaAddon
 
 
-class mts_render_panel(bl_ui.properties_render.RenderButtonsPanel, property_group_renderer):
+# Add options by render image/anim buttons
+def render_start_options(self, context):
+    if context.scene.render.engine == 'MITSUBA_RENDER':
+        col = self.layout.column()
+        #row = self.layout.row()
+        col.prop(context.scene.mitsuba_engine, "export_type", text="Export Type")
+
+        if context.scene.mitsuba_engine.export_type == 'EXT':
+            col.prop(context.scene.mitsuba_engine, "binary_name", text="Render Using")
+        #if context.scene.mitsuba_engine.export_type == 'INT':
+        #    row.prop(context.scene.mitsuba_engine, "write_files", text="Write to Disk")
+        #    row.prop(context.scene.mitsuba_engine, "integratedimaging", text="Integrated Imaging")
+
+bl_ui.properties_render.RENDER_PT_render.append(render_start_options)
+
+
+class mts_render_panel(RenderButtonsPanel, property_group_renderer):
     '''
     Base class for render engine settings panels
     '''
@@ -38,32 +57,38 @@ class mts_render_panel(bl_ui.properties_render.RenderButtonsPanel, property_grou
 
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_output(mts_render_panel):
-    bl_label = "Output"
+class MitsubaRender_MT_engine_presets(Menu):
+    bl_label = "Mitsuba Engine Presets"
+    preset_subdir = "mitsuba/engine"
+    preset_operator = "script.execute_preset"
+    draw = Menu.draw_preset
 
-    display_property_groups = [
-        (('scene',))
-    ]
+
+@MitsubaAddon.addon_register_class
+class MitsubaRender_PT_motion_blur(RenderButtonsPanel, Panel):
+    bl_label = "Motion Blur"
+    bl_options = {'DEFAULT_CLOSED'}
+    COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+    @classmethod
+    def poll(cls, context):
+        rd = context.scene.render
+        return rd.engine in cls.COMPAT_ENGINES
+
+    def draw_header(self, context):
+        rd = context.scene.render
+
+        self.layout.prop(rd, "use_motion_blur", text="")
 
     def draw(self, context):
         layout = self.layout
 
         rd = context.scene.render
+        layout.active = rd.use_motion_blur
 
-        layout.prop(rd, "filepath", text="")
-
-
-@MitsubaAddon.addon_register_class
-class MitsubaRender_PT_active_sensor(mts_render_panel):
-    '''
-    Active Camera Sensor settings UI Panel
-    '''
-
-    bl_label = "Active Camera Sensor Settings"
-
-    display_property_groups = [
-        (('scene', 'camera', 'data'), 'mitsuba_camera')
-    ]
+        row = layout.row()
+        row.prop(rd, "motion_blur_samples")
+        row.prop(rd, "motion_blur_shutter")
 
 
 @MitsubaAddon.addon_register_class
@@ -73,6 +98,7 @@ class MitsubaRender_PT_active_film(mts_render_panel):
     '''
 
     bl_label = "Active Camera Film Settings"
+    bl_options = {'DEFAULT_CLOSED'}
 
     display_property_groups = [
         (('scene', 'camera', 'data', 'mitsuba_camera'), 'mitsuba_film')
@@ -80,7 +106,7 @@ class MitsubaRender_PT_active_film(mts_render_panel):
 
 
 @MitsubaAddon.addon_register_class
-class MitsubaRender_PT_setup_preset(mts_render_panel):
+class MitsubaRender_PT_engine_presets(mts_render_panel):
     '''
     Engine settings presets UI Panel
     '''
@@ -89,11 +115,9 @@ class MitsubaRender_PT_setup_preset(mts_render_panel):
 
     def draw(self, context):
         row = self.layout.row(align=True)
-        row.menu("MITSUBA_MT_presets_engine", text=bpy.types.MITSUBA_MT_presets_engine.bl_label)
+        row.menu("MitsubaRender_MT_engine_presets")
         row.operator("mitsuba.preset_engine_add", text="", icon="ZOOMIN")
         row.operator("mitsuba.preset_engine_add", text="", icon="ZOOMOUT").remove_active = True
-
-        super().draw(context)
 
 
 @MitsubaAddon.addon_register_class
@@ -183,62 +207,3 @@ class MitsubaRender_PT_testing(mts_render_panel):
     display_property_groups = [
         (('scene',), 'mitsuba_testing')
     ]
-
-
-@MitsubaAddon.addon_register_class
-class MitsubaRenderLayer_PT_layer_selector(mts_render_panel):
-    '''
-    Render Layers Selector panel
-    '''
-
-    bl_label = 'Layer Selector'
-    bl_options = {'HIDE_HEADER'}
-    bl_context = "render_layer"
-
-    def draw(self, context):
-        #Add in Blender's layer chooser, this is taken from Blender's startup/properties_render_layer.py
-        layout = self.layout
-
-        scene = context.scene
-        rd = scene.render
-
-        row = layout.row()
-        row.template_list("RENDERLAYER_UL_renderlayers", "", rd, "layers", rd.layers, "active_index", rows=2)
-
-        col = row.column(align=True)
-        col.operator("scene.render_layer_add", icon='ZOOMIN', text="")
-        col.operator("scene.render_layer_remove", icon='ZOOMOUT', text="")
-
-        row = layout.row()
-        rl = rd.layers.active
-
-        if rl:
-            row.prop(rl, "name")
-
-        row.prop(rd, "use_single_layer", text="", icon_only=True)
-
-
-@MitsubaAddon.addon_register_class
-class MitsubaRenderLayer_PT_layers(mts_render_panel):
-    '''
-    Render Layers panel
-    '''
-
-    bl_label = 'Layer'
-    bl_context = "render_layer"
-
-    def draw(self, context):
-        #Add in Blender's layer stuff, this is taken from Blender's startup/properties_render_layer.py
-        layout = self.layout
-
-        scene = context.scene
-        rd = scene.render
-        rl = rd.layers.active
-
-        split = layout.split()
-
-        col = split.column()
-        col.prop(scene, "layers", text="Scene")
-        col.label(text="")
-        col = split.column()
-        col.prop(rl, "layers", text="Layer")

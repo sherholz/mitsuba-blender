@@ -134,13 +134,22 @@ class mitsuba_socket_spectrum(mitsuba_socket):
             value = [x * multiplier for x in self.default_value[:]]
             return mts_context.spectrum(value)
 
-    def set_spectrum_socket(self, ntree, params):
+    def set_spectrum_socket(self, ntree, params, normalize=False):
         if isinstance(params, dict) and 'type' in params:
             if params['type'] in {'rgb', 'spectrum'} and 'value' in params:
                 values = [float(x) for x in params['value'].split()]
 
-                if len(values) == 3 and max(values) <= 1.0:
-                    self.default_value = values
+                if len(values) == 3:
+                    maxval = max(values)
+
+                    if maxval <= 1.0:
+                        self.default_value = values
+                        return 1.0
+
+                    elif normalize:
+                        values = [x / maxval for x in values]
+                        self.default_value = values
+                        return maxval
 
             elif params['type'] == 'spectrum' and 'filename' in params:
                 params['type'] = 'spdfile'
@@ -148,8 +157,9 @@ class mitsuba_socket_spectrum(mitsuba_socket):
             ntree.new_node_from_dict(params, self)
 
         else:
-            print("Unknown spectrum socket params:")
-            print(params)
+            print("Unknown spectrum socket params:", params)
+
+        return 1.0
 
 
 class mitsuba_socket_color(mitsuba_socket):
@@ -167,20 +177,29 @@ class mitsuba_socket_color(mitsuba_socket):
         else:
             return mts_context.spectrum(self.default_value)
 
-    def set_color_socket(self, ntree, params):
+    def set_color_socket(self, ntree, params, normalize=False):
         if isinstance(params, dict) and 'type' in params:
             if params['type'] == 'rgb' and 'value' in params:
                 values = [float(x) for x in params['value'].split()]
 
-                if len(values) == 3 and max(values) <= 1.0:
-                    self.default_value = values
-                    return
+                if len(values) == 3:
+                    maxval = max(values)
+
+                    if maxval <= 1.0:
+                        self.default_value = values
+                        return 1.0
+
+                    elif normalize:
+                        values = [x / maxval for x in values]
+                        self.default_value = values
+                        return maxval
 
             ntree.new_node_from_dict(params, self)
 
         else:
-            print("Unknown color socket params:")
-            print(params)
+            print("Unknown color socket params:", params)
+
+        return 1.0
 
 
 class mitsuba_socket_float(mitsuba_socket):
@@ -215,8 +234,7 @@ class mitsuba_socket_float(mitsuba_socket):
             ntree.new_node_from_dict(params, self)
 
         else:
-            print("Unknown float socket params:")
-            print(params)
+            print("Unknown float socket params:", params)
 
 
 # Basic sockets
@@ -324,8 +342,8 @@ spectrum_sockets = [
     ColorParams('interiorColor', 'Face Color', default=(0.5, 0.5, 0.5)),
     ColorParams('edgeColor', 'Edge Color', default=(0.1, 0.1, 0.1)),
     ColorParams('radiance', 'Radiance', default=(1.0, 1.0, 1.0)),
-    ColorParams('eta', 'IOR', default=(0.37, 0.37, 0.37), min=0.10, max=10.0),
-    ColorParams('k', 'Absorption Coefficient', default=(2.82, 2.82, 2.82), min=1.0, max=10.0),
+    ColorParams('eta', 'IOR', default=(0.0, 0.0, 0.0), draw=draw_vector_socket),
+    ColorParams('k', 'Absorption Coefficient', default=(1.0, 1.0, 1.0), draw=draw_vector_socket),
 ]
 
 for params in spectrum_sockets:

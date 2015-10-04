@@ -27,7 +27,8 @@ import math
 
 from ..export import get_export_path
 from ..export.cycles import cycles_material_to_dict
-from ..outputs.file_api import Export_Context
+from ..outputs.file_api import FileExportContext
+from ..outputs import MtsLog
 
 
 class MaterialCounter:
@@ -223,7 +224,7 @@ def internal_material_to_dict(mts_context, blender_mat):
 def blender_material_to_dict(mts_context, blender_mat):
     ''' Converting one material from Blender / Cycles to Mitsuba'''
     if mts_context is None:
-        mts_context = Export_Context('MaterialConverter')
+        mts_context = FileExportContext()
 
     mat_params = {}
 
@@ -234,7 +235,7 @@ def blender_material_to_dict(mts_context, blender_mat):
             mat_params = cycles_material_to_dict(mts_context, surface_node, root=True)
 
         except Exception as err:
-            print("Could not convert nodes!!", str(err))
+            MtsLog("Could not convert nodes!!", str(err))
 
     else:
         mat_params = internal_material_to_dict(mts_context, blender_mat)

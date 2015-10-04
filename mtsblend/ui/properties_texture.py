@@ -26,7 +26,7 @@ from bpy.types import Panel
 from bl_ui.properties_texture import TextureButtonsPanel
 
 from .. import MitsubaAddon
-from ..nodes import draw_node_properties_recursive
+from ..ui import draw_node_properties_recursive
 
 
 @MitsubaAddon.addon_register_class

@@ -25,7 +25,6 @@ import os
 import sys
 import time
 import numpy
-from collections import OrderedDict
 
 import bpy
 
@@ -36,6 +35,7 @@ from ..extensions_framework import util as efutil
 # Mitsuba libs
 from .. import MitsubaAddon
 
+from ..export import ExportContextBase
 from ..export import matrix_to_list
 from ..export import get_export_path
 from ..properties import ExportedVolumes
@@ -98,7 +98,8 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
         from mitsuba.core import (
             Scheduler, LocalWorker, Thread, Bitmap, Point2i, Vector2i, FileStream,
-            PluginManager, Spectrum, InterpolatedSpectrum, BlackBodySpectrum, Vector, Point, Matrix4x4, Transform,
+            PluginManager, Spectrum, InterpolatedSpectrum, BlackBodySpectrum, Vector, Point,
+            Matrix4x4, Transform, AnimatedTransform,
             Appender, EInfo, EWarn, EError,
         )
         from mitsuba.render import (
@@ -107,11 +108,11 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
         import multiprocessing
 
-        mainThread = Thread.getThread()
-        fresolver = mainThread.getFileResolver()
-        logger = mainThread.getLogger()
+        main_thread = Thread.getThread()
+        main_fresolver = main_thread.getFileResolver()
+        main_logger = main_thread.getLogger()
 
-        class Custom_Appender(Appender):
+        class CustomAppender(Appender):
             def append(self, logLevel, message):
                 MtsLog(message)
 
@@ -126,9 +127,9 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 else:
                     MtsLog('Progress message: %s' % formatted)
 
-        logger.clearAppenders()
-        logger.addAppender(Custom_Appender())
-        logger.setLogLevel(EWarn)
+        main_logger.clearAppenders()
+        main_logger.addAppender(CustomAppender())
+        main_logger.setLogLevel(EWarn)
 
         scheduler = Scheduler.getInstance()
         # Start up the scheduling system with one worker per local core
@@ -137,40 +138,27 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
         scheduler.start()
 
-        class Export_Context:
+        class ApiExportContext(ExportContextBase):
             '''
             Python API
             '''
 
-            EXPORT_API_TYPE = 'PURE'
+            EXPORT_API_TYPE = 'API'
 
-            context_name = ''
             thread = None
             scheduler = None
-            fresolver = None
-            logger = None
             pmgr = None
             scene = None
-            scene_data = None
-            counter = 0
-            color_mode = 'rgb'
 
-            def __init__(self, name):
-                global fresolver
-                global logger
-                self.fresolver = fresolver
-                self.logger = logger
-                self.thread = Thread.registerUnmanagedThread(self.context_name)
-                self.thread.setFileResolver(self.fresolver)
-                self.thread.setLogger(self.logger)
-                self.context_name = name
-                self.exported_media = []
-                self.exported_ids = []
-                self.hemi_lights = 0
+            def __init__(self):
+                super().__init__()
+
+                self.thread = Thread.registerUnmanagedThread('exporter')
+                self.thread.setFileResolver(main_fresolver)
+                self.thread.setLogger(main_logger)
+
                 self.pmgr = PluginManager.getInstance()
                 self.scene = Scene()
-                self.scene_data = OrderedDict([('type', 'scene')])
-                self.counter = 0
 
             # Funtions binding to Mitsuba extension API
 
@@ -270,6 +258,22 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
                 return transform
 
+            def animated_lookAt(self, motion):
+                if len(motion) == 2 and motion[0][1] == motion[1][1]:
+                    del motion[1]
+
+                if len(motion) > 1:
+                    transform = AnimatedTransform()
+
+                    for (t, (origin, target, up, scale)) in motion:
+                        transform.appendTransform(t, self.transform_lookAt(origin, target, up, scale))
+
+                else:
+                    (origin, target, up, scale) = motion[0][1]
+                    transform = self.transform_lookAt(origin, target, up, scale)
+
+                return transform
+
             def transform_matrix(self, matrix):
                 # Blender is Z up but Mitsuba is Y up, convert the matrix
                 global_matrix = axis_conversion(to_forward="-Z", to_up="Y").to_4x4()
@@ -279,24 +283,20 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
 
                 return transform
 
-            def exportMedium(self, scene, medium):
-                if medium.name in self.exported_media:
-                    return
+            def animated_transform(self, motion):
+                if len(motion) == 2 and motion[0][1] == motion[1][1]:
+                    del motion[1]
 
-                self.exported_media += [medium.name]
+                if len(motion) > 1:
+                    transform = AnimatedTransform()
 
-                params = medium.api_output(self, scene)
+                    for (t, m) in motion:
+                        transform.appendTransform(t, self.transform_matrix(m))
 
-                self.data_add(params)
+                else:
+                    transform = self.transform_matrix(motion[0][1])
 
-            def data_add(self, mts_dict):
-                if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
-                    return False
-
-                self.scene_data.update([('elm%i' % self.counter, mts_dict)])
-                self.counter += 1
-
-                return True
+                return transform
 
             def configure(self):
                 '''
@@ -316,12 +316,12 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 # Do nothing
                 pass
 
-        class MtsBufferDisplay(RenderListener):
+        class InternalBufferDisplay(RenderListener):
             '''
             Class to monitor rendering and update blender render result
             '''
             def __init__(self, render_ctx):
-                super(MtsBufferDisplay, self).__init__()
+                super(InternalBufferDisplay, self).__init__()
                 self.ctx = render_ctx
                 self.film = self.ctx.scene.getFilm()
                 self.size = self.film.getSize()
@@ -414,7 +414,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                     if self.do_cancel:
                         self.ctx.render_cancel()
 
-        class Render_Context:
+        class InternalRenderContext:
             '''
             Mitsuba Internal Python API Render
             '''
@@ -422,27 +422,20 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
             RENDER_API_TYPE = 'INT'
 
             cancelled = False
-            context_name = ''
             thread = None
             scheduler = None
             fresolver = None
-            logger = None
             log_level = {
                 'default': EWarn,
                 'verbose': EInfo,
                 'quiet': EError,
             }
 
-            def __init__(self, name):
-                global fresolver
-                global logger
-
-                self.fresolver = fresolver
-                self.logger = logger
-                self.thread = Thread.registerUnmanagedThread(self.context_name)
+            def __init__(self):
+                self.fresolver = main_fresolver.clone()
+                self.thread = Thread.registerUnmanagedThread('renderer')
                 self.thread.setFileResolver(self.fresolver)
-                self.thread.setLogger(self.logger)
-                self.context_name = name
+                self.thread.setLogger(main_logger)
 
                 self.render_engine = MtsManager.RenderEngine
                 self.render_scene = MtsManager.CurrentScene
@@ -453,7 +446,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 else:
                     verbosity = self.render_scene.mitsuba_engine.log_verbosity
 
-                self.logger.setLogLevel(self.log_level[verbosity])
+                main_logger.setLogLevel(self.log_level[verbosity])
 
             def set_scene(self, export_context):
                 if export_context.EXPORT_API_TYPE == 'FILE':
@@ -461,7 +454,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                     self.fresolver.appendPath(scene_path)
                     self.scene = SceneHandler.loadScene(self.fresolver.resolve(scene_file))
 
-                elif export_context.EXPORT_API_TYPE == 'PURE':
+                elif export_context.EXPORT_API_TYPE == 'API':
                     self.scene = export_context.scene
 
                 else:
@@ -470,7 +463,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
             def render_start(self, dest_file):
                 self.cancelled = False
                 self.queue = RenderQueue()
-                self.buffer = MtsBufferDisplay(self)
+                self.buffer = InternalBufferDisplay(self)
                 self.job = RenderJob('mtsblend_render', self.scene, self.queue)
                 self.job.start()
 
@@ -505,13 +498,9 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
             '''
 
             def __init__(self):
-                global fresolver
-                global logger
-                self.fresolver = fresolver
-                self.logger = logger
                 self.thread = Thread.registerUnmanagedThread('serializer')
-                self.thread.setFileResolver(self.fresolver)
-                self.thread.setLogger(self.logger)
+                self.thread.setFileResolver(main_fresolver)
+                self.thread.setLogger(main_logger)
 
             def serialize(self, fileName, name, mesh, materialID):
                 faces = mesh.tessfaces[0].as_pointer()

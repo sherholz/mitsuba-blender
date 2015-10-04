@@ -132,7 +132,7 @@ class MtsNodeLampOutput(mitsuba_output_node, Node):
         lamp_node = self.inputs['Lamp'].get_linked_node()
 
         if lamp_node:
-            lamp_params = lamp_node.get_lamp_dict(mts_context, lamp)
+            lamp_params = lamp_node.get_lamp_dict(mts_context)
 
         return lamp_params
 

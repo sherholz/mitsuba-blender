@@ -26,7 +26,6 @@ import math
 from ..extensions_framework import declarative_property_group
 
 from .. import MitsubaAddon
-from ..export import get_worldscale
 from ..outputs import MtsLog
 
 
@@ -57,9 +56,9 @@ class mitsuba_camera(declarative_property_group):
 
     controls = [
         'exterior',
-        'usemblur',
-        'motion_blur_samples',
-        ['cammblur', 'objectmblur']
+        #'usemblur',
+        #'motion_blur_samples',
+        #['cammblur', 'objectmblur']
     ]
 
     properties = [
@@ -103,13 +102,6 @@ class mitsuba_camera(declarative_property_group):
             'max': 1.0,
         },
         {
-            'type': 'bool',
-            'attr': 'motionBlur',
-            'name': 'Motion Blur',
-            'description': 'Should motion blur be enabled?',
-            'default': False,
-        },
-        {
             'type': 'float',
             'attr': 'shutterTime',
             'name': 'Shutter time',
@@ -119,65 +111,11 @@ class mitsuba_camera(declarative_property_group):
             'max': 3600,
             'default': 1
         },
-        {
-            'type': 'int',
-            'attr': 'motion_blur_samples',
-            'name': 'Motion Samples',
-            'description': 'Number of motion steps per frame. Increase for non-linear motion blur or high velocity rotations',
-            'default': 1,
-            'min': 1,
-            'soft_min': 1,
-            'max': 100,
-            'soft_max': 100
-        },
-        {
-            'type': 'bool',
-            'attr': 'usemblur',
-            'name': 'Motion Blur',
-            'default': False
-        },
-        {
-            'type': 'bool',
-            'attr': 'cammblur',
-            'name': 'Camera Motion Blur',
-            'default': True
-        },
-        {
-            'type': 'bool',
-            'attr': 'objectmblur',
-            'name': 'Object Motion Blur',
-            'default': True
-        },
     ] + CameraMediumParameter('exterior', 'Exterior medium')
-
-    def lookAt(self, scene, camera, matrix=None):
-        '''
-        Derive a list describing 3 points for a Mitsuba LookAt statement
-
-        Returns     3 tuple(3) (floats)
-        '''
-        if matrix is None:
-            matrix = camera.matrix_world.copy()
-
-        ws = get_worldscale()
-        matrix *= ws
-        ws = get_worldscale(as_scalematrix=False)
-        matrix[0][3] *= ws
-        matrix[1][3] *= ws
-        matrix[2][3] *= ws
-        # transpose to extract columns
-        # TODO - update to matrix.col when available
-        matrix = matrix.transposed()
-        pos = matrix[3]
-        forwards = -matrix[2]
-        target = (pos + forwards)
-        up = matrix[1]
-
-        return (pos, target, up)
 
     def api_output(self, mts_context, scene, camera=None):
         '''
-        mts_context     Export_Context
+        mts_context     Export Context
         scene           bpy.types.scene
         camera          bpy.types.camera
 
@@ -210,21 +148,13 @@ class mitsuba_camera(declarative_property_group):
         elif mcam.use_rdist is True and cam.type == 'PERSP':
             cam_dict['type'] = 'perspective_rdist'
 
-        # Get camera position, target and up vector
-        origin, target, up = mcam.lookAt(scene, camera)
-        scale = cam.ortho_scale / 2.0 if cam.type == 'ORTHO' else None
-        cam_dict['toWorld'] = mts_context.transform_lookAt(origin, target, up, scale)
+        cam_dict['sampler'] = scene.mitsuba_sampler.api_output()
+        cam_dict['film'] = mcam.mitsuba_film.api_output(scene, cam)
 
         if cam.type == 'PERSP':
-            if cam.sensor_fit == 'VERTICAL':
-                sensor = cam.sensor_height
-                cam_dict['fovAxis'] = 'y'
-
-            else:
-                sensor = cam.sensor_width
-                cam_dict['fovAxis'] = 'x'
-
+            sensor = cam.sensor_height if cam.sensor_fit == 'VERTICAL' else cam.sensor_width
             cam_dict['fov'] = math.degrees(2.0 * math.atan((sensor / 2.0) / cam.lens))
+            cam_dict['fovAxis'] = 'x' if cam_dict['film']['fitHorizontal'] else 'y'
 
         cam_dict['nearClip'] = cam.clip_start
         cam_dict['farClip'] = cam.clip_end
@@ -236,18 +166,9 @@ class mitsuba_camera(declarative_property_group):
         elif mcam.use_rdist is True and cam.type == 'PERSP':
             cam_dict['kc'] = '%d, %d' % (mcam.kc0, mcam.kc1)
 
-        #if scene.mitsuba_integrator.motionBlur:
-        if mcam.motionBlur:
-            frameTime = 1.0 / scene.render.fps
-            #shutterTime = scene.mitsuba_integrator.shutterTime
-            shutterTime = mcam.shutterTime
-            shutterOpen = (scene.frame_current - shutterTime / 2.0) * frameTime
-            shutterClose = (scene.frame_current + shutterTime / 2.0) * frameTime
-            cam_dict['shutterOpen'] = shutterOpen
-            cam_dict['shutterClose'] = shutterClose
-
-        cam_dict['sampler'] = scene.mitsuba_sampler.api_output()
-        cam_dict['film'] = mcam.mitsuba_film.api_output(scene)
+        if scene.render.use_motion_blur:
+            cam_dict['shutterOpen'] = 0.0
+            cam_dict['shutterClose'] = 1.0
 
         if mcam.exterior_medium != '':
             cam_dict['exterior'] = {
@@ -539,12 +460,29 @@ class mitsuba_film(declarative_property_group):
 
         return xr, yr
 
-    def api_output(self, scene):
+    def api_output(self, scene, camera):
         film_dict = {}
 
         film_dict['type'] = self.type
 
-        [film_dict['width'], film_dict['height']] = self.resolution(scene)
+        (film_dict['width'], film_dict['height']) = self.resolution(scene)
+
+        film_dict['pixelAspectX'] = scene.render.pixel_aspect_x
+        film_dict['pixelAspectY'] = scene.render.pixel_aspect_y
+
+        if camera.sensor_fit == 'HORIZONTAL':
+            film_dict['fitHorizontal'] = True
+
+        elif camera.sensor_fit == 'VERTICAL':
+            film_dict['fitHorizontal'] = False
+
+        else:
+            frx = film_dict['width'] * film_dict['pixelAspectX']
+            fry = film_dict['height'] * film_dict['pixelAspectY']
+            film_dict['fitHorizontal'] = True if frx > fry else False
+
+        film_dict['shiftX'] = camera.shift_x
+        film_dict['shiftY'] = camera.shift_y
 
         film_dict['fileFormat'] = self.fileFormat
         film_dict['pixelFormat'] = self.pixelFormat

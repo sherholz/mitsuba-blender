@@ -24,8 +24,6 @@
 from bpy.types import Node
 from bpy.props import BoolProperty, FloatProperty, EnumProperty
 
-import mathutils
-
 from ..nodes import (
     MitsubaNodeTypes, mitsuba_node
 )
@@ -102,7 +100,7 @@ class MtsNodeEmitter_area(mitsuba_emitter_node, Node):
     ]
 
     custom_outputs = [
-        {'type': 'MtsSocketEmitter', 'name': 'Emission'},
+        {'type': 'MtsSocketEmitter', 'name': 'Emitter'},
         {'type': 'MtsSocketLamp', 'name': 'Lamp'},
     ]
 
@@ -124,22 +122,26 @@ class MtsNodeEmitter_area(mitsuba_emitter_node, Node):
         }
         return params
 
-    def get_lamp_dict(self, mts_context, lamp):
-        size_x = size_y = self.width / 2.0
-        #inv_area = 1 / self.width * self.width
+    def get_lamp_dict(self, mts_context):
         if self.shape == 'rectangle':
-            size_y = self.height / 2.0
-            #inv_area = 1 / self.width * self.height
-        #elif self.shape == 'disk':
-            #inv_area = 1 / math.pi * size_x * size_x
+            toworld = {
+                'type': 'scale',
+                'x': self.width / 2.0,
+                'y': self.height / 2.0,
+            }
+
+        else:
+            toworld = {
+                'type': 'scale',
+                'value': self.width / 2.0,
+            }
 
         params = {
             'type': 'rectangle' if self.shape == 'square' else self.shape,
-            'id': '%s-arealight' % lamp.name,
-            'toWorld': mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((size_x, 0, 0, 0), (0, size_y, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))),
+            'toWorld': toworld,
             'emitter': {
                 'type': 'area',
-                'radiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),  # * max(1.0, inv_area)),
+                'radiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
                 'samplingWeight': self.samplingWeight,
             },
             'bsdf': {
@@ -152,7 +154,8 @@ class MtsNodeEmitter_area(mitsuba_emitter_node, Node):
 
     def set_from_dict(self, ntree, params):
         if 'radiance' in params:
-            self.inputs['Radiance'].set_spectrum_socket(ntree, params['radiance'])
+            scale = self.inputs['Radiance'].set_spectrum_socket(ntree, params['radiance'], normalize=True)
+            self.scale = scale
 
         if 'samplingWeight' in params:
             self.samplingWeight = params['samplingWeight']
@@ -203,15 +206,14 @@ class MtsNodeEmitter_point(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context, lamp):
-        params = {'id': '%s-pointlight' % lamp.name}
+    def get_lamp_dict(self, mts_context):
+        params = {}
 
         if self.size >= 0.01:
             radius = self.size / 2.0
             #inv_area = 1 / (4 * math.pi * radius * radius)
             params.update({
                 'type': 'sphere',
-                'toWorld': mts_context.transform_matrix(lamp.matrix_world),
                 'radius': radius,
                 'emitter': {
                     'type': 'area',
@@ -226,7 +228,6 @@ class MtsNodeEmitter_point(mitsuba_emitter_node, Node):
         else:
             params.update({
                 'type': 'point',
-                'toWorld': mts_context.transform_matrix(lamp.matrix_world),
                 'intensity': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
                 'samplingWeight': self.samplingWeight,
             })
@@ -299,12 +300,10 @@ class MtsNodeEmitter_spot(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context, lamp):
+    def get_lamp_dict(self, mts_context):
 
         params = {
             'type': 'spot',
-            'id': '%s-spotlight' % lamp.name,
-            'toWorld': mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))),
             'cutoffAngle': self.cutoffAngle,
             'beamWidth': (1 - self.spotBlend) * self.cutoffAngle,
             'intensity': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
@@ -355,11 +354,9 @@ class MtsNodeEmitter_directional(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context, lamp):
+    def get_lamp_dict(self, mts_context):
         params = {
             'type': 'directional',
-            'id': '%s-directionallight' % lamp.name,
-            'toWorld': mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))),
             'irradiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
             'samplingWeight': self.samplingWeight,
         }
@@ -402,11 +399,9 @@ class MtsNodeEmitter_collimated(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context, lamp):
+    def get_lamp_dict(self, mts_context):
         params = {
             'type': 'collimated',
-            'id': '%s-collimatedlight' % lamp.name,
-            'toWorld': mts_context.transform_matrix(lamp.matrix_world * mathutils.Matrix(((-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))),
             'power': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
             'samplingWeight': self.samplingWeight,
         }
