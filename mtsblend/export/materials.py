@@ -232,7 +232,7 @@ def blender_material_to_dict(mts_context, blender_mat):
         try:
             output_node = blender_mat.node_tree.nodes["Material Output"]
             surface_node = output_node.inputs["Surface"].links[0].from_node
-            mat_params = cycles_material_to_dict(mts_context, surface_node, root=True)
+            mat_params = cycles_material_to_dict(mts_context, surface_node)
 
         except Exception as err:
             MtsLog("Could not convert nodes!!", str(err))
@@ -252,20 +252,37 @@ def export_material(mts_context, material):
     ntree = material.mitsuba_nodes.get_node_tree()
 
     if ntree:
-        name = ntree.name
+        name = "%s-mts_ntree" % ntree.name
 
     else:
-        name = material.name
+        name = "%s-bl_mat" % material.name
 
     if name in ExportedMaterials.exported_materials_dict:
         return ExportedMaterials.exported_materials_dict[name]
 
+    if ntree:
+        mat_params = ntree.get_nodetree_dict(mts_context, ntree)
+
     else:
-        if ntree:
-            mat_params = ntree.get_nodetree_dict(mts_context, ntree)
+        mat_params = blender_material_to_dict(mts_context, material)
+
+    if 'bsdf' in mat_params:
+        bsdf_params = OrderedDict([('id', '%s-bsdf' % name)])
+        bsdf_params.update(mat_params['bsdf'])
+        mts_context.data_add(bsdf_params)
+        mat_params.update({'bsdf': {'type': 'ref', 'id': '%s-bsdf' % name}})
+
+    if 'interior' in mat_params:
+        interior_params = {'id': '%s-medium' % name}
+        interior_params.update(mat_params['interior'])
+
+        if interior_params['type'] == 'ref':
+            mat_params.update({'interior': interior_params})
 
         else:
-            mat_params = blender_material_to_dict(mts_context, material)
-            ExportedMaterials.addExportedMaterial(name, mat_params)
+            mts_context.data_add(interior_params)
+            mat_params.update({'interior': {'type': 'ref', 'id': '%s-medium' % name}})
+
+    ExportedMaterials.addExportedMaterial(name, mat_params)
 
     return mat_params
