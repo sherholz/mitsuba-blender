@@ -267,13 +267,8 @@ def convert_mix_materials_cycles(mts_context, currentNode):
     emitter = ((mat_I.type == 'EMISSION') or (mat_II.type == 'EMISSION'))
 
     if emitter:
-        if (mat_I.type == 'EMISSION'):
-            mat_I, mat_II = mat_II, mat_I
-
-        params = {
-            'bsdf': cycles_material_to_dict(mts_context, mat_I),
-            'emitter': convert_emitter_materials_cycles(mts_context, mat_II),
-        }
+        params = cycles_material_to_dict(mts_context, mat_I)
+        params.update(cycles_material_to_dict(mts_context, mat_II))
 
         return params
 
@@ -288,14 +283,17 @@ def convert_mix_materials_cycles(mts_context, currentNode):
             ('type', 'blendbsdf'),
             ('weight', weight),
         ])
+
         # add first material
+        mat_A = cycles_material_to_dict(mts_context, mat_I)
         params.update([
-            ('bsdf1', cycles_material_to_dict(mts_context, mat_I))
+            ('bsdf1', mat_A['bsdf'])
         ])
 
         # add second materials
+        mat_B = cycles_material_to_dict(mts_context, mat_II)
         params.update([
-            ('bsdf2', cycles_material_to_dict(mts_context, mat_II))
+            ('bsdf2', mat_B['bsdf'])
         ])
 
         return params
@@ -314,7 +312,7 @@ cycles_converters = {
 }
 
 
-def cycles_material_to_dict(mts_context, node, root=False):
+def cycles_material_to_dict(mts_context, node):
     ''' Converting one material from Blender to Mitsuba dict'''
     params = {}
 
@@ -323,12 +321,18 @@ def cycles_material_to_dict(mts_context, node, root=False):
 
     mat_params = {}
 
-    if not root or 'emitter' in params:
-        mat_params = params
+    if 'type' in params:
+        if params['type'] == 'area':
+            mat_params.update({
+                'emitter': params
+            })
 
-    elif params:
-        mat_params.update({
-            'bsdf': params
-        })
+        else:
+            mat_params.update({
+                'bsdf': params
+            })
+
+    else:
+        mat_params = params
 
     return mat_params
