@@ -32,6 +32,7 @@ from ..nodes import (
 def update_lamp(cls, context):
     try:
         context.nodetree.update_context(context)
+
     except:
         pass
 

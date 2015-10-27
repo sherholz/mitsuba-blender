@@ -35,39 +35,6 @@ class mts_render_layer_panel(RenderLayerButtonsPanel, Panel):
     COMPAT_ENGINES = {'MITSUBA_RENDER'}
 
 
-#@MitsubaAddon.addon_register_class
-#class MitsubaRenderLayer_PT_layer_selector(mts_render_layer_panel):
-    #'''
-    #Render Layers Selector panel
-    #'''
-
-    #bl_label = 'Layer Selector'
-    #bl_options = {'HIDE_HEADER'}
-    #bl_context = "render_layer"
-
-    #def draw(self, context):
-        ##Add in Blender's layer chooser, this is taken from Blender's startup/properties_render_layer.py
-        #layout = self.layout
-
-        #scene = context.scene
-        #rd = scene.render
-
-        #row = layout.row()
-        #row.template_list("RENDERLAYER_UL_renderlayers", "", rd, "layers", rd.layers, "active_index", rows=2)
-
-        #col = row.column(align=True)
-        #col.operator("scene.render_layer_add", icon='ZOOMIN', text="")
-        #col.operator("scene.render_layer_remove", icon='ZOOMOUT', text="")
-
-        #row = layout.row()
-        #rl = rd.layers.active
-
-        #if rl:
-            #row.prop(rl, "name")
-
-        #row.prop(rd, "use_single_layer", text="", icon_only=True)
-
-
 @MitsubaAddon.addon_register_class
 class MitsubaRenderLayer_PT_layers(mts_render_layer_panel):
     '''

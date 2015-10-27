@@ -63,6 +63,7 @@ class mitsuba_nodes(declarative_property_group):
                 bpy.data.node_groups[self.prev_nodetree].remove_connection(self.id_data)
                 self.prev_nodetree = ''
                 self.prev_name = ''
+
         except:
             pass
 
@@ -71,6 +72,7 @@ class mitsuba_nodes(declarative_property_group):
                 bpy.data.node_groups[self.nodetree].append_connection(self.id_data)
                 self.prev_nodetree = self.nodetree
                 self.prev_name = self.id_data.name
+
         except:
             pass
 
@@ -116,6 +118,7 @@ class mitsuba_nodes(declarative_property_group):
         if self.nodetree:
             try:
                 return bpy.data.node_groups[self.nodetree]
+
             except:
                 pass
 
@@ -162,7 +165,6 @@ class mitsuba_nodegroups(declarative_property_group):
     ]
 
     def refresh(self):
-        #nodegroups = scene.mitsuba_nodegroups
         self.material.clear()
         self.lamp.clear()
         self.world.clear()

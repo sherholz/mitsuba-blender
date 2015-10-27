@@ -44,6 +44,7 @@ class MATERIAL_OT_mitsuba_set_medium_material(Operator):
 
         try:
             ntree = context.nodetree
+
         except:
             ntree = context.space_data.node_tree
 

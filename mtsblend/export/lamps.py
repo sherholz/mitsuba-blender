@@ -77,10 +77,6 @@ def lamp_dict_to_nodes(ntree, params):
             shader.inputs['Radiance'].default_value = [x / params['scale'] for x in radiance]
             shader.scale = params['scale']
 
-        #elif 'bsdf' in params:
-            #shader.inputs['Radiance'].default_value = params['bsdf']['reflectance']
-            #shader.scale = max(radiance / params['bsdf']['reflectance'])
-
         else:
             compute_normalized_radiance(shader, radiance)
 
