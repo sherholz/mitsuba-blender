@@ -96,11 +96,6 @@ def update_lamp(emitter, lamp_name):
         set_lamp_type(lamp_name, 'HEMI')
 
 
-#@MitsubaAddon.addon_register_class
-#class mitsuba_named_item(PropertyGroup):
-    #name = StringProperty(name='Name', default='')
-
-
 @MitsubaAddon.addon_register_class
 class MitsubaShaderNodeTree(NodeTree):
     '''Mitsuba Shader Node Tree'''
@@ -148,8 +143,7 @@ class MitsubaShaderNodeTree(NodeTree):
         return None, None, None
 
     def new_node_from_dict(self, params, socket=None):
-        #try:
-        if True:
+        try:
             nt = MitsubaNodeTypes.plugin_nodes[params['type']]
             node = self.nodes.new(nt.bl_idname)
             node.set_from_dict(self, params)
@@ -162,9 +156,9 @@ class MitsubaShaderNodeTree(NodeTree):
 
             return node
 
-        #except:
-            #print("Failed new_node_from_dict:")
-            #print(params)
+        except:
+            print("Failed new_node_from_dict:")
+            print(params)
 
         return None
 

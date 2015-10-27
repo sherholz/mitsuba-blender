@@ -37,10 +37,12 @@ def node_tree_selector_draw(layout, context, idtype):
     try:
         id_data = context_data[idtype]
         layout.prop_search(id_data.mitsuba_nodes, "nodetree", context.scene.mitsuba_nodegroups, idtype, icon='NODETREE')
+
     except:
         return False
 
     ntree = id_data.mitsuba_nodes.get_node_tree()
+
     if not ntree:
         layout.operator('node.new_mitsuba_node_tree', icon='NODETREE').idtype = idtype
         return False
@@ -56,8 +58,10 @@ def draw_node_properties_recursive(layout, context, ntree, node, input_name=''):
     def draw_props(layout, node, input_name):
         if input_name and input_name in node.inputs:
             input_sockets = [node.inputs[input_name]]
+
         else:
             input_sockets = node.inputs
+
             if hasattr(node, 'draw_buttons'):
                 split = layout.split(0.35)
                 col = split.column()
@@ -71,6 +75,7 @@ def draw_node_properties_recursive(layout, context, ntree, node, input_name=''):
             layout.context_pointer_set("socket", socket)
 
             input_node = socket.get_linked_node()
+
             if input_node:
                 icon = 'DISCLOSURE_TRI_DOWN' if socket.ui_open \
                     else 'DISCLOSURE_TRI_RIGHT'
@@ -98,28 +103,33 @@ def draw_node_properties_recursive(layout, context, ntree, node, input_name=''):
                     row.prop(socket, 'default_value', text='')
                     row.operator_menu_enum("node.add_mtsnode_%s" % socket.bl_custom_type.lower(),
                         "node_type", text='', icon='DOT')
+
                 else:
                     split.operator_menu_enum("node.add_mtsnode_%s" % socket.bl_custom_type.lower(),
                         "node_type", text='None', icon='DOT')
 
     draw_props(layout, node, input_name)
-    #layout.separator()
 
 
 def panel_node_draw(layout, context, id_type, output_type, input_name):
     ntree = id_type.mitsuba_nodes.get_node_tree()
+
     if not ntree:
         return False
 
     node = ntree.find_node(output_type)
+
     if not node:
         return False
+
     else:
         node_input = node.get_input_socket(input_name)
+
         if node_input.type == 'VALUE' and 'default_value' not in dir(node_input):
             # Seems like we don't have extended custom nodes and sockets
             # draw custom node panels
             draw_node_properties_recursive(layout, context, ntree, node, input_name)
+
         else:
             # Seems we have extended custom nodes and sockets
             # use template_node_view and hope it works ;D

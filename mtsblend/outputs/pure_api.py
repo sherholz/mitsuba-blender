@@ -82,8 +82,6 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 MtsLog('Mitsuba python extension found at: %s' % sp)
                 sys.path.append(os.path.dirname(sp))
                 break
-            #else:
-            #    MtsLog('Mitsuba python extension NOT found at: %s' % sp)
 
         if sys.platform == 'linux':
             RTLD_LAZY = 2
