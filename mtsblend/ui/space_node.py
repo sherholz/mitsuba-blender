@@ -27,13 +27,31 @@ from nodeitems_utils import NodeCategory, NodeItem
 
 from ..nodes import MitsubaNodeTypes
 
+space_node_editor = {}
+
+data_source_items = [
+    ('OBJECT', 'Object', 'OBJECT', 'OBJECT_DATA', 0),
+    ('WORLD', 'World', 'WORLD', 'WORLD_DATA', 1),
+]
+
+
+def get_data_source_label_icon(data_type):
+    for item in data_source_items:
+        if item[0] == data_type:
+            return item[1], item[3]
+
+    return 'Object', 'OBJECT_DATA'
+
 
 # Add shader type back to Node Editor header
 def mts_nodetree_shader_type(self, context):
     snode = context.space_data
 
     if context.scene.render.engine == 'MITSUBA_RENDER' and snode.tree_type == 'MitsubaShaderNodeTree':
-        self.layout.prop(snode, "shader_type", expand=True, icon_only=True)
+        data_source = space_node_editor.get(snode, 'OBJECT')
+        label, icon = get_data_source_label_icon(data_source)
+
+        self.layout.operator_menu_enum('node.mitsuba_node_tree_type', 'node_type', text=label, icon=icon)
 
 bl_ui.space_node.NODE_HT_header.append(mts_nodetree_shader_type)
 

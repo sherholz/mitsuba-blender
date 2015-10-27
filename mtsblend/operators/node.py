@@ -34,6 +34,27 @@ from ..nodes.sockets import mitsuba_socket_definitions
 from ..export.materials import blender_material_to_dict
 from ..export.lamps import blender_lamp_to_nodes
 
+from ..ui.space_node import space_node_editor, data_source_items
+
+
+@MitsubaAddon.addon_register_class
+class NODE_OT_mitsuba_node_tree_type(Operator):
+    ''''''
+    bl_idname = "node.mitsuba_node_tree_type"
+    bl_label = "Mitsuba Nodetree Type"
+    bl_description = "Mitsuba node tree type"
+
+    node_type = EnumProperty(name="NodeTree Type",
+        description='NodeTree type',
+        items=data_source_items,
+        default='OBJECT'
+    )
+
+    def execute(self, context):
+        space_node_editor[context.space_data] = self.properties.node_type
+
+        return {'FINISHED'}
+
 
 @MitsubaAddon.addon_register_class
 class NODE_OT_new_mitsuba_node_tree(Operator):
