@@ -31,6 +31,7 @@ from bpy.props import BoolProperty, CollectionProperty
 from .. import MitsubaAddon
 from ..nodes import MitsubaNodeManager, MitsubaNodeTypes
 from ..properties.node import mitsuba_named_item
+from ..ui.space_node import space_node_editor
 
 
 def find_item(collection, name):
@@ -116,7 +117,9 @@ class MitsubaShaderNodeTree(NodeTree):
     @classmethod
     def get_from_context(cls, context):
         snode = context.space_data
-        if snode.shader_type == 'OBJECT':
+        data_source = space_node_editor.get(snode, 'OBJECT')
+
+        if data_source == 'OBJECT':
             ob = context.active_object
 
             if ob and ob.type not in {'LAMP', 'CAMERA'}:
