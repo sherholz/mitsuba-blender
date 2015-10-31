@@ -44,7 +44,7 @@ from ..outputs import MtsLog
 
 # Exporter Property Groups need to be imported to ensure initialisation
 from ..properties import (
-    camera, engine, integrator, mesh, node as props_node, object as props_object, sampler
+    camera, engine, integrator, mesh, node as props_node, object as props_object, particle, sampler
 )
 
 # Exporter Nodes need to be imported to ensure initialisation
@@ -56,7 +56,7 @@ from ..nodes import (
 # Exporter Interface Panels need to be imported to ensure initialisation
 from ..ui import (
     properties_render, properties_render_layer, properties_world,
-    properties_camera, properties_lamp, properties_mesh,
+    properties_camera, properties_lamp, properties_mesh, properties_particle,
     properties_material, properties_texture, space_node
 )
 

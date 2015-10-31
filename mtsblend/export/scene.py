@@ -156,7 +156,7 @@ class SceneExporter:
                                     'hair',
                                     {
                                         'filename': filename,
-                                        'radius': psys.settings.particle_size / 2.0 / 1000.0
+                                        'radius': psys.settings.mitsuba_hair.hair_width / 2.0
                                     },
                                     seq
                                 )],
