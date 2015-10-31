@@ -66,6 +66,7 @@ def convert_float_texture_node(mts_context, socket):
         if node.type == "TEX_IMAGE":
             params = {
                 'type': 'bitmap',
+                'id': node.image.name,
                 'filename': get_export_path(mts_context, node.image.filepath)
             }
 
@@ -84,6 +85,7 @@ def convert_color_texture_node(mts_context, socket):
         if node.type == "TEX_IMAGE":
             params = {
                 'type': 'bitmap',
+                'id': node.image.name,
                 'filename': get_export_path(mts_context, node.image.filepath)
             }
 

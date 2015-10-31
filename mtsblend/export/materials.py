@@ -66,6 +66,55 @@ class ExportedMaterials:
             ExportedMaterials.exported_materials_dict.update({name: params})
 
 
+class ExportedTextures:
+    # Static class variables
+    exported_textures_dict = {}
+
+    @staticmethod
+    def clear():
+        ExportedTextures.exported_textures_dict = {}
+
+    @staticmethod
+    def addExportedTexture(name, params):
+        if name not in ExportedTextures.exported_textures_dict:
+            ExportedTextures.exported_textures_dict.update({name: params})
+
+
+def get_texture_id(texture):
+    for tex_id, tex_params in ExportedTextures.exported_textures_dict.items():
+        if tex_params == texture:
+            return tex_id
+
+    return 'Texture_%i' % len(ExportedTextures.exported_textures_dict)
+
+
+def export_textures(mts_context, params):
+    if not isinstance(params, (dict)):
+        return
+
+    for key, elem in params.items():
+        if not isinstance(elem, (dict)):
+            continue
+
+        if 'type' in elem and elem['type'] in {'bitmap'}:
+            try:
+                tex_id = elem.pop('id')
+
+            except:
+                tex_id = get_texture_id(elem)
+
+            if tex_id not in ExportedTextures.exported_textures_dict:
+                tex_params = elem.copy()
+                tex_params['id'] = tex_id
+                mts_context.data_add(tex_params)
+                ExportedTextures.addExportedTexture(tex_id, elem)
+
+            params[key] = {'type': 'ref', 'id': tex_id}
+
+        else:
+            export_textures(mts_context, elem)
+
+
 def get_instance_materials(ob):
     obmats = []
 
@@ -187,6 +236,7 @@ def internal_material_to_dict(mts_context, blender_mat):
             if (tex.use and tex.texture.type == 'IMAGE' and params['type'] == 'diffuse'):
                 params['reflectance'] = {
                     'type': 'bitmap',
+                    'id': tex.texture.image.name,
                     'filename': get_export_path(mts_context, tex.texture.image.filepath)
                 }
 
@@ -194,12 +244,14 @@ def internal_material_to_dict(mts_context, blender_mat):
                 if (tex.use_map_color_diffuse):
                     params['diffuseReflectance'] = {
                         'type': 'bitmap',
+                        'id': tex.texture.image.name,
                         'filename': get_export_path(mts_context, tex.texture.image.filepath)
                     }
 
                 elif (tex.use_map_color_spec):
                     params['specularReflectance'] = {
                         'type': 'bitmap',
+                        'id': tex.texture.image.name,
                         'filename': get_export_path(mts_context, tex.texture.image.filepath)
                     }
 
@@ -265,6 +317,8 @@ def export_material(mts_context, material):
 
     else:
         mat_params = blender_material_to_dict(mts_context, material)
+
+    export_textures(mts_context, mat_params)
 
     if 'bsdf' in mat_params:
         bsdf_params = OrderedDict([('id', '%s-bsdf' % name)])

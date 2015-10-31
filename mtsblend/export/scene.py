@@ -31,7 +31,7 @@ from ..extensions_framework import util as efutil
 from ..export.environment import get_environment_trafo, export_world_environment
 from ..export.cameras import export_camera_instance
 from ..export.lamps import export_lamp_instance
-from ..export.materials import ExportedMaterials
+from ..export.materials import ExportedMaterials, ExportedTextures
 from ..export.geometry import GeometryExporter
 from ..export import Instance, is_object_visible, is_light, is_mesh, is_deforming, object_render_hide, object_render_hide_duplis
 from ..outputs import MtsManager, MtsLog
@@ -319,6 +319,7 @@ class SceneExporter:
                 )
 
             ExportedMaterials.clear()
+            ExportedTextures.clear()
 
             mts_context.data_add(scene.mitsuba_integrator.api_output())
 
