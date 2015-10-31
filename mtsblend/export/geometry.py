@@ -253,6 +253,18 @@ class GeometryExporter:
         ntree = material.mitsuba_nodes.get_node_tree()
 
         if not ntree:
+            if material.use_nodes:
+                try:
+                    for node in material.node_tree.nodes:
+                        if node.type == 'EMISSION':
+                            return False
+
+                except:
+                    pass
+
+            elif material.emit > 0:
+                return False
+
             return True
 
         output_node = ntree.find_node('MtsNodeMaterialOutput')
