@@ -249,6 +249,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 
         try:
             export_materials.ExportedMaterials.clear()
+            export_materials.ExportedTextures.clear()
 
             from ..export import preview_scene
 
