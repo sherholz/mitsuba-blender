@@ -113,11 +113,14 @@ class ExportContextBase:
 
         self.data_add(params)
 
-    def data_add(self, mts_dict):
+    def data_add(self, mts_dict, name=None):
         if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
             return False
 
-        self.scene_data.update([('elm%i' % self.counter, mts_dict)])
+        if name is None:
+            name = 'elm%i' % self.counter
+
+        self.scene_data.update([(name, mts_dict)])
         self.counter += 1
 
         return True
