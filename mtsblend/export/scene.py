@@ -321,7 +321,7 @@ class SceneExporter:
             ExportedMaterials.clear()
             ExportedTextures.clear()
 
-            mts_context.data_add(scene.mitsuba_integrator.api_output())
+            mts_context.data_add(scene.mitsuba_integrator.api_output(), 'integrator')
 
             self.GE = GeometryExporter(mts_context, scene)
             self.world_environment = Instance(scene.world, None)
