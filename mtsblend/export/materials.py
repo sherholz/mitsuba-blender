@@ -320,7 +320,17 @@ def export_material(mts_context, material):
 
     export_textures(mts_context, mat_params)
 
-    if 'bsdf' in mat_params:
+    if 'emitter' in mat_params:
+        try:
+            hide_emitters = mts_context.scene_data['integrator']['hideEmitters']
+
+        except:
+            hide_emitters = False
+
+        if hide_emitters:
+            mat_params.update({'bsdf': {'type': 'null'}})
+
+    if 'bsdf' in mat_params and mat_params['bsdf']['type'] != 'null':
         bsdf_params = OrderedDict([('id', '%s-bsdf' % name)])
         bsdf_params.update(mat_params['bsdf'])
         mts_context.data_add(bsdf_params)

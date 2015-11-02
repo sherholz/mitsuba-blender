@@ -194,6 +194,12 @@ def export_lamp_instance(mts_context, instance, name):
             del params['scale']
 
     if params and 'type' in params:
+        try:
+            hide_emitters = mts_context.scene_data['integrator']['hideEmitters']
+
+        except:
+            hide_emitters = False
+
         if params['type'] in {'rectangle', 'disk'}:
             toworld = params.pop('toWorld')
 
@@ -211,11 +217,17 @@ def export_lamp_instance(mts_context, instance, name):
                 ),
             })
 
+            if hide_emitters:
+                params.update({'bsdf': {'type': 'null'}})
+
         elif params['type'] in {'point', 'sphere'}:
             params.update({
                 'id': '%s-pointlight' % name,
                 'toWorld': mts_context.animated_transform(instance.motion),
             })
+
+            if hide_emitters:
+                params.update({'bsdf': {'type': 'null'}})
 
         elif params['type'] in {'spot', 'directional', 'collimated'}:
             params.update({
