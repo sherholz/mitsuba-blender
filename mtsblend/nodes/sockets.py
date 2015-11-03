@@ -342,8 +342,8 @@ spectrum_sockets = [
     ColorParams('interiorColor', 'Face Color', default=(0.5, 0.5, 0.5)),
     ColorParams('edgeColor', 'Edge Color', default=(0.1, 0.1, 0.1)),
     ColorParams('radiance', 'Radiance', default=(1.0, 1.0, 1.0)),
-    ColorParams('eta', 'IOR', default=(0.0, 0.0, 0.0), draw=draw_vector_socket),
-    ColorParams('k', 'Absorption Coefficient', default=(1.0, 1.0, 1.0), draw=draw_vector_socket),
+    ColorParams('eta', 'IOR', subtype='NONE', default=(0.0, 0.0, 0.0), min=0.0, max=10.0, draw=draw_vector_socket),
+    ColorParams('k', 'Absorption Coefficient', default=(1.0, 1.0, 1.0)),
 ]
 
 for params in spectrum_sockets:
