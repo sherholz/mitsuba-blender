@@ -56,6 +56,9 @@ def get_environment_trafo(world):
 
 
 def export_world_environment(mts_context, world_environment, is_preview=False):
+    if world_environment.obj is None:
+        return
+
     world = world_environment.obj
     ntree = world.mitsuba_nodes.get_node_tree()
     params = {}
