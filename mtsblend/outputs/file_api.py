@@ -430,6 +430,13 @@ class FileExportContext(ExportContextBase):
                     MtsLog('************** Plugin - %s - ID - %s - already exported **************' % (plugin_type, args['id']))
                     return
 
+        try:
+            if args['name'] == args['id']:
+                del(args['name'])
+
+        except:
+            pass
+
         if len(param_dict) > 0 and plugin in mitsuba_tags:
             self.openElement(plugin, args)
 

@@ -113,12 +113,20 @@ class ExportContextBase:
 
         self.data_add(params)
 
-    def data_add(self, mts_dict, name=None):
+    # Function to add new elements to the scene dict.
+    # If a name is provided it will be used as the key of the element.
+    # Otherwise the Id of the element is used if it exists
+    # or a new key is generated incrementally.
+    def data_add(self, mts_dict, name=''):
         if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
             return False
 
-        if name is None:
-            name = 'elm%i' % self.counter
+        if not name:
+            try:
+                name = mts_dict['id']
+
+            except:
+                name = 'elm%i' % self.counter
 
         self.scene_data.update([(name, mts_dict)])
         self.counter += 1
