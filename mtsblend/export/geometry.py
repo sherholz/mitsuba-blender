@@ -36,6 +36,7 @@ from ..export import ExportProgressThread, ExportCache
 from ..export import is_deforming
 from ..export import get_output_subdir
 from ..export import get_export_path
+from ..export import get_param_recursive
 from ..export.materials import export_material
 
 
@@ -208,7 +209,10 @@ class GeometryExporter:
                     else:
                         MtsLog('Skipping already exported mesh: %s' % mesh_name)
 
-                    shape_params = {'filename': get_export_path(self.mts_context, file_path)}
+                    shape_params = {
+                        'filename': get_export_path(self.mts_context, file_path),
+                        'doubleSided': mesh.show_double_sided
+                    }
 
                     if obj.data.mitsuba_mesh.normals == 'facenormals':
                         shape_params.update({'faceNormals': 'true'})
@@ -248,6 +252,15 @@ class GeometryExporter:
         return mesh_definitions
 
     is_preview = False
+
+    def allowDoubleSided(self, mat_params):
+        types = get_param_recursive(self.mts_context.scene_data, mat_params, 'type')
+
+        for t in types:
+            if t in {'null', 'dielectric', 'thindielectric', 'roughdielectric', 'difftrans', 'hk', 'mask', 'twosided'}:
+                return False
+
+        return True
 
     def allowMaterialInstancing(self, material):
         ntree = material.mitsuba_nodes.get_node_tree()
@@ -337,15 +350,25 @@ class GeometryExporter:
         if len(me_shape_params) == 0:
             return
 
+        shape_params = me_shape_params.copy()
+        double_sided = shape_params.pop('doubleSided')
+
         shape = {
             'type': me_shape_type,
             'id': '%s_shape' % me_name,
         }
-        shape.update(me_shape_params)
+        shape.update(shape_params)
 
         mat_params = self.exportShapeMaterial(obj, me_mat_index)
 
         if mat_params:
+            if double_sided and 'bsdf' in mat_params and \
+                    self.allowDoubleSided(mat_params['bsdf']):
+                mat_params['bsdf'] = {
+                    'type': 'twosided',
+                    'bsdf': mat_params['bsdf']
+                }
+
             shape.update(mat_params)
 
         self.mts_context.data_add({
@@ -385,18 +408,32 @@ class GeometryExporter:
 
             for me_name, me_mat_index, me_shape_type, me_shape_params, me_seq in mesh_def:
                 motion = instance.motion if seq == 1 else [instance.motion[len(shapes)]]
+                shape_params = me_shape_params.copy()
+
+                try:
+                    double_sided = shape_params.pop('doubleSided')
+
+                except:
+                    double_sided = False
 
                 shape = {
                     'type': me_shape_type,
                     'id': '%s_%s' % (name, me_name),
                     'toWorld': self.mts_context.animated_transform(motion),
                 }
-                shape.update(me_shape_params)
+                shape.update(shape_params)
 
                 if me_shape_type != 'instance':
                     mat_params = self.exportShapeMaterial(instance.obj, me_mat_index)
 
                     if mat_params:
+                        if double_sided and 'bsdf' in mat_params and \
+                                self.allowDoubleSided(mat_params['bsdf']):
+                            mat_params['bsdf'] = {
+                                'type': 'twosided',
+                                'bsdf': mat_params['bsdf']
+                            }
+
                         shape.update(mat_params)
 
                 shapes.append((me_seq, shape))
