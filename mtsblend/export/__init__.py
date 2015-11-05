@@ -171,6 +171,49 @@ class Instance:
             self.motion.append((seq, trafo))
 
 
+class ReferenceCounter:
+    stack = []
+
+    @classmethod
+    def reset(cls):
+        cls.stack = []
+
+    def __init__(self, name):
+        self.ident = name
+
+    def __enter__(self):
+        if self.ident in ReferenceCounter.stack:
+            raise Exception("Recursion in reference link: %s -- %s" % (self.ident, ' -> '.join(ReferenceCounter.stack)))
+
+        ReferenceCounter.stack.append(self.ident)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        ReferenceCounter.stack.pop()
+
+
+def get_param_recursive_loop(scene_data, params, key):
+    if isinstance(params, dict):
+        if 'type' in params and params['type'] == 'ref':
+            with ReferenceCounter(params['id']):
+                for r in get_param_recursive_loop(scene_data, scene_data[params['id']], key):
+                    yield r
+
+        else:
+            for k, p in params.items():
+                if k == key:
+                    yield p
+
+                if isinstance(p, dict):
+                    for r in get_param_recursive_loop(scene_data, p, key):
+                        yield r
+
+
+def get_param_recursive(scene_data, params, key):
+    ReferenceCounter.reset()
+    for r in get_param_recursive_loop(scene_data, params, key):
+        yield r
+
+
 def get_references(params):
     if isinstance(params, dict):
         for p in params.values():
