@@ -21,6 +21,7 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 
+import bpy
 from bpy.types import Node
 from bpy.props import FloatProperty, EnumProperty, StringProperty
 
@@ -88,8 +89,18 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
     bl_label = 'Bitmap Texture'
     plugin_types = {'bitmap'}
 
+    def update_image(self, context):
+        if self.image:
+            self.filename = bpy.data.images[self.image].filepath
+
     def draw_buttons(self, context, layout):
-        layout.prop(self, 'filename')
+        row = layout.row(align=True)
+        row.prop_search(self, 'image', bpy.data, 'images')
+        row.operator('image.open', text='', icon='FILESEL')
+
+        if not self.image:
+            layout.prop(self, 'filename')
+
         layout.prop(self, 'channel')
         layout.prop(self, 'wrapModeU')
         layout.prop(self, 'wrapModeV')
@@ -104,6 +115,13 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
             layout.prop(self, 'maxAnisotropy')
 
         layout.prop(self, 'cache')
+
+    image = StringProperty(
+        name='Image',
+        description='Select image',
+        default='',
+        update=update_image
+    )
 
     filename = StringProperty(
         subtype='FILE_PATH',
