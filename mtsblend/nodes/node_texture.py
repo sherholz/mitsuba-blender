@@ -90,6 +90,7 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, 'filename')
+        layout.prop(self, 'channel')
         layout.prop(self, 'wrapModeU')
         layout.prop(self, 'wrapModeV')
         layout.prop(self, 'gammaType')
@@ -184,19 +185,18 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
         default='auto',
     )
 
-    # TODO:
-    #'type': 'enum',
-    #'attr': 'channel',
-    #'name': 'Channel',
-    #'description': 'Select the channel used',
-    #'items': [
-        #('all', 'All', 'all'),
-        #('r', 'Red', 'r'),
-        #('g', 'Green', 'g'),
-        #('b', 'Blue', 'b'),
-        #('a', 'Alpha', 'a'),
-    #],
-    #'default': 'all',
+    channel = EnumProperty(
+        name='Channel',
+        description='Select the channel used for output Value.',
+        items=[
+            ('all', 'Average', 'all'),
+            ('r', 'Red', 'r'),
+            ('g', 'Green', 'g'),
+            ('b', 'Blue', 'b'),
+            ('a', 'Alpha', 'a'),
+        ],
+        default='all',
+    )
 
     custom_inputs = [
         {'type': 'MtsSocketUVMapping', 'name': 'UV Mapping'},
@@ -220,9 +220,6 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
         elif self.gammaType == 'srgb':
             params.update({'gamma': -1})
 
-        #if self.channel != 'all':
-            #params.update({'channel': self.channel})
-
         if self.cache != 'auto':
             params.update({'cache': self.cache})
 
@@ -230,6 +227,14 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
 
         if mapping:
             params.update(mapping)
+
+        return params
+
+    def get_float_dict(self, mts_context):
+        params = self.get_texture_dict(mts_context)
+
+        if self.channel != 'all':
+            params.update({'channel': self.channel})
 
         return params
 
