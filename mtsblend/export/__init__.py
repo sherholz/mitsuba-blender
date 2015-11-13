@@ -21,7 +21,8 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 
-import collections
+from collections import OrderedDict, Counter
+
 import os
 
 import bpy
@@ -33,11 +34,11 @@ from ..outputs import MtsManager, MtsLog
 
 
 class ExportProgressThread(efutil.TimerThread):
-    message = '%i%%'
     KICK_PERIOD = 0.2
     total_objects = 0
     exported_objects = 0
     last_update = 0
+    message = '%i%%'
 
     def start(self, number_of_meshes):
         self.total_objects = number_of_meshes
@@ -57,7 +58,7 @@ class ExportCache:
         self.name = name
         self.cache_keys = set()
         self.cache_items = {}
-        self.serial_counter = collections.Counter()
+        self.serial_counter = Counter()
 
     def clear(self):
         self.__init__(name=self.name)
@@ -83,6 +84,136 @@ class ExportCache:
             raise Exception('Item %s not found in %s!' % (ck, self.name))
 
 
+class ExportContextBase:
+    '''
+    Export Context base class
+    '''
+
+    scene_data = None
+    counter = 0
+    exported_media = set()
+    exported_ids = set()
+    motion = {}
+    color_mode = 'rgb'
+
+    def __init__(self):
+        self.scene_data = OrderedDict([('type', 'scene')])
+        self.counter = 0
+        self.exported_media = set()
+        self.exported_ids = set()
+        self.motion = {}
+
+    def exportMedium(self, scene, medium):
+        if medium.name in self.exported_media:
+            return
+
+        self.exported_media.add(medium.name)
+
+        params = medium.api_output(self, scene)
+
+        self.data_add(params)
+
+    # Function to add new elements to the scene dict.
+    # If a name is provided it will be used as the key of the element.
+    # Otherwise the Id of the element is used if it exists
+    # or a new key is generated incrementally.
+    def data_add(self, mts_dict, name=''):
+        if mts_dict is None or not isinstance(mts_dict, dict) or len(mts_dict) == 0 or 'type' not in mts_dict:
+            return False
+
+        if not name:
+            try:
+                name = mts_dict['id']
+
+            except:
+                name = 'elm%i' % self.counter
+
+        self.scene_data.update([(name, mts_dict)])
+        self.counter += 1
+
+        return True
+
+
+class Instance:
+    obj = None
+    motion = []
+    mesh = None
+
+    def __init__(self, obj, trafo=None, mesh=None):
+        self.obj = obj
+
+        if trafo is not None:
+            self.motion = [(0.0, trafo)]
+
+        else:
+            self.motion = []
+
+        if mesh is not None:
+            self.mesh = [mesh]
+
+        else:
+            self.mesh = None
+
+    def append_motion(self, trafo, seq, is_deform=False):
+        seqs = len(self.motion)
+
+        if self.motion:
+            last_matrix = self.motion[-1][1]
+
+        else:
+            last_matrix = None
+
+        if not is_deform and (seqs > 1 and trafo == last_matrix and
+                last_matrix == self.motion[-2][1]):
+            self.motion[-1] = (seq, trafo)
+
+        else:
+            self.motion.append((seq, trafo))
+
+
+class ReferenceCounter:
+    stack = []
+
+    @classmethod
+    def reset(cls):
+        cls.stack = []
+
+    def __init__(self, name):
+        self.ident = name
+
+    def __enter__(self):
+        if self.ident in ReferenceCounter.stack:
+            raise Exception("Recursion in reference link: %s -- %s" % (self.ident, ' -> '.join(ReferenceCounter.stack)))
+
+        ReferenceCounter.stack.append(self.ident)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        ReferenceCounter.stack.pop()
+
+
+def get_param_recursive_loop(scene_data, params, key):
+    if isinstance(params, dict):
+        if 'type' in params and params['type'] == 'ref':
+            with ReferenceCounter(params['id']):
+                for r in get_param_recursive_loop(scene_data, scene_data[params['id']], key):
+                    yield r
+
+        else:
+            for k, p in params.items():
+                if k == key:
+                    yield p
+
+                if isinstance(p, dict):
+                    for r in get_param_recursive_loop(scene_data, p, key):
+                        yield r
+
+
+def get_param_recursive(scene_data, params, key):
+    ReferenceCounter.reset()
+    for r in get_param_recursive_loop(scene_data, params, key):
+        yield r
+
+
 def get_references(params):
     if isinstance(params, dict):
         for p in params.values():
@@ -95,12 +226,117 @@ def get_references(params):
                         yield r
 
 
-def is_obj_visible(scene, obj, is_dupli=False):
+def object_render_hide_original(ob_type, dupli_type):
+    # metaball exception, they duplicate self
+    if ob_type == 'META':
+        return False
+
+    return dupli_type in {'VERTS', 'FACES', 'FRAMES'}
+
+
+def object_render_hide_duplis(b_ob):
+    parent = b_ob.parent
+
+    return parent is not None and object_render_hide_original(b_ob.type, parent.dupli_type)
+
+
+def object_render_hide(b_ob, top_level, parent_hide):
+    # check if we should render or hide particle emitter
+    hair_present = False
+    show_emitter = False
+    hide_emitter = False
+    hide_as_dupli_parent = False
+    hide_as_dupli_child_original = False
+
+    for b_psys in b_ob.particle_systems:
+        if b_psys.settings.render_type == 'PATH' and b_psys.settings.type == 'HAIR':
+            hair_present = True
+
+        if b_psys.settings.use_render_emitter:
+            show_emitter = True
+        else:
+            hide_emitter = True
+
+    if show_emitter:
+        hide_emitter = False
+
+    # duplicators hidden by default, except dupliframes which duplicate self
+    if b_ob.is_duplicator:
+        if top_level or b_ob.dupli_type != 'FRAMES':
+            hide_as_dupli_parent = True
+
+    # hide original object for duplis
+    parent = b_ob.parent
+    while parent is not None:
+        if object_render_hide_original(b_ob.type, parent.dupli_type):
+            if parent_hide:
+                hide_as_dupli_child_original = True
+                break
+
+        parent = parent.parent
+
+    hide_mesh = hide_emitter
+
+    if show_emitter:
+        return (False, hide_mesh)
+
+    elif hair_present:
+        return (hide_as_dupli_child_original, hide_mesh)
+
+    else:
+        return ((hide_as_dupli_parent or hide_as_dupli_child_original), hide_mesh)
+
+
+def is_object_visible(scene, obj, is_dupli=False):
     ov = False
     for lv in [ol and sl and rl for ol, sl, rl in zip(obj.layers, scene.layers, scene.render.layers.active.layers)]:
         ov |= lv
 
     return (ov or is_dupli) and not obj.hide_render
+
+
+def is_light(obj):
+    return obj.type == 'LAMP'
+
+
+def is_mesh(obj):
+    return obj.type in {'MESH', 'CURVE', 'SURFACE', 'FONT'}
+
+
+def is_subd_last(obj):
+    return obj.modifiers and \
+        obj.modifiers[len(obj.modifiers) - 1].type == 'SUBSURF'
+
+
+def is_subd_displace_last(obj):
+    if len(obj.modifiers) < 2:
+        return False
+
+    return (obj.modifiers[len(obj.modifiers) - 2].type == 'SUBSURF' and
+            obj.modifiers[len(obj.modifiers) - 1].type == 'DISPLACE')
+
+
+# XXX do this better, perhaps by hooking into modifier type data in RNA?
+# Currently assumes too much is deforming when it isn't
+
+
+def is_deforming(obj):
+    deforming_modifiers = {'ARMATURE', 'CAST', 'CLOTH', 'CURVE', 'DISPLACE',
+                           'HOOK', 'LATTICE', 'MESH_DEFORM', 'SHRINKWRAP',
+                           'SIMPLE_DEFORM', 'SMOOTH', 'WAVE', 'SOFT_BODY',
+                           'SURFACE', 'MESH_CACHE'}
+    if obj.type in {'MESH', 'SURFACE', 'FONT'} and obj.modifiers:
+        # special cases for auto subd/displace detection
+        if len(obj.modifiers) == 1 and is_subd_last(obj):
+            return False
+        if len(obj.modifiers) == 2 and is_subd_displace_last(obj):
+            return False
+
+        for mod in obj.modifiers:
+            if mod.type in deforming_modifiers:
+                return True
+
+    return False
 
 
 def get_worldscale(as_scalematrix=True):

@@ -20,3 +20,35 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # ***** END GPL LICENSE BLOCK *****
+
+from bl_ui.properties_particle import ParticleButtonsPanel
+
+from ..extensions_framework.ui import property_group_renderer
+
+from .. import MitsubaAddon
+
+
+class mitsuba_particle_panel(ParticleButtonsPanel, property_group_renderer):
+    COMPAT_ENGINES = {'MITSUBA_RENDER'}
+
+
+@MitsubaAddon.addon_register_class
+class MitsubaParticle_PT_hair(mitsuba_particle_panel):
+    bl_label = 'Hair Settings'
+
+    display_property_groups = [
+        (('particle_system', 'settings', ), 'mitsuba_hair')
+    ]
+
+    @classmethod
+    def poll(cls, context):
+        psys = context.particle_system
+        engine = context.scene.render.engine
+
+        if psys is None:
+            return False
+
+        if psys.settings is None:
+            return False
+
+        return psys.settings.type == 'HAIR' and (engine in cls.COMPAT_ENGINES)

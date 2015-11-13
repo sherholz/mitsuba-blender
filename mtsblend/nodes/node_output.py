@@ -23,14 +23,8 @@
 
 from bpy.types import Node
 
-from collections import OrderedDict
-
 from ..nodes import (
     MitsubaNodeTypes, mitsuba_node
-)
-
-from ..export.materials import (
-    ExportedMaterials
 )
 
 
@@ -63,22 +57,13 @@ class MtsNodeMaterialOutput(mitsuba_output_node, Node):
     ]
 
     def get_output_dict(self, mts_context, material):
-        name = material.name
-
-        if name in ExportedMaterials.exported_materials_dict:
-            return ExportedMaterials.exported_materials_dict[name]
-
         mat_params = {}
 
         # start exporting that material...
         bsdf_node = self.inputs['Bsdf'].get_linked_node()
 
         if bsdf_node:
-            bsdf_params = OrderedDict([('id', '%s-bsdf' % name)])
-            bsdf_params.update(bsdf_node.get_bsdf_dict(mts_context))
-            mts_context.data_add(bsdf_params)
-
-            mat_params.update({'bsdf': {'type': 'ref', 'id': '%s-bsdf' % name}})
+            mat_params.update({'bsdf': bsdf_node.get_bsdf_dict(mts_context)})
 
         # export subsurface...
         subsurface_node = self.inputs['Subsurface'].get_linked_node()
@@ -90,23 +75,13 @@ class MtsNodeMaterialOutput(mitsuba_output_node, Node):
         interior_node = self.inputs['Interior Medium'].get_linked_node()
 
         if interior_node and not subsurface_node:
-            interior_params = {'id': '%s-medium' % name}
-            interior_params.update(interior_node.get_medium_dict(mts_context))
-
-            if interior_params['type'] == 'ref':
-                mat_params.update({'interior': interior_params})
-
-            else:
-                mts_context.data_add(interior_params)
-                mat_params.update({'interior': {'type': 'ref', 'id': '%s-medium' % name}})
+            mat_params.update({'interior': interior_node.get_medium_dict(mts_context)})
 
         # export emitter...
         emitter_node = self.inputs['Emitter'].get_linked_node()
 
         if emitter_node:
             mat_params.update({'emitter': emitter_node.get_emitter_dict(mts_context)})
-
-        ExportedMaterials.addExportedMaterial(name, mat_params)
 
         return mat_params
 
@@ -132,7 +107,7 @@ class MtsNodeLampOutput(mitsuba_output_node, Node):
         lamp_node = self.inputs['Lamp'].get_linked_node()
 
         if lamp_node:
-            lamp_params = lamp_node.get_lamp_dict(mts_context, lamp)
+            lamp_params = lamp_node.get_lamp_dict(mts_context)
 
         return lamp_params
 

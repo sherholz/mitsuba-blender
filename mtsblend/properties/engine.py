@@ -31,39 +31,6 @@ from .. import MitsubaAddon
 from ..ui import refresh_preview
 
 
-@MitsubaAddon.addon_register_class
-class mitsuba_testing(declarative_property_group):
-    """
-    Properties related to exporter and scene testing
-    """
-
-    ef_attach_to = ['Scene']
-
-    controls = [
-        'object_analysis',
-        're_raise'
-    ]
-
-    visibility = {}
-
-    properties = [
-        {
-            'type': 'bool',
-            'attr': 'object_analysis',
-            'name': 'Debug: Print Object Analysis',
-            'description': 'Show extra output as objects are processed',
-            'default': False
-        },
-        {
-            'type': 'bool',
-            'attr': 're_raise',
-            'name': 'Debug: Show Error Traceback Messages',
-            'description': 'Show export error messages in the UI as well as the console',
-            'default': False
-        },
-    ]
-
-
 def get_cpu_count():
     try:
         return multiprocessing.cpu_count()
@@ -258,5 +225,38 @@ class mitsuba_engine(declarative_property_group):
             'max': 128,
             'update': refresh_preview,
             'save_in_preset': True
+        },
+    ]
+
+
+@MitsubaAddon.addon_register_class
+class mitsuba_testing(declarative_property_group):
+    """
+    Properties related to exporter and scene testing
+    """
+
+    ef_attach_to = ['Scene']
+
+    controls = [
+        'object_analysis',
+        're_raise'
+    ]
+
+    visibility = {}
+
+    properties = [
+        {
+            'type': 'bool',
+            'attr': 'object_analysis',
+            'name': 'Debug: Print Object Analysis',
+            'description': 'Show extra output as objects are processed',
+            'default': False
+        },
+        {
+            'type': 'bool',
+            'attr': 're_raise',
+            'name': 'Debug: Show Error Traceback Messages',
+            'description': 'Show export error messages in the UI as well as the console',
+            'default': False
         },
     ]

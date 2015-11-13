@@ -34,6 +34,27 @@ from ..nodes.sockets import mitsuba_socket_definitions
 from ..export.materials import blender_material_to_dict
 from ..export.lamps import blender_lamp_to_nodes
 
+from ..ui.space_node import space_node_editor, data_source_items
+
+
+@MitsubaAddon.addon_register_class
+class NODE_OT_mitsuba_node_tree_type(Operator):
+    ''''''
+    bl_idname = "node.mitsuba_node_tree_type"
+    bl_label = "Mitsuba Nodetree Type"
+    bl_description = "Mitsuba node tree type"
+
+    node_type = EnumProperty(name="NodeTree Type",
+        description='NodeTree type',
+        items=data_source_items,
+        default='OBJECT'
+    )
+
+    def execute(self, context):
+        space_node_editor[context.space_data] = self.properties.node_type
+
+        return {'FINISHED'}
+
 
 @MitsubaAddon.addon_register_class
 class NODE_OT_new_mitsuba_node_tree(Operator):
@@ -65,7 +86,12 @@ class NODE_OT_new_mitsuba_node_tree(Operator):
 
                     if shader:
                         shader.location = 200, 570
-                        ntree.links.new(shader.outputs['Bsdf'], sh_out.inputs['Bsdf'])
+
+                        if 'Bsdf' in shader.outputs:
+                            ntree.links.new(shader.outputs['Bsdf'], sh_out.inputs['Bsdf'])
+
+                        if 'Emitter' in shader.outputs:
+                            ntree.links.new(shader.outputs['Emitter'], sh_out.inputs['Emitter'])
 
         elif idtype == 'lamp':
             sh_out = ntree.nodes.new('MtsNodeLampOutput')
@@ -124,8 +150,8 @@ def get_type_items(cls, context):
                 items.append(('%s:%s' % (nodetype.bl_idname, compat_socks[0]), nodetype.bl_label,
                         nodetype.bl_label))
 
-    if items and not items[len(items) - 1][0]:
-        items.pop(len(items) - 1)
+    if items and not items[-1][0]:
+        del items[-1]
 
     items.append(('', 'Link', ''))
     items.append(('REMOVE', 'Remove',

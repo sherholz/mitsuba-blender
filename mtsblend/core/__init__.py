@@ -44,7 +44,7 @@ from ..outputs import MtsLog
 
 # Exporter Property Groups need to be imported to ensure initialisation
 from ..properties import (
-    camera, engine, integrator, mesh, sampler
+    camera, engine, integrator, mesh, node as props_node, object as props_object, particle, sampler
 )
 
 # Exporter Nodes need to be imported to ensure initialisation
@@ -55,13 +55,15 @@ from ..nodes import (
 
 # Exporter Interface Panels need to be imported to ensure initialisation
 from ..ui import (
-    properties_render, properties_camera, properties_lamp, properties_mesh,
-    properties_world, properties_material, properties_texture
+    properties_render, properties_render_layer, properties_world,
+    properties_camera, properties_lamp, properties_mesh, properties_particle,
+    properties_material, properties_texture, space_node
 )
 
 # Exporter Operators need to be imported to ensure initialisation
-from .. import operators
-from ..operators import material, node
+from ..operators import misc, material, node as ot_node
+
+from ..core import handlers
 
 
 def _register_elm(elm, required=False):
@@ -77,6 +79,8 @@ _register_elm(bl_ui.properties_render.RENDER_PT_render, required=True)
 _register_elm(bl_ui.properties_render.RENDER_PT_dimensions, required=True)
 _register_elm(bl_ui.properties_render.RENDER_PT_output, required=True)
 _register_elm(bl_ui.properties_render.RENDER_PT_stamp)
+
+_register_elm(bl_ui.properties_render_layer.RENDERLAYER_PT_layers)
 
 _register_elm(bl_ui.properties_scene.SCENE_PT_scene, required=True)
 _register_elm(bl_ui.properties_scene.SCENE_PT_audio)
@@ -97,101 +101,22 @@ _register_elm(bl_ui.properties_material.MATERIAL_PT_preview)
 
 _register_elm(bl_ui.properties_data_lamp.DATA_PT_context_lamp)
 
-cached_spp = None
-cached_depth = None
-
-
-# Add view buttons for viewcontrol to preview panels
-def mts_use_alternate_matview(self, context):
-    if context.scene.render.engine == 'MITSUBA_RENDER':
-        mts_engine = context.scene.mitsuba_engine
-        row = self.layout.row()
-        row.prop(mts_engine, "preview_depth")
-        row.prop(mts_engine, "preview_spp")
-
-        global cached_depth
-        global cached_spp
-
-        if mts_engine.preview_depth != cached_depth or mts_engine.preview_spp != cached_spp:
-            actualChange = cached_depth is not None
-            cached_depth = mts_engine.preview_depth
-            cached_spp = mts_engine.preview_spp
-
-            if actualChange:
-                MtsLog("Forcing a repaint")
-                efutil.write_config_value('mitsuba', 'defaults', 'preview_spp', str(cached_spp))
-                efutil.write_config_value('mitsuba', 'defaults', 'preview_depth', str(cached_depth))
-
-_register_elm(bl_ui.properties_material.MATERIAL_PT_preview.append(mts_use_alternate_matview))
-
-
-# Add radial distortion options to lens panel
-def mts_use_rdist(self, context):
-    if context.scene.render.engine == 'MITSUBA_RENDER' and context.camera.type not in {'ORTHO', 'PANO'}:
-        col = self.layout.column()
-        col.active = context.camera.mitsuba_camera.use_dof is not True
-        col.prop(context.camera.mitsuba_camera, "use_rdist", text="Use Radial Distortion")
-
-        if context.camera.mitsuba_camera.use_rdist is True:
-            row = col.row(align=True)
-            row.prop(context.camera.mitsuba_camera, "kc0", text="kc0")
-            row.prop(context.camera.mitsuba_camera, "kc1", text="kc1")
-
-_register_elm(bl_ui.properties_data_camera.DATA_PT_lens.append(mts_use_rdist))
-
-
-# Add Mitsuba dof elements to blender dof panel
-def mts_use_dof(self, context):
-    if context.scene.render.engine == 'MITSUBA_RENDER':
-        row = self.layout.row()
-        row.prop(context.camera.mitsuba_camera, "use_dof", text="Use Depth of Field")
-
-        if context.camera.mitsuba_camera.use_dof is True:
-            row = self.layout.row()
-            row.prop(context.camera.mitsuba_camera, "apertureRadius", text="DOF Aperture Radius")
-
-_register_elm(bl_ui.properties_data_camera.DATA_PT_camera_dof.append(mts_use_dof))
-
-
-# Add options by render image/anim buttons
-def render_start_options(self, context):
-    if context.scene.render.engine == 'MITSUBA_RENDER':
-        col = self.layout.column()
-        #row = self.layout.row()
-        col.prop(context.scene.mitsuba_engine, "export_type", text="Export Type")
-
-        if context.scene.mitsuba_engine.export_type == 'EXT':
-            col.prop(context.scene.mitsuba_engine, "binary_name", text="Render Using")
-        #if context.scene.mitsuba_engine.export_type == 'INT':
-        #    row.prop(context.scene.mitsuba_engine, "write_files", text="Write to Disk")
-        #    row.prop(context.scene.mitsuba_engine, "integratedimaging", text="Integrated Imaging")
-
-_register_elm(bl_ui.properties_render.RENDER_PT_render.append(render_start_options))
-
-
-# Add shader type back to Node Editor header
-def mts_nodetree_shader_type(self, context):
-    snode = context.space_data
-
-    if context.scene.render.engine == 'MITSUBA_RENDER' and snode.tree_type == 'MitsubaShaderNodeTree':
-        self.layout.prop(snode, "shader_type", expand=True, icon_only=True)
-
-_register_elm(bl_ui.space_node.NODE_HT_header.append(mts_nodetree_shader_type))
-
 
 # compatible() copied from blender repository (netrender)
 def compatible(mod):
     mod = getattr(bl_ui, mod)
 
-    for subclass in mod.__dict__.values():
+    #for subclass in mod.__dict__.values():
+    for member in dir(mod):
+        subclass = getattr(mod, member)
         _register_elm(subclass)
 
     del mod
 
-compatible("properties_data_mesh")
 compatible("properties_data_camera")
-compatible("properties_particle")
+compatible("properties_data_mesh")
 compatible("properties_data_speaker")
+compatible("properties_particle")
 
 
 @MitsubaAddon.addon_register_class
@@ -324,6 +249,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 
         try:
             export_materials.ExportedMaterials.clear()
+            export_materials.ExportedTextures.clear()
 
             from ..export import preview_scene
 

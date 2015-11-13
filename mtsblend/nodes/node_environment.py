@@ -143,8 +143,16 @@ class MtsNodeEnvironment_envmap(mitsuba_environment_node, Node):
         layout.prop(self, 'samplingWeight')
 
         layout.prop_search(self, 'transform', bpy.data, 'objects')
+
         if not self.transform:
             layout.prop(self, 'rotation')
+
+    def get_environment_transform(self):
+        if self.transform:
+            return bpy.data.objects[self.transform].matrix_world.copy()
+
+        else:
+            return mathutils.Euler(self.rotation).to_matrix().to_4x4()
 
     def get_environment_dict(self, mts_context):
         params = {
@@ -154,15 +162,6 @@ class MtsNodeEnvironment_envmap(mitsuba_environment_node, Node):
             'scale': self.scale,
             'samplingWeight': self.samplingWeight,
         }
-
-        if self.transform:
-            matrix = bpy.data.objects[self.transform].matrix_world
-        else:
-            matrix = mathutils.Euler(self.rotation).to_matrix().to_4x4()
-
-        params.update({
-            'toWorld': mts_context.transform_matrix(matrix * mathutils.Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1))))
-        })
 
         return params
 
@@ -360,10 +359,12 @@ class MtsNodeEnvironment_sunsky(mitsuba_environment_node, Node):
         layout.prop(self, 'samplingWeight')
 
         layout.prop(self, 'position')
+
         if self.position == 'direction':
             layout.prop(self, 'direction', text='')
             row = layout.row()
             row.prop(self, 'direction', text='', expand=True)
+
         else:
             layout.prop(self, 'year')
             layout.prop(self, 'month')
@@ -376,6 +377,7 @@ class MtsNodeEnvironment_sunsky(mitsuba_environment_node, Node):
             layout.prop(self, 'timezone')
 
         layout.prop_search(self, 'transform', bpy.data, 'objects')
+
         if not self.transform:
             layout.prop(self, 'rotation')
 
@@ -391,10 +393,19 @@ class MtsNodeEnvironment_sunsky(mitsuba_environment_node, Node):
                 layout.prop(self, 'extend')
                 layout.prop(self, 'stretch')
                 layout.prop(self, 'skyScale')
+
             if self.model in {'sun', 'sunsky'}:
                 layout.prop(self, 'sunScale')
                 layout.prop(self, 'sunRadiusScale')
+
             layout.prop(self, 'resolution')
+
+    def get_environment_transform(self):
+        if self.transform:
+            return bpy.data.objects[self.transform].matrix_world.copy()
+
+        else:
+            return mathutils.Euler(self.rotation).to_matrix().to_4x4()
 
     def get_environment_dict(self, mts_context):
         params = {
@@ -404,21 +415,11 @@ class MtsNodeEnvironment_sunsky(mitsuba_environment_node, Node):
             'turbidity': self.turbidity,
         }
 
-        if self.transform:
-            matrix = bpy.data.objects[self.transform].matrix_world
-        else:
-            matrix = mathutils.Euler(self.rotation).to_matrix().to_4x4()
-
-        params.update({
-            'toWorld': mts_context.transform_matrix(matrix * mathutils.Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1))))
-        })
-
         if self.position == 'direction':
-            direction = mathutils.Vector(self.direction)
-            direction.rotate(matrix)
             params.update({
-                'sunDirection': mts_context.vector(direction[0], direction[1], direction[2]),
+                'sunDirection': self.direction,
             })
+
         else:
             params.update({
                 'year': self.year,

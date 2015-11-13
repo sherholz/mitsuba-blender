@@ -27,7 +27,8 @@ import math
 
 from ..export import get_export_path
 from ..export.cycles import cycles_material_to_dict
-from ..outputs.file_api import Export_Context
+from ..outputs.file_api import FileExportContext
+from ..outputs import MtsLog
 
 
 class MaterialCounter:
@@ -63,6 +64,55 @@ class ExportedMaterials:
     def addExportedMaterial(name, params):
         if name not in ExportedMaterials.exported_materials_dict:
             ExportedMaterials.exported_materials_dict.update({name: params})
+
+
+class ExportedTextures:
+    # Static class variables
+    exported_textures_dict = {}
+
+    @staticmethod
+    def clear():
+        ExportedTextures.exported_textures_dict = {}
+
+    @staticmethod
+    def addExportedTexture(name, params):
+        if name not in ExportedTextures.exported_textures_dict:
+            ExportedTextures.exported_textures_dict.update({name: params})
+
+
+def get_texture_id(texture):
+    for tex_id, tex_params in ExportedTextures.exported_textures_dict.items():
+        if tex_params == texture:
+            return tex_id
+
+    return 'Texture_%i' % len(ExportedTextures.exported_textures_dict)
+
+
+def export_textures(mts_context, params):
+    if not isinstance(params, (dict)):
+        return
+
+    for key, elem in params.items():
+        if not isinstance(elem, (dict)):
+            continue
+
+        if 'type' in elem and elem['type'] in {'bitmap'}:
+            try:
+                tex_id = elem.pop('id')
+
+            except:
+                tex_id = get_texture_id(elem)
+
+            if tex_id not in ExportedTextures.exported_textures_dict:
+                tex_params = elem.copy()
+                tex_params['id'] = tex_id
+                mts_context.data_add(tex_params)
+                ExportedTextures.addExportedTexture(tex_id, elem)
+
+            params[key] = {'type': 'ref', 'id': tex_id}
+
+        else:
+            export_textures(mts_context, elem)
 
 
 def get_instance_materials(ob):
@@ -186,6 +236,7 @@ def internal_material_to_dict(mts_context, blender_mat):
             if (tex.use and tex.texture.type == 'IMAGE' and params['type'] == 'diffuse'):
                 params['reflectance'] = {
                     'type': 'bitmap',
+                    'id': tex.texture.image.name,
                     'filename': get_export_path(mts_context, tex.texture.image.filepath)
                 }
 
@@ -193,12 +244,14 @@ def internal_material_to_dict(mts_context, blender_mat):
                 if (tex.use_map_color_diffuse):
                     params['diffuseReflectance'] = {
                         'type': 'bitmap',
+                        'id': tex.texture.image.name,
                         'filename': get_export_path(mts_context, tex.texture.image.filepath)
                     }
 
                 elif (tex.use_map_color_spec):
                     params['specularReflectance'] = {
                         'type': 'bitmap',
+                        'id': tex.texture.image.name,
                         'filename': get_export_path(mts_context, tex.texture.image.filepath)
                     }
 
@@ -223,7 +276,7 @@ def internal_material_to_dict(mts_context, blender_mat):
 def blender_material_to_dict(mts_context, blender_mat):
     ''' Converting one material from Blender / Cycles to Mitsuba'''
     if mts_context is None:
-        mts_context = Export_Context('MaterialConverter')
+        mts_context = FileExportContext()
 
     mat_params = {}
 
@@ -231,10 +284,10 @@ def blender_material_to_dict(mts_context, blender_mat):
         try:
             output_node = blender_mat.node_tree.nodes["Material Output"]
             surface_node = output_node.inputs["Surface"].links[0].from_node
-            mat_params = cycles_material_to_dict(mts_context, surface_node, root=True)
+            mat_params = cycles_material_to_dict(mts_context, surface_node)
 
         except Exception as err:
-            print("Could not convert nodes!!", str(err))
+            MtsLog("Could not convert nodes!!", str(err))
 
     else:
         mat_params = internal_material_to_dict(mts_context, blender_mat)
@@ -251,20 +304,49 @@ def export_material(mts_context, material):
     ntree = material.mitsuba_nodes.get_node_tree()
 
     if ntree:
-        name = ntree.name
+        name = "%s-mts_ntree" % ntree.name
 
     else:
-        name = material.name
+        name = "%s-bl_mat" % material.name
 
     if name in ExportedMaterials.exported_materials_dict:
         return ExportedMaterials.exported_materials_dict[name]
 
+    if ntree:
+        mat_params = ntree.get_nodetree_dict(mts_context, ntree)
+
     else:
-        if ntree:
-            mat_params = ntree.get_nodetree_dict(mts_context, ntree)
+        mat_params = blender_material_to_dict(mts_context, material)
+
+    export_textures(mts_context, mat_params)
+
+    if 'emitter' in mat_params:
+        try:
+            hide_emitters = mts_context.scene_data['integrator']['hideEmitters']
+
+        except:
+            hide_emitters = False
+
+        if hide_emitters:
+            mat_params.update({'bsdf': {'type': 'null'}})
+
+    if 'bsdf' in mat_params and mat_params['bsdf']['type'] != 'null':
+        bsdf_params = OrderedDict([('id', '%s-bsdf' % name)])
+        bsdf_params.update(mat_params['bsdf'])
+        mts_context.data_add(bsdf_params)
+        mat_params.update({'bsdf': {'type': 'ref', 'id': '%s-bsdf' % name}})
+
+    if 'interior' in mat_params:
+        interior_params = {'id': '%s-medium' % name}
+        interior_params.update(mat_params['interior'])
+
+        if interior_params['type'] == 'ref':
+            mat_params.update({'interior': interior_params})
 
         else:
-            mat_params = blender_material_to_dict(mts_context, material)
-            ExportedMaterials.addExportedMaterial(name, mat_params)
+            mts_context.data_add(interior_params)
+            mat_params.update({'interior': {'type': 'ref', 'id': '%s-medium' % name}})
+
+    ExportedMaterials.addExportedMaterial(name, mat_params)
 
     return mat_params

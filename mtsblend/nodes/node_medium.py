@@ -76,6 +76,7 @@ class MtsNodeMedium_reference(mitsuba_medium_node, Node):
             output_node = ntree.find_node('MtsNodeMaterialOutput')
             material = output_node.get_output_dict(mts_context, ntree)
             params = material['interior']
+
         except:
             params = {}
 

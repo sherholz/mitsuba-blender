@@ -162,6 +162,8 @@ class MtsManager:
 
     manager_name = ''
     render_engine = None
+    fback_api = None
+    pymts_api = None
     mts_context = None
     render_ctx = None
     fb_thread = None
@@ -187,16 +189,16 @@ class MtsManager:
         self.pymts_api = PYMTS_API
 
         if api_type == 'API' and self.pymts_api.PYMTS_AVAILABLE:
-            Exporter = self.pymts_api.Export_Context
+            Exporter = self.pymts_api.ApiExportContext
 
         else:
-            Exporter = self.fback_api.Export_Context
+            Exporter = self.fback_api.FileExportContext
 
         if manager_name is not '':
             self.manager_name = manager_name
             manager_name = ' (%s)' % manager_name
 
-        self.mts_context = Exporter('MtsContext %04i%s' % (MtsManager.get_context_number(), manager_name))
+        self.mts_context = Exporter()
         self.reset()
 
     def create_render_context(self, render_type='INT'):
@@ -206,12 +208,12 @@ class MtsManager:
         self.render_engine = MtsManager.RenderEngine
 
         if render_type == 'INT' and self.pymts_api.PYMTS_AVAILABLE:
-            Renderer = self.pymts_api.Render_Context
+            Renderer = self.pymts_api.InternalRenderContext
 
         else:
-            Renderer = self.fback_api.Render_Context
+            Renderer = self.fback_api.ExternalRenderContext
 
-        self.render_ctx = Renderer(self.manager_name)
+        self.render_ctx = Renderer()
 
     def start(self):
         '''
@@ -231,9 +233,6 @@ class MtsManager:
         if self.render_ctx.is_running():
             MtsLog("MtsBlend: Stopping..")
             self.render_ctx.render_stop()
-
-    #def null_wait(self):
-    #    pass
 
     def start_framebuffer_thread(self):
         '''
