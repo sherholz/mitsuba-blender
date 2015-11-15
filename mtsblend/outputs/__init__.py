@@ -164,7 +164,7 @@ class MtsManager:
     render_engine = None
     fback_api = None
     pymts_api = None
-    mts_context = None
+    export_ctx = None
     render_ctx = None
     fb_thread = None
     started = True  # unintuitive, but reset() is called in the constructor !
@@ -198,7 +198,7 @@ class MtsManager:
             self.manager_name = manager_name
             manager_name = ' (%s)' % manager_name
 
-        self.mts_context = Exporter()
+        self.export_ctx = Exporter()
         self.reset()
 
     def create_render_context(self, render_type='INT'):
@@ -260,8 +260,8 @@ class MtsManager:
         '''
 
         # Firstly stop the renderer
-        if self.mts_context is not None:
-            self.mts_context.exit()
+        if self.export_ctx is not None:
+            self.export_ctx.exit()
 
         if not self.started:
             return
@@ -276,9 +276,9 @@ class MtsManager:
             self.fb_thread.kick(render_end=True)
 
         # Clean up after last framebuffer update
-        if self.mts_context is not None:
+        if self.export_ctx is not None:
             # cleanup() destroys the Context
-            self.mts_context.cleanup()
+            self.export_ctx.cleanup()
 
         self.fb_thread = MtsFilmDisplay()
 

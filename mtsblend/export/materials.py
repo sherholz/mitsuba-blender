@@ -88,7 +88,7 @@ def get_texture_id(texture):
     return 'Texture_%i' % len(ExportedTextures.exported_textures_dict)
 
 
-def export_textures(mts_context, params):
+def export_textures(export_ctx, params):
     if not isinstance(params, (dict)):
         return
 
@@ -106,13 +106,13 @@ def export_textures(mts_context, params):
             if tex_id not in ExportedTextures.exported_textures_dict:
                 tex_params = elem.copy()
                 tex_params['id'] = tex_id
-                mts_context.data_add(tex_params)
+                export_ctx.data_add(tex_params)
                 ExportedTextures.addExportedTexture(tex_id, elem)
 
             params[key] = {'type': 'ref', 'id': tex_id}
 
         else:
-            export_textures(mts_context, elem)
+            export_textures(export_ctx, elem)
 
 
 def get_instance_materials(ob):
@@ -133,7 +133,7 @@ def get_instance_materials(ob):
     return obmats
 
 
-def internal_material_to_dict(mts_context, blender_mat):
+def internal_material_to_dict(export_ctx, blender_mat):
     ''' Converting one material from Blender to Mitsuba dict'''
     params = {}
 
@@ -143,8 +143,8 @@ def internal_material_to_dict(mts_context, blender_mat):
             params.update({
                 'type': 'thindielectric',
                 'intIOR': 1.0,
-                'specularReflectance': mts_context.spectrum(blender_mat.specular_color * blender_mat.specular_intensity),
-                'specularTransmittance': mts_context.spectrum(blender_mat.diffuse_color * blender_mat.diffuse_intensity),
+                'specularReflectance': export_ctx.spectrum(blender_mat.specular_color * blender_mat.specular_intensity),
+                'specularTransmittance': export_ctx.spectrum(blender_mat.diffuse_color * blender_mat.diffuse_intensity),
             })
 
         else:
@@ -154,8 +154,8 @@ def internal_material_to_dict(mts_context, blender_mat):
             params.update({
                 'type': 'dielectric',
                 'intIOR': blender_mat.raytrace_transparency.ior,
-                'specularReflectance': mts_context.spectrum(blender_mat.specular_color * specular_mul),
-                'specularTransmittance': mts_context.spectrum(blender_mat.diffuse_color * diffuse_mul),
+                'specularReflectance': export_ctx.spectrum(blender_mat.specular_color * specular_mul),
+                'specularTransmittance': export_ctx.spectrum(blender_mat.diffuse_color * diffuse_mul),
             })
 
     elif blender_mat.raytrace_mirror.use:
@@ -166,7 +166,7 @@ def internal_material_to_dict(mts_context, blender_mat):
             params.update({
                 'type': 'conductor',
                 'material': 'none',
-                'specularReflectance': mts_context.spectrum(blender_mat.mirror_color),
+                'specularReflectance': export_ctx.spectrum(blender_mat.mirror_color),
             })
 
         else:
@@ -176,7 +176,7 @@ def internal_material_to_dict(mts_context, blender_mat):
             cond_params = {
                 'type': 'conductor',
                 'material': 'none',
-                'specularReflectance': mts_context.spectrum(blender_mat.mirror_color),
+                'specularReflectance': export_ctx.spectrum(blender_mat.mirror_color),
             }
 
             if blender_mat.specular_intensity > 0.01:
@@ -186,7 +186,7 @@ def internal_material_to_dict(mts_context, blender_mat):
                     ('bsdf1', cond_params),
                     ('bsdf2', {
                         'type': 'phong',
-                        'specularReflectance': mts_context.spectrum(blender_mat.specular_color * spec_inte),
+                        'specularReflectance': export_ctx.spectrum(blender_mat.specular_color * spec_inte),
                         'exponent': blender_mat.specular_hardness * 1.9,
                     }),
                 ])
@@ -200,14 +200,14 @@ def internal_material_to_dict(mts_context, blender_mat):
                 ('bsdf1', mat1_params),
                 ('bsdf2', {
                     'type': 'diffuse',
-                    'reflectance': mts_context.spectrum(blender_mat.diffuse_color),
+                    'reflectance': export_ctx.spectrum(blender_mat.diffuse_color),
                 }),
             ])
 
     elif blender_mat.specular_intensity == 0:
         params.update({
             'type': 'diffuse',
-            'reflectance': mts_context.spectrum(blender_mat.diffuse_color),
+            'reflectance': export_ctx.spectrum(blender_mat.diffuse_color),
         })
 
     else:
@@ -226,8 +226,8 @@ def internal_material_to_dict(mts_context, blender_mat):
             })
 
         params.update({
-            'diffuseReflectance': mts_context.spectrum(blender_mat.diffuse_color * blender_mat.diffuse_intensity),
-            'specularReflectance': mts_context.spectrum(blender_mat.specular_color * blender_mat.specular_intensity),
+            'diffuseReflectance': export_ctx.spectrum(blender_mat.diffuse_color * blender_mat.diffuse_intensity),
+            'specularReflectance': export_ctx.spectrum(blender_mat.specular_color * blender_mat.specular_intensity),
         })
 
     # === Blender texture conversion
@@ -237,7 +237,7 @@ def internal_material_to_dict(mts_context, blender_mat):
                 params['reflectance'] = {
                     'type': 'bitmap',
                     'id': tex.texture.image.name,
-                    'filename': get_export_path(mts_context, tex.texture.image.filepath)
+                    'filename': get_export_path(export_ctx, tex.texture.image.filepath)
                 }
 
             elif (tex.use and tex.texture.type == 'IMAGE' and params['type'] == 'plastic'):
@@ -245,14 +245,14 @@ def internal_material_to_dict(mts_context, blender_mat):
                     params['diffuseReflectance'] = {
                         'type': 'bitmap',
                         'id': tex.texture.image.name,
-                        'filename': get_export_path(mts_context, tex.texture.image.filepath)
+                        'filename': get_export_path(export_ctx, tex.texture.image.filepath)
                     }
 
                 elif (tex.use_map_color_spec):
                     params['specularReflectance'] = {
                         'type': 'bitmap',
                         'id': tex.texture.image.name,
-                        'filename': get_export_path(mts_context, tex.texture.image.filepath)
+                        'filename': get_export_path(export_ctx, tex.texture.image.filepath)
                     }
 
     mat_params = {}
@@ -266,17 +266,17 @@ def internal_material_to_dict(mts_context, blender_mat):
         mat_params.update({
             'emitter': {
                 'type': 'area',
-                'radiance': mts_context.spectrum(blender_mat.diffuse_color * blender_mat.emit * 10),
+                'radiance': export_ctx.spectrum(blender_mat.diffuse_color * blender_mat.emit * 10),
             }
         })
 
     return mat_params
 
 
-def blender_material_to_dict(mts_context, blender_mat):
+def blender_material_to_dict(export_ctx, blender_mat):
     ''' Converting one material from Blender / Cycles to Mitsuba'''
-    if mts_context is None:
-        mts_context = FileExportContext()
+    if export_ctx is None:
+        export_ctx = FileExportContext()
 
     mat_params = {}
 
@@ -284,18 +284,18 @@ def blender_material_to_dict(mts_context, blender_mat):
         try:
             output_node = blender_mat.node_tree.nodes["Material Output"]
             surface_node = output_node.inputs["Surface"].links[0].from_node
-            mat_params = cycles_material_to_dict(mts_context, surface_node)
+            mat_params = cycles_material_to_dict(export_ctx, surface_node)
 
         except Exception as err:
             MtsLog("Could not convert nodes!!", str(err))
 
     else:
-        mat_params = internal_material_to_dict(mts_context, blender_mat)
+        mat_params = internal_material_to_dict(export_ctx, blender_mat)
 
     return mat_params
 
 
-def export_material(mts_context, material):
+def export_material(export_ctx, material):
     mat_params = {}
 
     if material is None:
@@ -313,16 +313,16 @@ def export_material(mts_context, material):
         return ExportedMaterials.exported_materials_dict[name]
 
     if ntree:
-        mat_params = ntree.get_nodetree_dict(mts_context, ntree)
+        mat_params = ntree.get_nodetree_dict(export_ctx, ntree)
 
     else:
-        mat_params = blender_material_to_dict(mts_context, material)
+        mat_params = blender_material_to_dict(export_ctx, material)
 
-    export_textures(mts_context, mat_params)
+    export_textures(export_ctx, mat_params)
 
     if 'emitter' in mat_params:
         try:
-            hide_emitters = mts_context.scene_data['integrator']['hideEmitters']
+            hide_emitters = export_ctx.scene_data['integrator']['hideEmitters']
 
         except:
             hide_emitters = False
@@ -333,7 +333,7 @@ def export_material(mts_context, material):
     if 'bsdf' in mat_params and mat_params['bsdf']['type'] != 'null':
         bsdf_params = OrderedDict([('id', '%s-bsdf' % name)])
         bsdf_params.update(mat_params['bsdf'])
-        mts_context.data_add(bsdf_params)
+        export_ctx.data_add(bsdf_params)
         mat_params.update({'bsdf': {'type': 'ref', 'id': '%s-bsdf' % name}})
 
     if 'interior' in mat_params:
@@ -344,7 +344,7 @@ def export_material(mts_context, material):
             mat_params.update({'interior': interior_params})
 
         else:
-            mts_context.data_add(interior_params)
+            export_ctx.data_add(interior_params)
             mat_params.update({'interior': {'type': 'ref', 'id': '%s-medium' % name}})
 
     ExportedMaterials.addExportedMaterial(name, mat_params)

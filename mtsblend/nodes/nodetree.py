@@ -232,7 +232,7 @@ class MitsubaShaderNodeTree(NodeTree):
 
         return None
 
-    def get_nodetree_dict(self, mts_context, id_data):
+    def get_nodetree_dict(self, export_ctx, id_data):
         output_node = None
         params = {}
 
@@ -249,7 +249,7 @@ class MitsubaShaderNodeTree(NodeTree):
             export_id = id_data
 
         if output_node:
-            params = output_node.get_output_dict(mts_context, export_id)
+            params = output_node.get_output_dict(export_ctx, export_id)
 
         return params
 

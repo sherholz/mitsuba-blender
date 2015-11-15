@@ -47,11 +47,11 @@ def lookAt(matrix):
     return (pos, target, up)
 
 
-def export_camera_instance(mts_context, instance, scene):
+def export_camera_instance(export_ctx, instance, scene):
     cam = instance.obj
     mcam = cam.data.mitsuba_camera
 
-    params = mcam.api_output(mts_context, scene)
+    params = mcam.api_output(scene)
 
     if params and 'type' in params:
         motion = instance.motion
@@ -80,6 +80,6 @@ def export_camera_instance(mts_context, instance, scene):
 
             lookat.append((seq, (origin, target, up, scale)))
 
-        params['toWorld'] = mts_context.animated_lookAt(lookat)
+        params['toWorld'] = export_ctx.animated_lookAt(lookat)
 
-        mts_context.data_add(params)
+        export_ctx.data_add(params)

@@ -72,14 +72,14 @@ class mitsuba_texture_node(mitsuba_node):
             uvparams['type'] = 'uvmapping'
             ntree.new_node_from_dict(uvparams, self.inputs['UV Mapping'])
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         pass
 
-    def get_color_dict(self, mts_context):
-        return self.get_texture_dict(mts_context)
+    def get_color_dict(self, export_ctx):
+        return self.get_texture_dict(export_ctx)
 
-    def get_float_dict(self, mts_context):
-        return self.get_texture_dict(mts_context)
+    def get_float_dict(self, export_ctx):
+        return self.get_texture_dict(export_ctx)
 
 
 @MitsubaNodeTypes.register
@@ -220,10 +220,10 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
         {'type': 'MtsSocketUVMapping', 'name': 'UV Mapping'},
     ]
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         params = {
             'type': 'bitmap',
-            'filename': get_export_path(mts_context, self.filename),
+            'filename': get_export_path(export_ctx, self.filename),
             'wrapModeU': self.wrapModeU,
             'wrapModeV': self.wrapModeV,
             'filterType': self.filterType,
@@ -248,8 +248,8 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
 
         return params
 
-    def get_float_dict(self, mts_context):
-        params = self.get_texture_dict(mts_context)
+    def get_float_dict(self, export_ctx):
+        params = self.get_texture_dict(export_ctx)
 
         if self.channel != 'all':
             params.update({'channel': self.channel})
@@ -297,11 +297,11 @@ class MtsNodeTexture_checkerboard(mitsuba_texture_node, Node):
         {'type': 'MtsSocketUVMapping', 'name': 'UV Mapping'},
     ]
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         params = {
             'type': 'checkerboard',
-            'color0': self.inputs['Color 1'].get_spectrum_dict(mts_context),
-            'color1': self.inputs['Color 2'].get_spectrum_dict(mts_context),
+            'color0': self.inputs['Color 1'].get_spectrum_dict(export_ctx),
+            'color1': self.inputs['Color 2'].get_spectrum_dict(export_ctx),
         }
 
         mapping = self.get_uvmapping_dict()
@@ -339,11 +339,11 @@ class MtsNodeTexture_gridtexture(mitsuba_texture_node, Node):
         {'type': 'MtsSocketUVMapping', 'name': 'UV Mapping'},
     ]
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         params = {
             'type': 'gridtexture',
-            'color0': self.inputs['Color 1'].get_spectrum_dict(mts_context),
-            'color1': self.inputs['Color 2'].get_spectrum_dict(mts_context),
+            'color0': self.inputs['Color 1'].get_spectrum_dict(export_ctx),
+            'color1': self.inputs['Color 2'].get_spectrum_dict(export_ctx),
             'lineWidth': self.lineWidth,
         }
 
@@ -383,11 +383,11 @@ class MtsNodeTexture_scale(mitsuba_texture_node, Node):
         {'type': 'MtsSocketTexture', 'name': 'Texture'},
     ]
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         tex_node = self.inputs['Texture'].get_linked_node()
 
         if tex_node:
-            params = tex_node.get_texture_dict(mts_context)
+            params = tex_node.get_texture_dict(export_ctx)
 
             if self.scale != 1.0:
                 return {
@@ -417,7 +417,7 @@ class MtsNodeTexture_vertexcolors(mitsuba_texture_node, Node):
     bl_label = 'Vertex Colors Texture'
     plugin_types = {'vertexcolors'}
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         return {
             'type': 'vertexcolors',
         }
@@ -445,11 +445,11 @@ class MtsNodeTexture_wireframe(mitsuba_texture_node, Node):
         {'type': 'MtsSocketSpectrum_edgeColor', 'name': 'Edge Color'},
     ]
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         return {
             'type': 'wireframe',
-            'interiorColor': self.inputs['Face Color'].get_spectrum_dict(mts_context),
-            'edgeColor': self.inputs['Edge Color'].get_spectrum_dict(mts_context),
+            'interiorColor': self.inputs['Face Color'].get_spectrum_dict(export_ctx),
+            'edgeColor': self.inputs['Edge Color'].get_spectrum_dict(export_ctx),
             'lineWidth': self.lineWidth,
             'stepWidth': self.stepWidth,
         }
@@ -487,7 +487,7 @@ class MtsNodeTexture_curvature(mitsuba_texture_node, Node):
     curvature = EnumProperty(name='Curvature Type', items=curvature_type_items, default='mean')
     scale = FloatProperty(name='Scale', default=1.0, min=-1.0, max=1.0)
 
-    def get_texture_dict(self, mts_context):
+    def get_texture_dict(self, export_ctx):
         return {
             'type': 'curvature',
             'curvature': self.curvature,

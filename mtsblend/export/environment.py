@@ -29,7 +29,7 @@ def world_dict_to_nodes(ntree, params):
     return None
 
 
-def blender_world_to_dict(mts_context, world):
+def blender_world_to_dict(export_ctx, world):
     return None
 
 
@@ -55,7 +55,7 @@ def get_environment_trafo(world):
         return None
 
 
-def export_world_environment(mts_context, world_environment, is_preview=False):
+def export_world_environment(export_ctx, world_environment, is_preview=False):
     if world_environment.obj is None:
         return
 
@@ -64,10 +64,10 @@ def export_world_environment(mts_context, world_environment, is_preview=False):
     params = {}
 
     if ntree:
-        params = ntree.get_nodetree_dict(mts_context, world)
+        params = ntree.get_nodetree_dict(export_ctx, world)
 
     #if not params:
-        #params = blender_world_to_dict(mts_context, world)
+        #params = blender_world_to_dict(export_ctx, world)
 
         #return
 
@@ -86,7 +86,7 @@ def export_world_environment(mts_context, world_environment, is_preview=False):
                     motion = [(0.0, mathutils.Matrix())]
 
             params.update({
-                'toWorld': mts_context.animated_transform(
+                'toWorld': export_ctx.animated_transform(
                     [(t, m * mathutils.Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))) for (t, m) in motion]
                 )
             })
@@ -95,10 +95,10 @@ def export_world_environment(mts_context, world_environment, is_preview=False):
                 direction = mathutils.Vector(params['sunDirection'])
                 direction.rotate(motion[0][1])
                 params.update({
-                    'sunDirection': mts_context.vector(direction[0], direction[1], direction[2]),
+                    'sunDirection': export_ctx.vector(direction[0], direction[1], direction[2]),
                 })
 
-        mts_context.data_add(params)
+        export_ctx.data_add(params)
 
     elif is_preview:
-        mts_context.data_add({'type': 'constant', 'radiance': mts_context.spectrum(0)})
+        export_ctx.data_add({'type': 'constant', 'radiance': export_ctx.spectrum(0)})

@@ -90,13 +90,13 @@ class MtsNodeBsdf_diffuse(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'diffuse',
-            'reflectance': self.inputs['Diffuse Reflectance'].get_color_dict(mts_context),
+            'reflectance': self.inputs['Diffuse Reflectance'].get_color_dict(export_ctx),
         }
 
-        alpha = self.inputs['Roughness'].get_float_dict(mts_context)
+        alpha = self.inputs['Roughness'].get_float_dict(export_ctx)
 
         if alpha:
             params.update({
@@ -205,13 +205,13 @@ class MtsNodeBsdf_dielectric(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'dielectric',
             'intIOR': self.intIOR,
             'extIOR': self.extIOR,
-            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(mts_context),
-            'specularTransmittance': self.inputs['Specular Transmittance'].get_color_dict(mts_context),
+            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(export_ctx),
+            'specularTransmittance': self.inputs['Specular Transmittance'].get_color_dict(export_ctx),
         }
 
         if self.thin:
@@ -219,8 +219,8 @@ class MtsNodeBsdf_dielectric(mitsuba_bsdf_node, Node):
 
         else:
             if self.anisotropic:
-                alphaU = self.inputs['Roughness U'].get_float_dict(mts_context)
-                alphaV = self.inputs['Roughness V'].get_float_dict(mts_context)
+                alphaU = self.inputs['Roughness U'].get_float_dict(export_ctx)
+                alphaV = self.inputs['Roughness V'].get_float_dict(export_ctx)
                 if alphaU or alphaV:
                     params.update({
                         'alphaU': alphaU,
@@ -230,7 +230,7 @@ class MtsNodeBsdf_dielectric(mitsuba_bsdf_node, Node):
                     })
 
             else:
-                alpha = self.inputs['Roughness'].get_float_dict(mts_context)
+                alpha = self.inputs['Roughness'].get_float_dict(export_ctx)
                 if alpha:
                     params.update({
                         'alpha': alpha,
@@ -350,25 +350,25 @@ class MtsNodeBsdf_conductor(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'conductor',
             'extEta': self.extEta,
-            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(mts_context),
+            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(export_ctx),
         }
 
         if self.material in {'', 'custom'}:
             params.update({
-                'eta': self.inputs['IOR'].get_spectrum_dict(mts_context),
-                'k': self.inputs['Absorption Coefficient'].get_spectrum_dict(mts_context),
+                'eta': self.inputs['IOR'].get_spectrum_dict(export_ctx),
+                'k': self.inputs['Absorption Coefficient'].get_spectrum_dict(export_ctx),
             })
 
         else:
             params.update({'material': self.material})
 
         if self.anisotropic:
-            alphaU = self.inputs['Roughness U'].get_float_dict(mts_context)
-            alphaV = self.inputs['Roughness V'].get_float_dict(mts_context)
+            alphaU = self.inputs['Roughness U'].get_float_dict(export_ctx)
+            alphaV = self.inputs['Roughness V'].get_float_dict(export_ctx)
 
             if alphaU or alphaV:
                 params.update({
@@ -379,7 +379,7 @@ class MtsNodeBsdf_conductor(mitsuba_bsdf_node, Node):
                 })
 
         else:
-            alpha = self.inputs['Roughness'].get_float_dict(mts_context)
+            alpha = self.inputs['Roughness'].get_float_dict(export_ctx)
 
             if alpha:
                 params.update({
@@ -472,17 +472,17 @@ class MtsNodeBsdf_plastic(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'plastic',
             'intIOR': self.intIOR,
             'extIOR': self.extIOR,
             'nonlinear': self.nonlinear,
-            'diffuseReflectance': self.inputs['Diffuse Reflectance'].get_color_dict(mts_context),
-            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(mts_context),
+            'diffuseReflectance': self.inputs['Diffuse Reflectance'].get_color_dict(export_ctx),
+            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(export_ctx),
         }
 
-        alpha = self.inputs['Roughness'].get_float_dict(mts_context)
+        alpha = self.inputs['Roughness'].get_float_dict(export_ctx)
 
         if alpha:
             params.update({
@@ -564,17 +564,17 @@ class MtsNodeBsdf_coating(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'coating',
             'intIOR': self.intIOR,
             'extIOR': self.extIOR,
             'thickness': self.thickness,
-            'sigmaA': self.inputs['Absorption Coefficient'].get_color_dict(mts_context),
-            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(mts_context),
+            'sigmaA': self.inputs['Absorption Coefficient'].get_color_dict(export_ctx),
+            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(export_ctx),
         }
 
-        alpha = self.inputs['Roughness'].get_float_dict(mts_context)
+        alpha = self.inputs['Roughness'].get_float_dict(export_ctx)
 
         if alpha:
             params.update({
@@ -587,7 +587,7 @@ class MtsNodeBsdf_coating(mitsuba_bsdf_node, Node):
 
         if bsdf:
             params.update({
-                'bsdf': bsdf.get_bsdf_dict(mts_context),
+                'bsdf': bsdf.get_bsdf_dict(export_ctx),
             })
 
         else:
@@ -648,7 +648,7 @@ class MtsNodeBsdf_bumpmap(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         texture = self.inputs['Bumpmap Texture'].get_linked_node()
         bsdf = self.inputs['Bsdf'].get_linked_node()
 
@@ -660,9 +660,9 @@ class MtsNodeBsdf_bumpmap(mitsuba_bsdf_node, Node):
             'texture': {
                 'type': 'scale',
                 'scale': self.scale,
-                'bumpmap': texture.get_texture_dict(mts_context),
+                'bumpmap': texture.get_texture_dict(export_ctx),
             },
-            'bsdf': bsdf.get_bsdf_dict(mts_context),
+            'bsdf': bsdf.get_bsdf_dict(export_ctx),
         }
 
         return params
@@ -703,12 +703,12 @@ class MtsNodeBsdf_phong(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'phong',
-            'exponent': self.inputs['Exponent'].get_float_dict(mts_context),
-            'diffuseReflectance': self.inputs['Diffuse Reflectance'].get_color_dict(mts_context),
-            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(mts_context),
+            'exponent': self.inputs['Exponent'].get_float_dict(export_ctx),
+            'diffuseReflectance': self.inputs['Diffuse Reflectance'].get_color_dict(export_ctx),
+            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(export_ctx),
         }
 
         return params
@@ -773,24 +773,24 @@ class MtsNodeBsdf_ward(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'ward',
             'variant': self.variant,
-            'diffuseReflectance': self.inputs['Diffuse Reflectance'].get_color_dict(mts_context),
-            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(mts_context),
+            'diffuseReflectance': self.inputs['Diffuse Reflectance'].get_color_dict(export_ctx),
+            'specularReflectance': self.inputs['Specular Reflectance'].get_color_dict(export_ctx),
         }
 
         if self.anisotropic:
-            alphaU = self.inputs['Roughness U'].get_float_dict(mts_context, minval=0.0001)
-            alphaV = self.inputs['Roughness V'].get_float_dict(mts_context, minval=0.0001)
+            alphaU = self.inputs['Roughness U'].get_float_dict(export_ctx, minval=0.0001)
+            alphaV = self.inputs['Roughness V'].get_float_dict(export_ctx, minval=0.0001)
             params.update({
                 'alphaU': alphaU,
                 'alphaV': alphaV,
             })
 
         else:
-            alpha = self.inputs['Roughness'].get_float_dict(mts_context, minval=0.0001)
+            alpha = self.inputs['Roughness'].get_float_dict(export_ctx, minval=0.0001)
             params.update({
                 'alpha': alpha,
             })
@@ -838,24 +838,24 @@ class MtsNodeBsdf_blendbsdf(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = OrderedDict([
             ('type', 'blendbsdf'),
-            ('weight', self.inputs['Blending Factor'].get_float_dict(mts_context)),
+            ('weight', self.inputs['Blending Factor'].get_float_dict(export_ctx)),
         ])
 
         bsdf1 = self.inputs['Bsdf 1'].get_linked_node()
 
         if bsdf1:
             params.update([(
-                'bsdf1', bsdf1.get_bsdf_dict(mts_context),
+                'bsdf1', bsdf1.get_bsdf_dict(export_ctx),
             )])
 
         bsdf2 = self.inputs['Bsdf 2'].get_linked_node()
 
         if bsdf2:
             params.update([(
-                'bsdf2', bsdf2.get_bsdf_dict(mts_context),
+                'bsdf2', bsdf2.get_bsdf_dict(export_ctx),
             )])
 
         return params
@@ -887,17 +887,17 @@ class MtsNodeBsdf_mask(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'mask',
-            'opacity': self.inputs['Opacity Mask'].get_color_dict(mts_context),
+            'opacity': self.inputs['Opacity Mask'].get_color_dict(export_ctx),
         }
 
         bsdf = self.inputs['Bsdf'].get_linked_node()
 
         if bsdf:
             params.update({
-                'bsdf': bsdf.get_bsdf_dict(mts_context),
+                'bsdf': bsdf.get_bsdf_dict(export_ctx),
             })
 
         return params
@@ -926,7 +926,7 @@ class MtsNodeBsdf_twosided(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = OrderedDict([
             ('type', 'twosided'),
         ])
@@ -935,14 +935,14 @@ class MtsNodeBsdf_twosided(mitsuba_bsdf_node, Node):
 
         if front_bsdf:
             params.update([(
-                'bsdf1', front_bsdf.get_bsdf_dict(mts_context),
+                'bsdf1', front_bsdf.get_bsdf_dict(export_ctx),
             )])
 
         back_bsdf = self.inputs['Back Bsdf'].get_linked_node()
 
         if back_bsdf:
             params.update([(
-                'bsdf2', back_bsdf.get_bsdf_dict(mts_context),
+                'bsdf2', back_bsdf.get_bsdf_dict(export_ctx),
             )])
 
         return params
@@ -970,10 +970,10 @@ class MtsNodeBsdf_difftrans(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'difftrans',
-            'transmittance': self.inputs['Diffuse Transmittance'].get_color_dict(mts_context),
+            'transmittance': self.inputs['Diffuse Transmittance'].get_color_dict(export_ctx),
         }
 
         return params
@@ -1045,7 +1045,7 @@ class MtsNodeBsdf_hk(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'hk',
             'thickness': self.thickness,
@@ -1053,15 +1053,15 @@ class MtsNodeBsdf_hk(mitsuba_bsdf_node, Node):
 
         if self.useAlbSigmaT:
             params.update({
-                'sigmaT': self.inputs['Extinction Coefficient'].get_color_dict(mts_context),
-                'albedo': self.inputs['Albedo'].get_color_dict(mts_context),
+                'sigmaT': self.inputs['Extinction Coefficient'].get_color_dict(export_ctx),
+                'albedo': self.inputs['Albedo'].get_color_dict(export_ctx),
             })
 
         else:
             params.update({
-                'sigmaS': self.inputs['Scattering Coefficient'].get_color_dict(mts_context),
-                'sigmaA': self.inputs['Absorption Coefficient'].get_color_dict(mts_context),
-                'g': self.inputs['Anisotropy'].get_spectrum_dict(mts_context),
+                'sigmaS': self.inputs['Scattering Coefficient'].get_color_dict(export_ctx),
+                'sigmaA': self.inputs['Absorption Coefficient'].get_color_dict(export_ctx),
+                'g': self.inputs['Anisotropy'].get_spectrum_dict(export_ctx),
             })
 
         #if self.g == 0:
@@ -1113,7 +1113,7 @@ class MtsNodeBsdf_null(mitsuba_bsdf_node, Node):
         {'type': 'MtsSocketBsdf', 'name': 'Bsdf'},
     ]
 
-    def get_bsdf_dict(self, mts_context):
+    def get_bsdf_dict(self, export_ctx):
         params = {
             'type': 'null',
         }

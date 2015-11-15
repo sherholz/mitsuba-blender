@@ -124,15 +124,15 @@ class mitsuba_socket_spectrum(mitsuba_socket):
 
     draw = draw_color_socket
 
-    def get_spectrum_dict(self, mts_context, multiplier=1.0):
+    def get_spectrum_dict(self, export_ctx, multiplier=1.0):
         spectrum_node = self.get_linked_node()
 
         if spectrum_node:
-            return spectrum_node.get_spectrum_dict(mts_context, multiplier)
+            return spectrum_node.get_spectrum_dict(export_ctx, multiplier)
 
         else:
             value = [x * multiplier for x in self.default_value[:]]
-            return mts_context.spectrum(value)
+            return export_ctx.spectrum(value)
 
     def set_spectrum_socket(self, ntree, params, normalize=False):
         if isinstance(params, dict) and 'type' in params:
@@ -168,14 +168,14 @@ class mitsuba_socket_color(mitsuba_socket):
 
     draw = draw_color_socket
 
-    def get_color_dict(self, mts_context):
+    def get_color_dict(self, export_ctx):
         tex_node = self.get_linked_node()
 
         if tex_node:
-            return tex_node.get_color_dict(mts_context)
+            return tex_node.get_color_dict(export_ctx)
 
         else:
-            return mts_context.spectrum(self.default_value)
+            return export_ctx.spectrum(self.default_value)
 
     def set_color_socket(self, ntree, params, normalize=False):
         if isinstance(params, dict) and 'type' in params:
@@ -213,11 +213,11 @@ class mitsuba_socket_float(mitsuba_socket):
         else:
             layout.prop(self, 'default_value', text=self.name)
 
-    def get_float_dict(self, mts_context, minval=None):
+    def get_float_dict(self, export_ctx, minval=None):
         tex_node = self.get_linked_node()
 
         if tex_node:
-            return tex_node.get_float_dict(mts_context)
+            return tex_node.get_float_dict(export_ctx)
 
         else:
             if minval is not None:
