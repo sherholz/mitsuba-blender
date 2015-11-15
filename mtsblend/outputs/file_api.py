@@ -36,7 +36,6 @@ from ..extensions_framework import util as efutil
 from ..export import ExportContextBase
 from ..export import matrix_to_list
 from ..export import get_output_subdir
-from ..export import get_export_path
 from ..outputs import MtsLog, MtsManager
 from ..properties import ExportedVolumes
 
@@ -485,7 +484,7 @@ class FileExportContext(ExportContextBase):
             spec = {'value': "%f" % value, 'type': 'spectrum'}
 
         elif isinstance(value, (str)):
-            spec = {'filename': get_export_path(self, value), 'type': 'spectrum'}
+            spec = {'filename': self.get_export_path(value), 'type': 'spectrum'}
 
         else:
             try:

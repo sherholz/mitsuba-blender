@@ -23,8 +23,6 @@
 
 from collections import OrderedDict
 
-from ..export import get_export_path
-
 RoughnessMode = {'GGX': 'ggx', 'SHARP': 'beckmann', 'BECKMANN': 'beckmann'}
 
 
@@ -67,7 +65,7 @@ def convert_float_texture_node(export_ctx, socket):
             params = {
                 'type': 'bitmap',
                 'id': node.image.name,
-                'filename': get_export_path(export_ctx, node.image.filepath)
+                'filename': export_ctx.get_export_path(node.image.filepath)
             }
 
     else:
@@ -86,7 +84,7 @@ def convert_color_texture_node(export_ctx, socket):
             params = {
                 'type': 'bitmap',
                 'id': node.image.name,
-                'filename': get_export_path(export_ctx, node.image.filepath)
+                'filename': export_ctx.get_export_path(node.image.filepath)
             }
 
     else:

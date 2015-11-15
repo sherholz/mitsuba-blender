@@ -35,7 +35,6 @@ from ..outputs.mesh_serialized import write_serialized_mesh
 from ..export import ExportProgressThread, ExportCache
 from ..export import is_deforming
 from ..export import get_output_subdir
-from ..export import get_export_path
 from ..export import get_param_recursive
 from ..export.materials import export_material
 
@@ -210,7 +209,7 @@ class GeometryExporter:
                         MtsLog('Skipping already exported mesh: %s' % mesh_name)
 
                     shape_params = {
-                        'filename': get_export_path(self.export_ctx, file_path),
+                        'filename': self.export_ctx.get_export_path(file_path),
                         'doubleSided': mesh.show_double_sided
                     }
 
@@ -585,4 +584,4 @@ class GeometryExporter:
 
         MtsLog('... done, exported %s hairs' % det.exported_objects)
 
-        return get_export_path(self.export_ctx, hair_file_path)
+        return self.export_ctx.get_export_path(hair_file_path)

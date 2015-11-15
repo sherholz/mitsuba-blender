@@ -89,6 +89,7 @@ class ExportContextBase:
     Export Context base class
     '''
 
+    EXPORT_API_TYPE = ''
     scene_data = None
     counter = 0
     exported_media = set()
@@ -102,6 +103,13 @@ class ExportContextBase:
         self.exported_media = set()
         self.exported_ids = set()
         self.motion = {}
+
+    def get_export_path(self, path, relative=False):
+        if relative and self.EXPORT_API_TYPE == 'FILE':
+            return efutil.path_relative_to_export(path)
+
+        else:
+            return efutil.filesystem_path(path)
 
     def exportMedium(self, scene, medium):
         if medium.name in self.exported_media:
@@ -429,14 +437,6 @@ def compute_normalized_radiance(emitter, color):
     else:
         emitter.inputs['Radiance'].default_value = color
         emitter.scale = 1.0
-
-
-def get_export_path(export_ctx, path, relative=False):
-    if relative and export_ctx.EXPORT_API_TYPE == 'FILE':
-        return efutil.path_relative_to_export(path)
-
-    else:
-        return efutil.filesystem_path(path)
 
 
 def get_output_subdir(scene, frame=None):
