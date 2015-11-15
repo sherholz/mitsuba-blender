@@ -37,7 +37,6 @@ from .. import MitsubaAddon
 
 from ..export import ExportContextBase
 from ..export import matrix_to_list
-from ..export import get_export_path
 from ..properties import ExportedVolumes
 
 from ..outputs import MtsLog, MtsManager
@@ -181,7 +180,7 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                     spec = Spectrum(value)
 
                 elif isinstance(value, (str)):
-                    contspec = InterpolatedSpectrum(get_export_path(self, value))
+                    contspec = InterpolatedSpectrum(self.get_export_path(value))
                     spec = Spectrum()
                     spec.fromContinuousSpectrum(contspec)
                     spec.clampNegative()

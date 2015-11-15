@@ -29,8 +29,6 @@ from ..nodes import (
     MitsubaNodeTypes, mitsuba_node
 )
 
-from ..export import get_export_path
-
 
 class mitsuba_texture_node(mitsuba_node):
     bl_icon = 'TEXTURE'
@@ -223,7 +221,7 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
     def get_texture_dict(self, export_ctx):
         params = {
             'type': 'bitmap',
-            'filename': get_export_path(export_ctx, self.filename),
+            'filename': export_ctx.get_export_path(self.filename),
             'wrapModeU': self.wrapModeU,
             'wrapModeV': self.wrapModeV,
             'filterType': self.filterType,

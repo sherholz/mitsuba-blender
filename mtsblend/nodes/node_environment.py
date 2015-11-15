@@ -32,8 +32,6 @@ from ..nodes import (
     MitsubaNodeTypes, mitsuba_node
 )
 
-from ..export import get_export_path
-
 
 class mitsuba_environment_node(mitsuba_node):
     bl_width_min = 160
@@ -158,7 +156,7 @@ class MtsNodeEnvironment_envmap(mitsuba_environment_node, Node):
         params = {
             'type': 'envmap',
             'id': 'Environment-envmap',
-            'filename': get_export_path(export_ctx, self.filename),
+            'filename': export_ctx.get_export_path(self.filename),
             'scale': self.scale,
             'samplingWeight': self.samplingWeight,
         }

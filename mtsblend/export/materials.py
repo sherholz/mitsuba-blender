@@ -25,7 +25,6 @@ from collections import OrderedDict
 
 import math
 
-from ..export import get_export_path
 from ..export.cycles import cycles_material_to_dict
 from ..outputs.file_api import FileExportContext
 from ..outputs import MtsLog
@@ -237,7 +236,7 @@ def internal_material_to_dict(export_ctx, blender_mat):
                 params['reflectance'] = {
                     'type': 'bitmap',
                     'id': tex.texture.image.name,
-                    'filename': get_export_path(export_ctx, tex.texture.image.filepath)
+                    'filename': export_ctx.get_export_path(tex.texture.image.filepath)
                 }
 
             elif (tex.use and tex.texture.type == 'IMAGE' and params['type'] == 'plastic'):
@@ -245,14 +244,14 @@ def internal_material_to_dict(export_ctx, blender_mat):
                     params['diffuseReflectance'] = {
                         'type': 'bitmap',
                         'id': tex.texture.image.name,
-                        'filename': get_export_path(export_ctx, tex.texture.image.filepath)
+                        'filename': export_ctx.get_export_path(tex.texture.image.filepath)
                     }
 
                 elif (tex.use_map_color_spec):
                     params['specularReflectance'] = {
                         'type': 'bitmap',
                         'id': tex.texture.image.name,
-                        'filename': get_export_path(export_ctx, tex.texture.image.filepath)
+                        'filename': export_ctx.get_export_path(tex.texture.image.filepath)
                     }
 
     mat_params = {}
