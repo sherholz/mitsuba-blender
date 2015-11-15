@@ -234,7 +234,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
         MtsManager.SetCurrentScene(scene)
         MtsManager.SetActive(MM)
 
-        preview_context = MM.mts_context
+        preview_context = MM.export_ctx
 
         if preview_context.EXPORT_API_TYPE == 'FILE':
             mts_filename = os.path.join(
@@ -432,7 +432,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
                 if scene.mitsuba_engine.binary_name == 'mitsuba':
                     render_ctx.cmd_args.extend(['-r', '%i' % scene.mitsuba_engine.refresh_interval])
 
-            render_ctx.set_scene(self.MtsManager.mts_context)
+            render_ctx.set_scene(self.MtsManager.export_ctx)
             render_ctx.render_start(self.output_file.replace('//', '/'))
             self.MtsManager.start()
 

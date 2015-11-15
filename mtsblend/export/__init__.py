@@ -431,8 +431,8 @@ def compute_normalized_radiance(emitter, color):
         emitter.scale = 1.0
 
 
-def get_export_path(mts_context, path, relative=False):
-    if relative and mts_context.EXPORT_API_TYPE == 'FILE':
+def get_export_path(export_ctx, path, relative=False):
+    if relative and export_ctx.EXPORT_API_TYPE == 'FILE':
         return efutil.path_relative_to_export(path)
 
     else:

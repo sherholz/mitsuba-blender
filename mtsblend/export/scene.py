@@ -300,7 +300,7 @@ class SceneExporter:
                 created_mts_manager = True
 
             MtsManager.SetCurrentScene(scene)
-            mts_context = MtsManager.GetActive().mts_context
+            export_ctx = MtsManager.GetActive().export_ctx
 
             mts_filename = os.path.join(
                 self.properties.directory,
@@ -313,7 +313,7 @@ class SceneExporter:
             efutil.export_path = self.properties.directory
 
             if self.properties.api_type == 'FILE':
-                mts_context.set_filename(
+                export_ctx.set_filename(
                     scene,
                     mts_filename,
                 )
@@ -321,17 +321,17 @@ class SceneExporter:
             ExportedMaterials.clear()
             ExportedTextures.clear()
 
-            mts_context.data_add(scene.mitsuba_integrator.api_output(), 'integrator')
+            export_ctx.data_add(scene.mitsuba_integrator.api_output(), 'integrator')
 
-            self.GE = GeometryExporter(mts_context, scene)
+            self.GE = GeometryExporter(export_ctx, scene)
             self.world_environment = Instance(scene.world, None)
             self.scene_camera = Instance(scene.camera, None)
             self.cache_motion(scene)
 
             # Export world environment
-            export_world_environment(mts_context, self.world_environment)
+            export_world_environment(export_ctx, self.world_environment)
 
-            export_camera_instance(mts_context, self.scene_camera, scene)
+            export_camera_instance(export_ctx, self.scene_camera, scene)
 
             cancel = False
             b_sce = scene
@@ -347,7 +347,7 @@ class SceneExporter:
                         self.GE.exportShapeInstances(instance, name)
 
                     elif instance.obj.type == 'LAMP':
-                        export_lamp_instance(mts_context, instance, name)
+                        export_lamp_instance(export_ctx, instance, name)
 
                     # cancel = progress.get_cancel();
                 b_sce = b_sce.background_set
@@ -359,7 +359,7 @@ class SceneExporter:
             GeometryExporter.KnownExportedObjects |= GeometryExporter.NewExportedObjects
             GeometryExporter.NewExportedObjects = set()
 
-            mts_context.configure()
+            export_ctx.configure()
 
             if created_mts_manager:
                 MM.reset()

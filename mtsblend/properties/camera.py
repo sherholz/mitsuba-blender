@@ -113,9 +113,8 @@ class mitsuba_camera(declarative_property_group):
         },
     ] + CameraMediumParameter('exterior', 'Exterior medium')
 
-    def api_output(self, mts_context, scene, camera=None):
+    def api_output(self, scene, camera=None):
         '''
-        mts_context     Export Context
         scene           bpy.types.scene
         camera          bpy.types.camera
 

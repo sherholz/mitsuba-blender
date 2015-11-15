@@ -67,8 +67,8 @@ class GeometryExporter:
     KnownModifiedObjects = set()
     NewExportedObjects = set()
 
-    def __init__(self, mts_context, visibility_scene):
-        self.mts_context = mts_context
+    def __init__(self, export_ctx, visibility_scene):
+        self.export_ctx = export_ctx
         self.visibility_scene = visibility_scene
 
         self.ExportedMeshes = ExportCache('ExportedMeshes')
@@ -210,7 +210,7 @@ class GeometryExporter:
                         MtsLog('Skipping already exported mesh: %s' % mesh_name)
 
                     shape_params = {
-                        'filename': get_export_path(self.mts_context, file_path),
+                        'filename': get_export_path(self.export_ctx, file_path),
                         'doubleSided': mesh.show_double_sided
                     }
 
@@ -254,7 +254,7 @@ class GeometryExporter:
     is_preview = False
 
     def allowDoubleSided(self, mat_params):
-        types = get_param_recursive(self.mts_context.scene_data, mat_params, 'type')
+        types = get_param_recursive(self.export_ctx.scene_data, mat_params, 'type')
 
         for t in types:
             if t in {'null', 'dielectric', 'thindielectric', 'roughdielectric', 'difftrans', 'hk', 'mask', 'twosided'}:
@@ -330,7 +330,7 @@ class GeometryExporter:
         try:
             ob_mat = obj.material_slots[mat_index].material
             # create material xml
-            return export_material(self.mts_context, ob_mat)
+            return export_material(self.export_ctx, ob_mat)
 
         except IndexError:
             MtsLog('WARNING: material slot %d on object "%s" is unassigned!' % (mat_index + 1, obj.name))
@@ -371,7 +371,7 @@ class GeometryExporter:
 
             shape.update(mat_params)
 
-        self.mts_context.data_add({
+        self.export_ctx.data_add({
             'type': 'shapegroup',
             'id': '%s_shapegroup' % me_name,
             'shape': shape
@@ -419,7 +419,7 @@ class GeometryExporter:
                 shape = {
                     'type': me_shape_type,
                     'id': '%s_%s' % (name, me_name),
-                    'toWorld': self.mts_context.animated_transform(motion),
+                    'toWorld': self.export_ctx.animated_transform(motion),
                 }
                 shape.update(shape_params)
 
@@ -439,7 +439,7 @@ class GeometryExporter:
                 shapes.append((me_seq, shape))
 
             if len(shapes) == 1:
-                self.mts_context.data_add(shapes[0][1])
+                self.export_ctx.data_add(shapes[0][1])
 
             else:
                 if shapes[0][0] > 0.0:
@@ -464,7 +464,7 @@ class GeometryExporter:
 
                 deformable.update([('times', ', '.join([str(f) for f in times]))])
 
-                self.mts_context.data_add(deformable)
+                self.export_ctx.data_add(deformable)
 
     def BSpline(self, points, dimension, degree, u):
         controlpoints = []
@@ -585,4 +585,4 @@ class GeometryExporter:
 
         MtsLog('... done, exported %s hairs' % det.exported_objects)
 
-        return get_export_path(self.mts_context, hair_file_path)
+        return get_export_path(self.export_ctx, hair_file_path)

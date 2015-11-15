@@ -100,8 +100,8 @@ class MtsNodeInput_rgb(mitsuba_input_node, Node):
         row.prop(self, 'gain_g', text='')
         row.prop(self, 'gain_b', text='')
 
-    def get_spectrum_dict(self, mts_context, multiplier=1.0):
-        return mts_context.spectrum({
+    def get_spectrum_dict(self, export_ctx, multiplier=1.0):
+        return export_ctx.spectrum({
             'type': self.color_mode,
             'value': [
                 self.color.r * self.gain_r * multiplier,
@@ -110,8 +110,8 @@ class MtsNodeInput_rgb(mitsuba_input_node, Node):
             ],
         })
 
-    def get_color_dict(self, mts_context):
-        return self.get_spectrum_dict(mts_context)
+    def get_color_dict(self, export_ctx):
+        return self.get_spectrum_dict(export_ctx)
 
     def set_from_dict(self, ntree, params):
         if params['type'] == 'srgb':
@@ -200,7 +200,7 @@ class MtsNodeInput_spectrum(mitsuba_input_node, Node):
                     print('Error displaying spectrum samples.')
                     return
 
-    def get_spectrum_dict(self, mts_context, multiplier=1.0):
+    def get_spectrum_dict(self, export_ctx, multiplier=1.0):
         spd_items = [(self.wavelength, self.value * multiplier)]
 
         if self.samples > 1:
@@ -226,19 +226,19 @@ class MtsNodeInput_spectrum(mitsuba_input_node, Node):
         print(spd_items)
 
         if len(spd_items) > 1:
-            return mts_context.spectrum({
+            return export_ctx.spectrum({
                 'type': 'spectrum',
                 'value': spd_items,
             })
 
         else:
-            return mts_context.spectrum({
+            return export_ctx.spectrum({
                 'type': 'spectrum',
                 'value': self.value,
             })
 
-    def get_color_dict(self, mts_context):
-        return self.get_spectrum_dict(mts_context)
+    def get_color_dict(self, export_ctx):
+        return self.get_spectrum_dict(export_ctx)
 
     def set_from_dict(self, ntree, params):
         try:
@@ -283,14 +283,14 @@ class MtsNodeInput_spdfile(mitsuba_input_node, Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, 'filename')
 
-    def get_spectrum_dict(self, mts_context, multiplier=1.0):
-        return mts_context.spectrum({
+    def get_spectrum_dict(self, export_ctx, multiplier=1.0):
+        return export_ctx.spectrum({
             'type': 'spectrum',
             'value': self.filename,
         })
 
-    def get_color_dict(self, mts_context):
-        return self.get_spectrum_dict(mts_context)
+    def get_color_dict(self, export_ctx):
+        return self.get_spectrum_dict(export_ctx)
 
     def set_from_dict(self, ntree, params):
         if 'filename' in params:
@@ -317,15 +317,15 @@ class MtsNodeInput_blackbody(mitsuba_input_node, Node):
         layout.prop(self, 'temperature')
         layout.prop(self, 'scale')
 
-    def get_spectrum_dict(self, mts_context, multiplier=1.0):
-        return mts_context.spectrum({
+    def get_spectrum_dict(self, export_ctx, multiplier=1.0):
+        return export_ctx.spectrum({
             'type': 'blackbody',
             'temperature': self.temperature,
             'scale': self.scale * 0.001 * multiplier,
         })
 
-    def get_color_dict(self, mts_context):
-        return self.get_spectrum_dict(mts_context)
+    def get_color_dict(self, export_ctx):
+        return self.get_spectrum_dict(export_ctx)
 
     def set_from_dict(self, ntree, params):
         if 'temperature' in params:

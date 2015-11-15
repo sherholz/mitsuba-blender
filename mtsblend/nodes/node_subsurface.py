@@ -132,7 +132,7 @@ class MtsNodeSubsurface_dipole(mitsuba_subsurface_node, Node):
         {'type': 'MtsSocketSubsurface', 'name': 'Subsurface'},
     ]
 
-    def get_subsurface_dict(self, mts_context):
+    def get_subsurface_dict(self, export_ctx):
         params = {
             'type': 'dipole',
             'scale': self.scale,
@@ -143,15 +143,15 @@ class MtsNodeSubsurface_dipole(mitsuba_subsurface_node, Node):
 
         if self.useAlbSigmaT:
             params.update({
-                'sigmaT': self.inputs['Extinction Coefficient'].get_spectrum_dict(mts_context),
-                'albedo': self.inputs['Albedo'].get_spectrum_dict(mts_context),
+                'sigmaT': self.inputs['Extinction Coefficient'].get_spectrum_dict(export_ctx),
+                'albedo': self.inputs['Albedo'].get_spectrum_dict(export_ctx),
             })
 
         else:
             params.update({
-                'sigmaS': self.inputs['Scattering Coefficient'].get_spectrum_dict(mts_context),
-                'sigmaA': self.inputs['Absorption Coefficient'].get_spectrum_dict(mts_context),
-                'g': self.inputs['Anisotropy'].get_spectrum_dict(mts_context),
+                'sigmaS': self.inputs['Scattering Coefficient'].get_spectrum_dict(export_ctx),
+                'sigmaA': self.inputs['Absorption Coefficient'].get_spectrum_dict(export_ctx),
+                'g': self.inputs['Anisotropy'].get_spectrum_dict(export_ctx),
             })
 
         return params
@@ -241,7 +241,7 @@ class MtsNodeSubsurface_singlescatter(mitsuba_subsurface_node, Node):
         {'type': 'MtsSocketSubsurface', 'name': 'Subsurface'},
     ]
 
-    def get_subsurface_dict(self, mts_context):
+    def get_subsurface_dict(self, export_ctx):
         params = {
             'type': 'singlescatter',
             'fastSingleScatter': self.fastSingleScatter,
@@ -254,18 +254,18 @@ class MtsNodeSubsurface_singlescatter(mitsuba_subsurface_node, Node):
         bsdf_node = self.inputs['Bsdf'].get_linked_node()
 
         if bsdf_node:
-            params.update({'bsdf': bsdf_node.get_bsdf_dict(mts_context)})
+            params.update({'bsdf': bsdf_node.get_bsdf_dict(export_ctx)})
 
         if self.useAlbSigmaT:
             params.update({
-                'sigmaT': self.inputs['Extinction Coefficient'].get_spectrum_dict(mts_context),
-                'albedo': self.inputs['Albedo'].get_spectrum_dict(mts_context),
+                'sigmaT': self.inputs['Extinction Coefficient'].get_spectrum_dict(export_ctx),
+                'albedo': self.inputs['Albedo'].get_spectrum_dict(export_ctx),
             })
         else:
             params.update({
-                'sigmaS': self.inputs['Scattering Coefficient'].get_spectrum_dict(mts_context),
-                'sigmaA': self.inputs['Absorption Coefficient'].get_spectrum_dict(mts_context),
-                'g': self.inputs['Anisotropy'].get_spectrum_dict(mts_context),
+                'sigmaS': self.inputs['Scattering Coefficient'].get_spectrum_dict(export_ctx),
+                'sigmaA': self.inputs['Absorption Coefficient'].get_spectrum_dict(export_ctx),
+                'g': self.inputs['Anisotropy'].get_spectrum_dict(export_ctx),
             })
 
         return params

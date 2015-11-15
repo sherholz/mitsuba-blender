@@ -83,9 +83,9 @@ def lamp_dict_to_nodes(ntree, params):
     return shader
 
 
-def blender_lamp_to_dict(mts_context, lamp):
-    if mts_context is None:
-        mts_context = FileExportContext()
+def blender_lamp_to_dict(export_ctx, lamp):
+    if export_ctx is None:
+        export_ctx = FileExportContext()
 
     params = {}
 
@@ -111,12 +111,12 @@ def blender_lamp_to_dict(mts_context, lamp):
             'toWorld': toworld,
             'emitter': {
                 'type': 'area',
-                'radiance': mts_context.spectrum(lamp.color * lamp.energy * boost),
+                'radiance': export_ctx.spectrum(lamp.color * lamp.energy * boost),
                 'scale': lamp.energy * boost,
             },
             'bsdf': {
                 'type': 'diffuse',
-                'reflectance': mts_context.spectrum(lamp.color),
+                'reflectance': export_ctx.spectrum(lamp.color),
             },
         }
 
@@ -131,19 +131,19 @@ def blender_lamp_to_dict(mts_context, lamp):
                 'radius': radius,
                 'emitter': {
                     'type': 'area',
-                    'radiance': mts_context.spectrum(lamp.color * lamp.energy * boost),
+                    'radiance': export_ctx.spectrum(lamp.color * lamp.energy * boost),
                     'scale': lamp.energy * boost,
                 },
                 'bsdf': {
                     'type': 'diffuse',
-                    'reflectance': mts_context.spectrum(lamp.color),
+                    'reflectance': export_ctx.spectrum(lamp.color),
                 },
             })
 
         else:
             params.update({
                 'type': 'point',
-                'intensity': mts_context.spectrum(lamp.color * lamp.energy * 20),
+                'intensity': export_ctx.spectrum(lamp.color * lamp.energy * 20),
                 'scale': lamp.energy * 20,
             })
 
@@ -152,14 +152,14 @@ def blender_lamp_to_dict(mts_context, lamp):
             'type': 'spot',
             'cutoffAngle': lamp.spot_size * 180 / (math.pi * 2.0),
             'beamWidth': (1 - lamp.spot_blend) * (lamp.spot_size * 180 / (math.pi * 2.0)),
-            'intensity': mts_context.spectrum(lamp.color * lamp.energy * 20),
+            'intensity': export_ctx.spectrum(lamp.color * lamp.energy * 20),
             'scale': lamp.energy * 20,
         }
 
     elif lamp.type in {'SUN', 'HEMI'}:
         params = {
             'type': 'directional',
-            'irradiance': mts_context.spectrum(lamp.color * lamp.energy),
+            'irradiance': export_ctx.spectrum(lamp.color * lamp.energy),
             'scale': lamp.energy,
         }
 
@@ -175,17 +175,17 @@ def blender_lamp_to_nodes(ntree, lamp):
     return None
 
 
-def export_lamp_instance(mts_context, instance, name):
+def export_lamp_instance(export_ctx, instance, name):
     lamp = instance.obj.data
 
     ntree = lamp.mitsuba_nodes.get_node_tree()
     params = {}
 
     if ntree:
-        params = ntree.get_nodetree_dict(mts_context, lamp)
+        params = ntree.get_nodetree_dict(export_ctx, lamp)
 
     if not params:
-        params = blender_lamp_to_dict(mts_context, lamp)
+        params = blender_lamp_to_dict(export_ctx, lamp)
 
         if params['type'] in {'rectangle', 'sphere'}:
             del params['emitter']['scale']
@@ -195,7 +195,7 @@ def export_lamp_instance(mts_context, instance, name):
 
     if params and 'type' in params:
         try:
-            hide_emitters = mts_context.scene_data['integrator']['hideEmitters']
+            hide_emitters = export_ctx.scene_data['integrator']['hideEmitters']
 
         except:
             hide_emitters = False
@@ -212,7 +212,7 @@ def export_lamp_instance(mts_context, instance, name):
 
             params.update({
                 'id': '%s-arealight' % name,
-                'toWorld': mts_context.animated_transform(
+                'toWorld': export_ctx.animated_transform(
                     [(t, m * mathutils.Matrix(((size_x, 0, 0, 0), (0, size_y, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))) for (t, m) in instance.motion]
                 ),
             })
@@ -223,7 +223,7 @@ def export_lamp_instance(mts_context, instance, name):
         elif params['type'] in {'point', 'sphere'}:
             params.update({
                 'id': '%s-pointlight' % name,
-                'toWorld': mts_context.animated_transform(instance.motion),
+                'toWorld': export_ctx.animated_transform(instance.motion),
             })
 
             if hide_emitters:
@@ -232,9 +232,9 @@ def export_lamp_instance(mts_context, instance, name):
         elif params['type'] in {'spot', 'directional', 'collimated'}:
             params.update({
                 'id': '%s-%slight' % (name, params['type']),
-                'toWorld': mts_context.animated_transform(
+                'toWorld': export_ctx.animated_transform(
                     [(t, m * mathutils.Matrix(((-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))) for (t, m) in instance.motion]
                 ),
             })
 
-        mts_context.data_add(params)
+        export_ctx.data_add(params)

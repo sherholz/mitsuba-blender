@@ -79,11 +79,11 @@ class MtsNodeEnvironment_constant(mitsuba_environment_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_environment_dict(self, mts_context):
+    def get_environment_dict(self, export_ctx):
         params = {
             'type': 'constant',
             'id': 'Environment-constant',
-            'radiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
+            'radiance': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),
             'samplingWeight': self.samplingWeight,
         }
 
@@ -154,11 +154,11 @@ class MtsNodeEnvironment_envmap(mitsuba_environment_node, Node):
         else:
             return mathutils.Euler(self.rotation).to_matrix().to_4x4()
 
-    def get_environment_dict(self, mts_context):
+    def get_environment_dict(self, export_ctx):
         params = {
             'type': 'envmap',
             'id': 'Environment-envmap',
-            'filename': get_export_path(mts_context, self.filename),
+            'filename': get_export_path(export_ctx, self.filename),
             'scale': self.scale,
             'samplingWeight': self.samplingWeight,
         }
@@ -407,7 +407,7 @@ class MtsNodeEnvironment_sunsky(mitsuba_environment_node, Node):
         else:
             return mathutils.Euler(self.rotation).to_matrix().to_4x4()
 
-    def get_environment_dict(self, mts_context):
+    def get_environment_dict(self, export_ctx):
         params = {
             'type': self.model,
             'id': 'Environment-%s' % self.model,
@@ -435,7 +435,7 @@ class MtsNodeEnvironment_sunsky(mitsuba_environment_node, Node):
 
         if self.model in {'sky', 'sunsky'}:
             params.update({
-                'albedo': self.inputs['Ground Albedo'].get_spectrum_dict(mts_context),
+                'albedo': self.inputs['Ground Albedo'].get_spectrum_dict(export_ctx),
             })
 
         if self.advanced:

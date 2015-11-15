@@ -115,15 +115,15 @@ class MtsNodeEmitter_area(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_emitter_dict(self, mts_context):
+    def get_emitter_dict(self, export_ctx):
         params = {
             'type': 'area',
-            'radiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
+            'radiance': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),
             'samplingWeight': self.samplingWeight,
         }
         return params
 
-    def get_lamp_dict(self, mts_context):
+    def get_lamp_dict(self, export_ctx):
         if self.shape == 'rectangle':
             toworld = {
                 'type': 'scale',
@@ -142,12 +142,12 @@ class MtsNodeEmitter_area(mitsuba_emitter_node, Node):
             'toWorld': toworld,
             'emitter': {
                 'type': 'area',
-                'radiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
+                'radiance': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),
                 'samplingWeight': self.samplingWeight,
             },
             'bsdf': {
                 'type': 'diffuse',
-                'reflectance': self.inputs['Radiance'].get_spectrum_dict(mts_context),
+                'reflectance': self.inputs['Radiance'].get_spectrum_dict(export_ctx),
             },
         }
 
@@ -207,7 +207,7 @@ class MtsNodeEmitter_point(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context):
+    def get_lamp_dict(self, export_ctx):
         params = {}
 
         if self.size >= 0.01:
@@ -218,18 +218,18 @@ class MtsNodeEmitter_point(mitsuba_emitter_node, Node):
                 'radius': radius,
                 'emitter': {
                     'type': 'area',
-                    'radiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),  # * max(1.0, inv_area)),
+                    'radiance': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),  # * max(1.0, inv_area)),
                     'samplingWeight': self.samplingWeight,
                 },
                 'bsdf': {
                     'type': 'diffuse',
-                    'reflectance': self.inputs['Radiance'].get_spectrum_dict(mts_context),
+                    'reflectance': self.inputs['Radiance'].get_spectrum_dict(export_ctx),
                 },
             })
         else:
             params.update({
                 'type': 'point',
-                'intensity': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
+                'intensity': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),
                 'samplingWeight': self.samplingWeight,
             })
 
@@ -301,19 +301,19 @@ class MtsNodeEmitter_spot(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context):
+    def get_lamp_dict(self, export_ctx):
 
         params = {
             'type': 'spot',
             'cutoffAngle': self.cutoffAngle,
             'beamWidth': (1 - self.spotBlend) * self.cutoffAngle,
-            'intensity': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
+            'intensity': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),
             'samplingWeight': self.samplingWeight,
         }
 
         tex_node = self.inputs['Texture'].get_linked_node()
         if tex_node:
-            texture = tex_node.get_texture_dict(mts_context)
+            texture = tex_node.get_texture_dict(export_ctx)
             if texture:
                 params.update({'texture': texture})
 
@@ -355,10 +355,10 @@ class MtsNodeEmitter_directional(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context):
+    def get_lamp_dict(self, export_ctx):
         params = {
             'type': 'directional',
-            'irradiance': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
+            'irradiance': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),
             'samplingWeight': self.samplingWeight,
         }
 
@@ -400,10 +400,10 @@ class MtsNodeEmitter_collimated(mitsuba_emitter_node, Node):
         layout.prop(self, 'samplingWeight')
         layout.prop(self, 'scale')
 
-    def get_lamp_dict(self, mts_context):
+    def get_lamp_dict(self, export_ctx):
         params = {
             'type': 'collimated',
-            'power': self.inputs['Radiance'].get_spectrum_dict(mts_context, self.scale),
+            'power': self.inputs['Radiance'].get_spectrum_dict(export_ctx, self.scale),
             'samplingWeight': self.samplingWeight,
         }
 

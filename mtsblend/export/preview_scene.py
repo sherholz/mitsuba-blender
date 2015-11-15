@@ -31,7 +31,7 @@ from ..export.materials import export_material
 from ..export.environment import export_world_environment
 
 
-def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
+def preview_scene(scene, export_ctx, obj=None, mat=None, tex=None):
     xres, yres = scene.camera.data.mitsuba_camera.mitsuba_film.resolution(scene)
 
     film = {
@@ -56,15 +56,15 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
         preview_depth = int(efutil.find_config_value('mitsuba', 'defaults', 'preview_depth', '2'))
 
         # Integrator
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'volpath',
             'maxDepth': preview_depth,
         })
 
         # Camera
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'perspective',
-            'toWorld': mts_context.transform_lookAt([0, -27.931367, 1.800838], [-0.006218, 0.677149, 1.801573], [0, 0, 1]),
+            'toWorld': export_ctx.transform_lookAt([0, -27.931367, 1.800838], [-0.006218, 0.677149, 1.801573], [0, 0, 1]),
             'sampler': {
                 'type': 'independent',
                 'sampleCount': preview_spp,
@@ -73,13 +73,13 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
         })
 
         # Checkerboard texture
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'diffuse',
             'id': 'checkers',
             'reflectance': {
                 'type': 'checkerboard',
-                'color0': mts_context.spectrum(0.2),
-                'color1': mts_context.spectrum(0.4),
+                'color0': export_ctx.spectrum(0.2),
+                'color1': export_ctx.spectrum(0.4),
                 'uscale': 10.0,
                 'vscale': 10.0,
                 'uoffset': 0.0,
@@ -87,20 +87,20 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
             },
         })
 
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'rectangle',
             'id': 'plane-floor',
-            'toWorld': mts_context.transform_matrix(mathutils.Matrix(((40, 0, 0, 0), (0, -40, 0, 0), (0, 0, 1, -2.9), (0, 0, 0, 1)))),
+            'toWorld': export_ctx.transform_matrix(mathutils.Matrix(((40, 0, 0, 0), (0, -40, 0, 0), (0, 0, 1, -2.9), (0, 0, 0, 1)))),
             'bsdf': {
                 'type': 'ref',
                 'id': 'checkers',
             },
         })
 
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'rectangle',
             'id': 'plane-back',
-            'toWorld': mts_context.transform_matrix(mathutils.Matrix(((40, 0, 0, 0), (0, 0, -1, 10), (0, 40, 0, 17.1), (0, 0, 0, 1)))),
+            'toWorld': export_ctx.transform_matrix(mathutils.Matrix(((40, 0, 0, 0), (0, 0, -1, 10), (0, 40, 0, 17.1), (0, 0, 0, 1)))),
             'bsdf': {
                 'type': 'ref',
                 'id': 'checkers',
@@ -120,7 +120,7 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
             pv_export_shape = False
 
         if pv_export_shape:  # Any material, texture, light, or volume definitions created from the node editor do not exist before this conditional!
-            GE = GeometryExporter(mts_context, scene)
+            GE = GeometryExporter(export_ctx, scene)
             GE.is_preview = True
             GE.geometry_scene = scene
 
@@ -133,11 +133,11 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
                     shape = {
                         'type': mesh_type,
                         'id': '%s_%s-shape' % (obj.name, mesh_name),
-                        'toWorld': mts_context.transform_matrix(obj.matrix_world.copy())
+                        'toWorld': export_ctx.transform_matrix(obj.matrix_world.copy())
                     }
                     shape.update(mesh_params)
 
-                    mat_params = export_material(mts_context, mat)
+                    mat_params = export_material(export_ctx, mat)
 
                     if mat_params:
                         shape.update(mat_params)
@@ -145,33 +145,33 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
                         if 'emitter' in mat_params:
                             emitter = True
 
-                    mts_context.data_add(shape)
+                    export_ctx.data_add(shape)
 
         if emitter:
             return
 
         # Emitters
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'sunsky',
             'scale': 2.0,
             'sunRadiusScale': 15.0,
             'extend': True,
-            'toWorld': mts_context.transform_matrix(
+            'toWorld': export_ctx.transform_matrix(
                 mathutils.Euler((0, 0, 20)).to_matrix().to_4x4() * mathutils.Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
             )
         })
 
     else:
         # Integrator
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'direct',
             'maxDepth': 1,
         })
 
         # Camera
-        mts_context.data_add({
+        export_ctx.data_add({
             'type': 'spherical',
-            'toWorld': mts_context.transform_lookAt([0, 0, 0], [0, -1, 0], [0, 0, 1]),
+            'toWorld': export_ctx.transform_lookAt([0, 0, 0], [0, -1, 0], [0, 0, 1]),
             'sampler': {
                 'type': 'independent',
                 'sampleCount': 1,
@@ -180,4 +180,4 @@ def preview_scene(scene, mts_context, obj=None, mat=None, tex=None):
         })
 
         world_environment = Instance(scene.world, None)
-        export_world_environment(mts_context, world_environment, is_preview=True)
+        export_world_environment(export_ctx, world_environment, is_preview=True)

@@ -56,32 +56,32 @@ class MtsNodeMaterialOutput(mitsuba_output_node, Node):
         {'type': 'MtsSocketEmitter', 'name': 'Emitter'},
     ]
 
-    def get_output_dict(self, mts_context, material):
+    def get_output_dict(self, export_ctx, material):
         mat_params = {}
 
         # start exporting that material...
         bsdf_node = self.inputs['Bsdf'].get_linked_node()
 
         if bsdf_node:
-            mat_params.update({'bsdf': bsdf_node.get_bsdf_dict(mts_context)})
+            mat_params.update({'bsdf': bsdf_node.get_bsdf_dict(export_ctx)})
 
         # export subsurface...
         subsurface_node = self.inputs['Subsurface'].get_linked_node()
 
         if subsurface_node:
-            mat_params.update({'subsurface': subsurface_node.get_subsurface_dict(mts_context)})
+            mat_params.update({'subsurface': subsurface_node.get_subsurface_dict(export_ctx)})
 
         # export interior medium...
         interior_node = self.inputs['Interior Medium'].get_linked_node()
 
         if interior_node and not subsurface_node:
-            mat_params.update({'interior': interior_node.get_medium_dict(mts_context)})
+            mat_params.update({'interior': interior_node.get_medium_dict(export_ctx)})
 
         # export emitter...
         emitter_node = self.inputs['Emitter'].get_linked_node()
 
         if emitter_node:
-            mat_params.update({'emitter': emitter_node.get_emitter_dict(mts_context)})
+            mat_params.update({'emitter': emitter_node.get_emitter_dict(export_ctx)})
 
         return mat_params
 
@@ -101,13 +101,13 @@ class MtsNodeLampOutput(mitsuba_output_node, Node):
         {'type': 'MtsSocketMedium', 'name': 'Exterior Medium'},
     ]
 
-    def get_output_dict(self, mts_context, lamp):
+    def get_output_dict(self, export_ctx, lamp):
         lamp_params = {}
 
         lamp_node = self.inputs['Lamp'].get_linked_node()
 
         if lamp_node:
-            lamp_params = lamp_node.get_lamp_dict(mts_context)
+            lamp_params = lamp_node.get_lamp_dict(export_ctx)
 
         return lamp_params
 
@@ -127,12 +127,12 @@ class MtsNodeWorldOutput(mitsuba_output_node, Node):
         {'type': 'MtsSocketMedium', 'name': 'Exterior Medium'},
     ]
 
-    def get_output_dict(self, mts_context, world):
+    def get_output_dict(self, export_ctx, world):
         world_params = {}
 
         world_node = self.inputs['Environment'].get_linked_node()
 
         if world_node:
-            world_params = world_node.get_environment_dict(mts_context)
+            world_params = world_node.get_environment_dict(export_ctx)
 
         return world_params

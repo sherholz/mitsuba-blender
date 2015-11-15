@@ -70,11 +70,11 @@ class MtsNodeMedium_reference(mitsuba_medium_node, Node):
         else:
             layout.prop_search(self, 'ref_nodegroup', context.scene.mitsuba_nodegroups, 'medium')
 
-    def get_medium_dict(self, mts_context):
+    def get_medium_dict(self, export_ctx):
         try:
             ntree = bpy.data.node_groups[self.reference]
             output_node = ntree.find_node('MtsNodeMaterialOutput')
-            material = output_node.get_output_dict(mts_context, ntree)
+            material = output_node.get_output_dict(export_ctx, ntree)
             params = material['interior']
 
         except:
@@ -144,7 +144,7 @@ class MtsNodeMedium_homogeneous(mitsuba_medium_node, Node):
         self.draw_material_menu(layout)
         layout.prop(self, 'scale')
 
-    def get_medium_dict(self, mts_context):
+    def get_medium_dict(self, export_ctx):
         params = {
             'type': 'homogeneous',
             'scale': self.scale,
@@ -152,15 +152,15 @@ class MtsNodeMedium_homogeneous(mitsuba_medium_node, Node):
 
         if self.useAlbSigmaT:
             params.update({
-                'sigmaT': self.inputs['Extinction Coefficient'].get_spectrum_dict(mts_context),
-                'albedo': self.inputs['Albedo'].get_spectrum_dict(mts_context),
+                'sigmaT': self.inputs['Extinction Coefficient'].get_spectrum_dict(export_ctx),
+                'albedo': self.inputs['Albedo'].get_spectrum_dict(export_ctx),
             })
 
         else:
             params.update({
-                'sigmaS': self.inputs['Scattering Coefficient'].get_spectrum_dict(mts_context),
-                'sigmaA': self.inputs['Absorption Coefficient'].get_spectrum_dict(mts_context),
-                'g': self.inputs['Anisotropy'].get_spectrum_dict(mts_context),
+                'sigmaS': self.inputs['Scattering Coefficient'].get_spectrum_dict(export_ctx),
+                'sigmaA': self.inputs['Absorption Coefficient'].get_spectrum_dict(export_ctx),
+                'g': self.inputs['Anisotropy'].get_spectrum_dict(export_ctx),
             })
 
         # TODO: phase
