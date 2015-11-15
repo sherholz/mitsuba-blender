@@ -33,8 +33,6 @@ from bpy_extras.io_utils import axis_conversion
 from ..extensions_framework import util as efutil
 
 # Exporter libs
-from .. import MitsubaAddon
-
 from ..export import ExportContextBase
 from ..export import matrix_to_list
 from ..export import get_output_subdir
@@ -694,8 +692,7 @@ class ExternalRenderContext:
             self.binary_name = self.render_scene.mitsuba_engine.binary_name
             verbosity = self.render_scene.mitsuba_engine.log_verbosity
 
-        addon_prefs = MitsubaAddon.get_prefs()
-        mitsuba_path = efutil.filesystem_path(addon_prefs.install_path)
+        mitsuba_path = efutil.filesystem_path(self.render_engine.preferences.install_path)
 
         if mitsuba_path == '':
             return ['']

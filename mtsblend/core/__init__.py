@@ -130,6 +130,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
     bl_use_preview = True
 
     render_lock = threading.Lock()
+    preferences = None
 
     def render(self, scene):
         '''
@@ -147,6 +148,7 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
                 self.render_update_timer = None
                 self.output_dir = efutil.temp_directory()
                 self.output_file = 'default.png'
+                self.preferences = MitsubaAddon.get_prefs()
 
                 if scene is None:
                     MtsLog('ERROR: Scene to render is not valid')
@@ -225,11 +227,9 @@ class RENDERENGINE_mitsuba(bpy.types.RenderEngine):
 
         ptex = None
 
-        addon_prefs = MitsubaAddon.get_prefs()
-
         MM = MtsManager(
             scene.name,
-            api_type=addon_prefs.preview_export if addon_prefs else 'API',
+            api_type=self.preferences.preview_export,
         )
         MtsManager.SetCurrentScene(scene)
         MtsManager.SetActive(MM)
