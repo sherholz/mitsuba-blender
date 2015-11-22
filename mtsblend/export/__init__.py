@@ -104,7 +104,10 @@ class ExportContextBase:
         self.exported_ids = set()
         self.motion = {}
 
-    def get_export_path(self, path, relative=False):
+    def get_export_path(self, path, id_data=None, relative=False):
+        if id_data is not None and id_data.library is not None:
+            path = bpy.path.abspath(path, id_data.library.filepath)
+
         if relative and self.EXPORT_API_TYPE == 'FILE':
             return efutil.path_relative_to_export(path)
 
