@@ -359,12 +359,21 @@ class MtsNodeInput_uvmapping(mitsuba_input_node, Node):
         layout.prop(self, 'voffset')
 
     def get_uvmapping_dict(self):
-        return {
-            'uscale': self.uscale,
-            'vscale': self.vscale,
-            'uoffset': self.uoffset,
-            'voffset': self.voffset,
-        }
+        params = {}
+
+        if self.uscale != 1.0 or self.vscale != 1.0:
+            params.update({
+                'uscale': self.uscale,
+                'vscale': self.vscale,
+            })
+
+        if self.uoffset != 0.0 or self.voffset != 0.0:
+            params.update({
+                'uoffset': self.uoffset,
+                'voffset': self.voffset,
+            })
+
+        return params
 
     def set_from_dict(self, ntree, params):
         if 'uscale' in params:
