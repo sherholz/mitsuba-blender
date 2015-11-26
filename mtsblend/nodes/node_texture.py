@@ -221,8 +221,13 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
     def get_texture_dict(self, export_ctx):
         params = {
             'type': 'bitmap',
-            'filename': export_ctx.get_export_path(self.filename),
         }
+
+        if self.image and self.image in bpy.data.images:
+            params.update({'image': bpy.data.images[self.image]})
+
+        elif self.filename:
+            params.update({'filename': export_ctx.get_export_path(self.filename)})
 
         if self.wrapModeU != 'repeat' or self.wrapModeV != 'repeat':
             params.update({
@@ -261,7 +266,10 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
         return params
 
     def set_from_dict(self, ntree, params):
-        if 'filename' in params:
+        if 'image' in params:
+            self.image = params['image'].name
+
+        elif 'filename' in params:
             self.filename = params['filename']
 
         if 'wrapModeU' in params:

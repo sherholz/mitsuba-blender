@@ -64,8 +64,7 @@ def convert_float_texture_node(export_ctx, socket):
         if node.type == "TEX_IMAGE":
             params = {
                 'type': 'bitmap',
-                'id': node.image.name,
-                'filename': export_ctx.get_export_path(node.image.filepath)
+                'image': node.image
             }
 
     else:
@@ -83,8 +82,7 @@ def convert_color_texture_node(export_ctx, socket):
         if node.type == "TEX_IMAGE":
             params = {
                 'type': 'bitmap',
-                'id': node.image.name,
-                'filename': export_ctx.get_export_path(node.image.filepath)
+                'image': node.image
             }
 
     else:
