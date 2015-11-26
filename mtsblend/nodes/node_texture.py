@@ -222,12 +222,18 @@ class MtsNodeTexture_bitmap(mitsuba_texture_node, Node):
         params = {
             'type': 'bitmap',
             'filename': export_ctx.get_export_path(self.filename),
-            'wrapModeU': self.wrapModeU,
-            'wrapModeV': self.wrapModeV,
-            'filterType': self.filterType,
         }
 
-        if self.filterType == 'ewa':
+        if self.wrapModeU != 'repeat' or self.wrapModeV != 'repeat':
+            params.update({
+                'wrapModeU': self.wrapModeU,
+                'wrapModeV': self.wrapModeV,
+            })
+
+        if self.filterType != 'ewa':
+            params.update({'filterType': self.filterType})
+
+        elif self.maxAnisotropy != 20:
             params.update({'maxAnisotropy': self.maxAnisotropy})
 
         if self.gammaType == 'custom':
