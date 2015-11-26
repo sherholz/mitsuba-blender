@@ -23,6 +23,8 @@
 
 from collections import OrderedDict
 
+import os
+import tempfile
 import math
 
 from ..export.cycles import cycles_material_to_dict
@@ -68,23 +70,69 @@ class ExportedMaterials:
 class ExportedTextures:
     # Static class variables
     exported_textures_dict = {}
+    exported_textures_not_found = set()
+    warning_not_exported = True
 
     @staticmethod
     def clear():
         ExportedTextures.exported_textures_dict = {}
+        ExportedTextures.exported_textures_not_found = set()
+        ExportedTextures.warning_not_exported = True
 
     @staticmethod
     def addExportedTexture(name, params):
         if name not in ExportedTextures.exported_textures_dict:
             ExportedTextures.exported_textures_dict.update({name: params})
 
+    @staticmethod
+    def ensureWarningTexture(export_ctx, tex_id):
+        if ExportedTextures.warning_not_exported:
+            export_ctx.data_add({
+                'type': 'checkerboard',
+                'id': 'warning_bitmap_not_found',
+                'color0': export_ctx.spectrum(0.0),
+                'color1': export_ctx.spectrum([0.8, 0, 0.8]),
+            })
+            ExportedTextures.warning_not_exported = False
+
+        ExportedTextures.exported_textures_not_found.add(tex_id)
+
 
 def get_texture_id(texture):
-    for tex_id, tex_params in ExportedTextures.exported_textures_dict.items():
+    exported_textures = ExportedTextures.exported_textures_dict
+    tex_name = 'Texture'
+
+    if 'image' in texture:
+        tex_name = texture['image'].name
+
+        if tex_name not in exported_textures or exported_textures[tex_name] == texture:
+            return tex_name
+
+    for tex_id, tex_params in exported_textures.items():
         if tex_params == texture:
             return tex_id
 
-    return 'Texture_%i' % len(ExportedTextures.exported_textures_dict)
+    return '%s_%i' % (tex_name, len(ExportedTextures.exported_textures_dict))
+
+
+def export_image(export_ctx, image):
+    tex_image = ''
+
+    if image.source in {'GENERATED', 'FILE'}:
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        tex_image = temp_file.name
+
+        if image.source == 'GENERATED':
+            image.save_render(tex_image)
+
+        if image.source == 'FILE':
+            if image.packed_file:
+                image.save_render(tex_image)
+
+            else:
+                tex_image = export_ctx.get_export_path(image.filepath, id_data=image)
+
+    return tex_image
 
 
 def export_textures(export_ctx, params):
@@ -96,17 +144,28 @@ def export_textures(export_ctx, params):
             continue
 
         if 'type' in elem and elem['type'] in {'bitmap'}:
-            try:
-                tex_id = elem.pop('id')
-
-            except:
-                tex_id = get_texture_id(elem)
+            tex_id = get_texture_id(elem)
 
             if tex_id not in ExportedTextures.exported_textures_dict:
                 tex_params = elem.copy()
                 tex_params['id'] = tex_id
-                export_ctx.data_add(tex_params)
+                tex_image = tex_params.get('filename', '')
+
+                if 'image' in tex_params:
+                    image = tex_params.pop('image')
+                    tex_image = export_image(export_ctx, image)
+
+                if tex_image and os.path.exists(tex_image) and os.path.isfile(tex_image):
+                    tex_params['filename'] = tex_image
+                    export_ctx.data_add(tex_params)
+
+                else:
+                    ExportedTextures.ensureWarningTexture(export_ctx, tex_id)
+
                 ExportedTextures.addExportedTexture(tex_id, elem)
+
+            if tex_id in ExportedTextures.exported_textures_not_found:
+                tex_id = 'warning_bitmap_not_found'
 
             params[key] = {'type': 'ref', 'id': tex_id}
 
@@ -231,27 +290,24 @@ def internal_material_to_dict(export_ctx, blender_mat):
 
     # === Blender texture conversion
     for tex in blender_mat.texture_slots:
-        if (tex):
-            if (tex.use and tex.texture.type == 'IMAGE' and params['type'] == 'diffuse'):
+        if (tex and tex.use and tex.texture.type == 'IMAGE'):
+            if params['type'] in {'diffuse', 'roughdiffuse'}:
                 params['reflectance'] = {
                     'type': 'bitmap',
-                    'id': tex.texture.image.name,
-                    'filename': export_ctx.get_export_path(tex.texture.image.filepath)
+                    'image': tex.texture.image
                 }
 
-            elif (tex.use and tex.texture.type == 'IMAGE' and params['type'] == 'plastic'):
-                if (tex.use_map_color_diffuse):
+            elif params['type'] in {'plastic', 'roughplastic'}:
+                if tex.use_map_color_diffuse:
                     params['diffuseReflectance'] = {
                         'type': 'bitmap',
-                        'id': tex.texture.image.name,
-                        'filename': export_ctx.get_export_path(tex.texture.image.filepath)
+                        'image': tex.texture.image
                     }
 
-                elif (tex.use_map_color_spec):
+                elif tex.use_map_color_spec:
                     params['specularReflectance'] = {
                         'type': 'bitmap',
-                        'id': tex.texture.image.name,
-                        'filename': export_ctx.get_export_path(tex.texture.image.filepath)
+                        'image': tex.texture.image
                     }
 
     mat_params = {}
