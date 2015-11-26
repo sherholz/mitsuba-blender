@@ -331,12 +331,26 @@ if not 'PYMTS_AVAILABLE' in locals() and addon_prefs is not None:
                 self.delay = .5
                 self.ctx.queue.registerListener(self)
 
+            def get_offset_size(self, wu):
+                offset = wu.getOffset()
+                size = wu.getSize()
+                end = offset + size
+                offset.x = max(0, offset.x)
+                offset.y = max(0, offset.y)
+                end.x = min(self.size.x, end.x)
+                end.y = min(self.size.y, end.y)
+                size = end - offset
+
+                return offset, size
+
             def workBeginEvent(self, job, wu, thr):
-                self.bitmap.drawWorkUnit(wu.getOffset(), wu.getSize(), thr)
+                offset, size = self.get_offset_size(wu)
+                self.bitmap.drawWorkUnit(offset, size, thr)
                 self.timed_update_result()
 
             def workEndEvent(self, job, wr, cancelled):
-                self.film.develop(wr.getOffset(), wr.getSize(), wr.getOffset(), self.bitmap)
+                offset, size = self.get_offset_size(wr)
+                self.film.develop(offset, size, offset, self.bitmap)
                 self.timed_update_result()
 
             def refreshEvent(self, job):
