@@ -407,7 +407,7 @@ class FileExportContext(ExportContextBase):
 
             if plugin == 'ref' and 'id' in args and args['id'] not in self.exported_ids:
                 MtsLog('************** Reference ID - %s - exported before referencing **************' % (args['id']))
-                return
+                #return
 
             elif plugin in {'matrix', 'lookat', 'scale'}:
                 del args['name']
@@ -425,7 +425,7 @@ class FileExportContext(ExportContextBase):
 
                 else:
                     MtsLog('************** Plugin - %s - ID - %s - already exported **************' % (plugin_type, args['id']))
-                    return
+                    #return
 
         try:
             if args['name'] == args['id']:

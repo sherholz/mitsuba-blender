@@ -209,7 +209,7 @@ class GeometryExporter:
                         MtsLog('Skipping already exported mesh: %s' % mesh_name)
 
                     shape_params = {
-                        'filename': self.export_ctx.get_export_path(file_path),
+                        'filename': self.export_ctx.get_export_path(file_path, relative = True),
                         'doubleSided': mesh.show_double_sided
                     }
 
