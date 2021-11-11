@@ -4,7 +4,7 @@
 	Automatically converted from COLLADA
 
 -->
-<scene version="0.5.0">
+<scene version="0.6.0">
 	<integrator id="integrator" type="volpath">
 		<integer name="maxDepth" value="$depth"/>
 	</integrator>
