@@ -184,6 +184,7 @@ mitsuba_plugin_tree = [
         'adaptive',
         'irrcache',
         'multichannel',
+        'pathguiding',
     }),
     # Sample generators
     ('sampler', {
