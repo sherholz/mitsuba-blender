@@ -86,6 +86,11 @@ class mitsuba_integrator(declarative_property_group):
         'bsdfProbability',
         'useNee',
         'sampleCount',
+        'samplesPerIteration',
+        'usePowerHeuristic',
+        'guideDirectLight',
+        'accountForDirectLightMiWeight',
+        'splatSamples',
         
     ]
 
@@ -140,6 +145,11 @@ class mitsuba_integrator(declarative_property_group):
         'bsdfProbability':          {'type': 'pathguiding'},
         'useNee':                   {'type': 'pathguiding'},
         'sampleCount':              {'type': 'pathguiding'},
+        'samplesPerIteration':      {'type': 'pathguiding'},
+        'usePowerHeuristic':        {'type': 'pathguiding'},
+        'guideDirectLight':         {'type': 'pathguiding'},
+        'accountForDirectLightMiWeight': {'type': 'pathguiding'},
+        'splatSamples':             {'type': 'pathguiding'},
     }
 
     properties = [
@@ -609,6 +619,16 @@ class mitsuba_integrator(declarative_property_group):
         {
             'type': 'int',
             'attr': 'sampleCount',
+            'name': 'Sample count',
+            'description': 'Sample count is passed through to the sampler configuration.',
+            'save_in_preset': True,
+            'min': 0,
+            'max': 8192,
+            'default': 32
+        },
+        {
+            'type': 'int',
+            'attr': 'samplesPerIteration',
             'name': 'Samples per iteration',
             'description': 'Number of samples per training iteration.',
             'save_in_preset': True,
@@ -616,7 +636,38 @@ class mitsuba_integrator(declarative_property_group):
             'max': 8192,
             'default': 4
         },
-
+        {
+            'type': 'bool',
+            'attr': 'usePowerHeuristic',
+            'name': 'Use Power Heuristic',
+            'description': 'Use the power heuristic for MIS. This should generally be left at the default value.',
+            'default': False,
+            'save_in_preset': True
+        },
+        {
+            'type': 'bool',
+            'attr': 'guideDirectLight',
+            'name': 'Guide Direct Light',
+            'description': 'Guide direct light contributions',
+            'default': True,
+            'save_in_preset': True
+        },
+        {
+            'type': 'bool',
+            'attr': 'accountForDirectLightMiWeight',
+            'name': 'Account For Direct Light MI Weight',
+            'description': 'Account fo the MI weight of direct light contributions when collecting sample data. If enabled, only the ratio of direct light corresponding to the BSDF / Guiding MI weight is being guided.',
+            'default': True,
+            'save_in_preset': True
+        },
+        {
+            'type': 'bool',
+            'attr': 'splatSamples',
+            'name': 'Splat Samples',
+            'description': 'Stochastically splat sample positions.',
+            'default': True,
+            'save_in_preset': True
+        },
     ]
 
     def api_output(self):
@@ -747,6 +798,11 @@ class mitsuba_integrator(declarative_property_group):
                 'bsdfProbability': self.bsdfProbability,
                 'useNee': self.useNee,
                 'sampleCount': self.sampleCount,
+                'samplesPerIteration': self.samplesPerIteration,
+                'usePowerHeuristic': self.usePowerHeuristic,
+                'guideDirectLight': self.guideDirectLight,
+                'accountForDirectLightMiWeight': self.accountForDirectLightMiWeight,
+                'splatSamples': self.splatSamples,
             }
 
         params['type'] = self.type
