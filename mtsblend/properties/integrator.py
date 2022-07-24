@@ -185,7 +185,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Set both Luminaire and BSDF at same time',
             'save_in_preset': True,
             'min': 1,
-            'max': 512,
+            'max': 8192,
             'default': 1
         },
         {
@@ -205,7 +205,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Number of samples to take using the emitter sampling technique',
             'save_in_preset': True,
             'min': 1,
-            'max': 512,
+            'max': 8192,
             'default': 1
         },
         {
@@ -215,7 +215,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Number of samples to take using the BSDF sampling technique',
             'save_in_preset': True,
             'min': 1,
-            'max': 512,
+            'max': 8192,
             'default': 1
         },
         {
@@ -251,7 +251,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Direct Samples. Default 16.',
             'save_in_preset': True,
             'min': -1,
-            'max': 512,
+            'max': 8192,
             'default': 16
         },
         {
@@ -261,7 +261,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Number on glossy samples for direct illuminaiton',
             'save_in_preset': True,
             'min': 2,
-            'max': 100,
+            'max': 512,
             'default': 32
         },
         {
@@ -271,7 +271,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Maximum path depth to be rendered. (-1=infinite) 1 corresponds to direct illumination, 2 is 1-bounce indirect illumination, etc.',
             'save_in_preset': True,
             'min': -1,
-            'max': 100,
+            'max': 128,
             'default': 24
         },
         {
@@ -311,7 +311,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Amount of photons to consider in a caustic photon map lookup',
             'save_in_preset': True,
             'min': 0,
-            'max': 1000,
+            'max': 8192,
             'default': 120
         },
         {
@@ -331,8 +331,8 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Depth to start using russian roulette when tracing photons',
             'save_in_preset': True,
             'min': 0,
-            'max': 100,
-            'default': 10
+            'max': 128,
+            'default': 8
         },
         {
             'type': 'bool',
@@ -493,7 +493,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Specifies the number of Markov Chains that, on average, are started per pixel. Default 1',
             'save_in_preset': True,
             'min': 0,
-            'max': 100,
+            'max': 128,
             'default': 1
         },
         {
@@ -503,7 +503,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Specifies a limit for the number of chains that will be started at a pixel. \'0\' disables this option. Default 0',
             'save_in_preset': True,
             'min': 0,
-            'max': 100,
+            'max': 128,
             'default': 0
         },
         {
@@ -513,7 +513,7 @@ class mitsuba_integrator(declarative_property_group):
             'description': 'Specifies the number of mutations to be performed in each Markov Chain. Default 100',
             'save_in_preset': True,
             'min': 1,
-            'max': 500,
+            'max': 8192,
             'default': 100
         },
         {
