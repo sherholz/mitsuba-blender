@@ -184,6 +184,7 @@ mitsuba_plugin_tree = [
         'adaptive',
         'irrcache',
         'multichannel',
+        'pathguiding',
     }),
     # Sample generators
     ('sampler', {
@@ -399,7 +400,7 @@ class FileExportContext(ExportContextBase):
             args['type'] = plugin_type
 
         if plugin == 'scene':
-            args['version'] = '0.5.0'
+            args['version'] = '0.6.0'
 
         elif plugin in mitsuba_props:
             args.update(param_dict)
