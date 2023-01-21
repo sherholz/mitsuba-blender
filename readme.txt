@@ -6,7 +6,7 @@ for the robust-vmm-guiding fork of Mitsuba 0.6 found at
 https://github.com/cgtuebingen/robust-vmm-guiding.
 
 The additional "Path Guiding" integrator provided in this fork is not
-included in the master release of Mitsuba 0.6 and therefore is not
+included in the master release of Mitsuba 0.6, and therefore is not
 supported in the original addon, making use with Blender cumbersome.
 
 To use this addon with the robust-vmm-guiding fork of Mitsuba 0.6 and
