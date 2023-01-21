@@ -76,17 +76,6 @@ class mitsuba_integrator(declarative_property_group):
         'shadowMapResolution',
         'clamping',
         'hideEmitters',
-        'trainingSamples',
-        'trainingMaxSeconds',
-        'renderMaxSeconds',
-        'parallaxCompensation',
-        'splitAndMerge',
-        'useCosineProduct',
-        'useBSDFProduct',
-        'bsdfProbability',
-        'useNee',
-        'sampleCount',
-        
     ]
 
     visibility = {
@@ -95,11 +84,11 @@ class mitsuba_integrator(declarative_property_group):
         'emitterSamples':           {'type': 'direct'},
         'bsdfSamples':              {'type': 'direct'},
         'maxDepth':                 {'type': O(['path', 'volpath_simple', 'volpath', 'bdpt', 'photonmapper',
-                                        'ppm', 'sppm', 'pssmlt', 'mlt', 'erpt', 'ptracer', 'vpl', 'pathguiding'])},
+                                        'ppm', 'sppm', 'pssmlt', 'mlt', 'erpt', 'ptracer', 'vpl'])},
         'rrDepth':                  {'type': O(['path', 'volpath_simple', 'volpath', 'bdpt', 'photonmapper',
-                                        'ppm', 'sppm', 'pssmlt', 'erpt', 'ptracer', 'pathguiding'])},
-        'strictNormals':            {'type': O(['direct', 'path', 'volpath_simple', 'volpath', 'pathguiding'])},
-        'hideEmitters':             {'type': O(['direct', 'path', 'volpath_simple', 'volpath', 'photonmapper', 'pathguiding'])},
+                                        'ppm', 'sppm', 'pssmlt', 'erpt', 'ptracer'])},
+        'strictNormals':            {'type': O(['direct', 'path', 'volpath_simple', 'volpath'])},
+        'hideEmitters':             {'type': O(['direct', 'path', 'volpath_simple', 'volpath', 'photonmapper'])},
         'lightImage':               {'type': 'bdpt'},
         'sampleDirect':             {'type': 'bdpt'},
         'directSamples':            {'type': O(['photonmapper', 'pssmlt', 'mlt', 'erpt'])},
@@ -130,16 +119,6 @@ class mitsuba_integrator(declarative_property_group):
         'granularityPT':            {'type': 'ptracer'},
         'shadowMapResolution':      {'type': 'vpl'},
         'clamping':                 {'type': 'vpl'},
-        'trainingSamples':          {'type': 'pathguiding'},
-        'trainingMaxSeconds':       {'type': 'pathguiding'},
-        'renderMaxSeconds':         {'type': 'pathguiding'},
-        'parallaxCompensation':     {'type': 'pathguiding'},
-        'splitAndMerge':            {'type': 'pathguiding'},
-        'useCosineProduct':         {'type': 'pathguiding'},
-        'useBSDFProduct':           {'type': 'pathguiding'},
-        'bsdfProbability':          {'type': 'pathguiding'},
-        'useNee':                   {'type': 'pathguiding'},
-        'sampleCount':              {'type': 'pathguiding'},
     }
 
     properties = [
@@ -163,8 +142,7 @@ class mitsuba_integrator(declarative_property_group):
                 ('volpath_simple', 'Simple Volumetric Path Tracer', 'volpath_simple'),
                 ('path', 'Path Tracer', 'path'),
                 ('direct', 'Direct Illumination', 'direct'),
-                ('ao', 'Ambient Occlusion', 'ao'),
-                ('pathguiding', 'Path Guiding', 'pathguiding'),
+                ('ao', 'Ambient Occlusion', 'ao')
             ],
             'save_in_preset': True
         },
@@ -526,97 +504,6 @@ class mitsuba_integrator(declarative_property_group):
             'max': 1,
             'default': 0.1
         },
-        {
-            'type': 'int',
-            'attr': 'trainingSamples',
-            'name': 'Training samples',
-            'description': 'Number of samples used for training before rendering starts. Set to 0 when training for a fixed time.',
-            'save_in_preset': True,
-            'min': 0,
-            'max': 8192,
-            'default': 32
-        },
-        {
-            'type': 'int',
-            'attr': 'trainingMaxSeconds',
-            'name': 'Training time (seconds)',
-            'description': 'maximum number of seconds used for training. Set to 0 when training for a fixed number of samples.',
-            'save_in_preset': True,
-            'min': 0,
-            'max': 8192,
-            'default': 0
-        },
-        {
-            'type': 'int',
-            'attr': 'renderMaxSeconds',
-            'name': 'Render time (seconds)',
-            'description': 'Maximum number of seconds used for rendering. Set to 0 to render a single iteration.',
-            'save_in_preset': True,
-            'min': 0,
-            'max': 86400,
-            'default': 0
-        },
-        {
-            'type': 'bool',
-            'attr': 'parallaxCompensation',
-            'name': 'Parallax Compensation',
-            'description': 'Compensate for the parallax shift within guiding regions.',
-            'default': True,
-            'save_in_preset': True
-        },
-        {
-            'type': 'bool',
-            'attr': 'splitAndMerge',
-            'name': 'Split and Merge',
-            'description': 'If enabled splitting and merging is performed after fitting mixtures.',
-            'default': True,
-            'save_in_preset': True
-        },
-        {
-            'type': 'bool',
-            'attr': 'useCosineProduct',
-            'name': 'Use Cosine Product',
-            'description': 'If enabled, the vMF mixture product distribution with a vMF approximation of the surface cosine lobe is used.',
-            'default': True,
-            'save_in_preset': True
-        },
-        {
-            'type': 'bool',
-            'attr': 'useBSDFProduct',
-            'name': 'Use BSDF Product',
-            'description': 'If enabled, the vMF mixture product distribution with a vMF approximation of the surface BSDF lobes is used. This overrides the cosine product, as the cosine is included in the BSDF approximation.',
-            'default': False,
-            'save_in_preset': True
-        },
-        {
-            'type': 'float',
-            'attr': 'bsdfProbability',
-            'name': 'BSDF probability',
-            'description': 'Determines the probability of choosing BSDF sampling over path guiding.',
-            'save_in_preset': True,
-            'min': 0.0,
-            'max': 1.0,
-            'default': 0.5
-        },
-        {
-            'type': 'bool',
-            'attr': 'useNee',
-            'name': 'Use Next-Event Estimation',
-            'description': 'Chooses whether next-event estimation is used in the integrator.',
-            'default': True,
-            'save_in_preset': True
-        },
-        {
-            'type': 'int',
-            'attr': 'sampleCount',
-            'name': 'Samples per iteration',
-            'description': 'Number of samples per training iteration.',
-            'save_in_preset': True,
-            'min': 0,
-            'max': 8192,
-            'default': 4
-        },
-
     ]
 
     def api_output(self):
@@ -732,21 +619,6 @@ class mitsuba_integrator(declarative_property_group):
                 'maxDepth': self.maxDepth,
                 'shadowMapResolution': self.shadowMapResolution,
                 'clamping': self.clamping,
-            }
-        elif self.type == 'pathguiding':
-            params = {
-                'maxDepth': self.maxDepth,
-                'rrDepth': self.rrDepth,
-                'trainingSamples': self.trainingSamples,
-                'trainingMaxSeconds': self.trainingMaxSeconds,
-                'renderMaxSeconds': self.renderMaxSeconds,
-                'parallaxCompensation': self.parallaxCompensation,
-                'splitAndMerge': self.splitAndMerge,
-                'useCosineProduct': self.useCosineProduct,
-                'useBSDFProduct': self.useBSDFProduct,
-                'bsdfProbability': self.bsdfProbability,
-                'useNee': self.useNee,
-                'sampleCount': self.sampleCount,
             }
 
         params['type'] = self.type
