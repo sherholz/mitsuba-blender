@@ -12,7 +12,7 @@ supported in the original addon, making use with Blender cumbersome.
 To use this addon with the robust-vmm-guiding fork of Mitsuba 0.6 and
 its "Path Guiding" integrator, simply select integrator type "Path Guiding"
 under the "Integrator Settings" heading in the "Render" tab of
-the Blender properties viewer.
+the properties viewer.
 
 The original readme content follows:
 
