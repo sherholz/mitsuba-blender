@@ -1,18 +1,9 @@
 Mitsuba Blender with Robust VMM Guiding
 ---------------------------------------
 
-This fork of the Mitsuba Blender Addon (mtsblend) includes support
-for the robust-vmm-guiding fork of Mitsuba 0.6 found at
-https://github.com/cgtuebingen/robust-vmm-guiding.
+This fork of the Mitsuba Blender Addon (mtsblend) includes support for the robust-vmm-guiding fork of Mitsuba 0.6 found at https://github.com/cgtuebingen/robust-vmm-guiding. The additional "Path Guiding" integrator provided in this fork is not included in the master release of Mitsuba 0.6, and therefore is not supported in the original addon, making use with Blender cumbersome.
 
-The additional "Path Guiding" integrator provided in this fork is not
-included in the master release of Mitsuba 0.6, and therefore is not
-supported in the original addon, making use with Blender cumbersome.
-
-To use this addon with the robust-vmm-guiding fork of Mitsuba 0.6 and
-its "Path Guiding" integrator, simply select integrator type "Path Guiding"
-under the "Integrator Settings" heading in the "Render" tab of
-the properties viewer.
+To use this addon with the robust-vmm-guiding fork of Mitsuba 0.6 and its "Path Guiding" integrator, simply select integrator type "Path Guiding" under the "Integrator Settings" heading in the "Render" tab of the properties viewer.
 
 The original readme content follows:
 
